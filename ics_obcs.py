@@ -178,7 +178,7 @@ def ics_horizontal_interp(interp_info, in_file, out_file):
         source_salt        = xr.open_dataset(f'{interp_info.salt_file}').rename(name_remapping).sel(lat=slice(-90, -48))    
         source_salt['lon'] = fix_lon_range(source_salt.lon)
         source_salt        = source_salt.sortby('lon') 
-        source_dataset     = source_var.assign('SALT':source_salt['SALT'])
+        source_dataset     = source_var.assign(SALT=source_salt['SALT'])
         source_converted   = convert_to_teos10(source_dataset, var=variable)
     else:
         source_converted   = source_var[interp_info.variable]
