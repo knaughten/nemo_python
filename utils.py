@@ -465,7 +465,7 @@ def convert_to_teos10(dataset, var='SALT'):
             # Get conservative temperature from potential temperature
             consT  = gsw.CT_from_t(absS, dataset[var], press)
         else:
-            raise Exception('Must include practical salinity (SALT) variable in dataset when converting potential temperature'
+            raise Exception('Must include practical salinity (SALT) variable in dataset when converting potential temperature')
         
         return consT
     else:
