@@ -186,7 +186,7 @@ def ics_horizontal_interp(interp_info, in_file, out_file):
     print(f"Horizontally interpolating each depth level in {interp_info['source']} dataset to NEMO grid")
     datasets = []
     # Loop over all source dataset depth levels:
-    for dl in tqdm.tqdm(range(source_var.Z.size)):
+    for dl in tqdm.tqdm(range(source_var.depth.size)):
         if interp_info['source'] == 'SOSE':
             # Mask values that are on land in the source dataset
             var_source = xr.where(source_var.maskC.isel(depth=dl)==1, source_converted.isel(depth=dl), np.nan)
