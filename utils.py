@@ -435,6 +435,42 @@ def convert_time_units(ds, dataset='ERA5'):
         return ds
     else:
         raise Exception('Only currently set up to convert ERA5 reference period')     
+
+# Helper function to convert an xarray dataset with 3D T and S to TEOS10 (absolute salinity and conservative temperature)
+# Inputs: 
+# dataset: xarray dataset containing variables lon, lat, depth, and THETA (potential temperature) or SALT (practical salinity)
+# var:     string of variable name to convert: THETA or SALT
+def convert_to_teos10(dataset, var='SALT'):
+    # Convert to TEOS10
+    # Need 3D lat, lon, pressure at every point, so if 1D or 2D, broadcast to 3D
+    if dataset.lon.values.ndim <= 2:
+        lon   = xr.broadcast(dataset['lon'], dataset[var])[0]
+    if dataset.lat.values.ndim <= 2:
+        lat   = xr.broadcast(dataset['lat'], dataset[var])[0]
+    if dataset.depth.values.ndim <= 2:
+        # Need pressure in dbar at every 3D point: approx depth in m
+        press = np.abs(xr.broadcast(dataset['depth'], dataset[dataset_var])[0])
+    else:
+        press = np.abs(dataset['depth'])
+    
+    if var=='SALT':
+        # Get absolute salinity from practical salinity
+        absS  = gsw.SA_from_SP(dataset[var], press, lon, lat)
+
+        return absS
+    elif var=='THETA':    
+        if 'SALT' in list(dataset.keys()):
+            # Get absolute salinity from practical salinity
+            absS  = gsw.SA_from_SP(dataset['SALT'], press, lon, lat)
+            # Get conservative temperature from potential temperature
+            consT  = gsw.CT_from_t(absS, dataset[var], press)
+        else:
+            raise Exception('Must include practical salinity (SALT) variable in dataset when converting potential temperature'
+        
+        return consT
+    else:
+        raise Exception('Variable options are SALT or THETA')
+
         
         
         
