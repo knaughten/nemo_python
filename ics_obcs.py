@@ -192,7 +192,7 @@ def ics_horizontal_interp(interp_info, in_file, out_file):
             var_source = xr.where(source_var.maskC.isel(depth=dl)==1, source_converted.isel(depth=dl), np.nan)
             var_source = xr.where(var_source==0, np.nan, var_source)
             # Now wrap up into a new Dataset
-            ds_source = xr.Dataset({'lon':SOSE['lon'], 'lat':SOSE['lat'], variable:var_source}) 
+            ds_source = xr.Dataset({'lon':source_var['lon'], 'lat':source_var['lat'], variable:var_source}) 
             
             # Interpolate slices of depth levels along lat-lon (horizontally)
             interp_src = interp_latlon_cf(ds_source, nemo_coord_file, pster_src=False, periodic_src=True, periodic_nemo=True, method='conservative')
