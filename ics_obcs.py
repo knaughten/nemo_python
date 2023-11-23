@@ -132,13 +132,13 @@ def vertical_interp(interp_info, in_file, out_file):
     hinterp_var = xr.open_dataset(f'{in_file}')
     
     # Find edges of the NEMO and source dataset vertical levels: 
-    nemo_mask_file    = xr.open_dataset(f'{interp_info.nemo_mask}')
-    source_coord_file = xr.open_dataset(f'{interp_info.source_coord}')
+    nemo_mask_file    = xr.open_dataset(f'{interp_info['nemo_mask']}')
+    source_coord_file = xr.open_dataset(f'{interp_info['source_coord']}')
     nemo_edges        = vertical_edges(nemo_coord_file, mtype='nemo')
-    source_edges      = vertical_edges(source_coord_file, mtype=interp_info.source)    
+    source_edges      = vertical_edges(source_coord_file, mtype=interp_info['source'])    
 
     # Loop over vertical NEMO levels to interpolate slices from the source dataset:
-    print(f'Vertically interpolating variable {interp_info.variable}')
+    print(f'Vertically interpolating variable {interp_info['variable']}')
     model_ICs = []
     for n in tqdm.tqdm(range(len(nemo_mask.nav_lev.values))):
         data_interp = interp_depth(hinterp_var, source_edges, nemo_edges, n)
@@ -154,10 +154,10 @@ def vertical_interp(interp_info, in_file, out_file):
 def ics_horizontal_interp(interp_info, in_file, out_file):
     
     # Load files:
-    nemo_coord_file   = xr.open_dataset(f'{interp_info.nemo_coord}').squeeze()
+    nemo_coord_file   = xr.open_dataset(f'{interp_info['nemo_coord']}').squeeze()
     
     # Specify coordinate names:
-    if interp_info.source=='SOSE':
+    if interp_info['source']=='SOSE':
         name_remapping = {'XC':'lon', 'YC':'lat', 'Z':'depth'}
     else:
         raise Exception('Only currently set up for reading SOSE')
@@ -169,25 +169,25 @@ def ics_horizontal_interp(interp_info, in_file, out_file):
         source_var        = source_var.sortby('lon') 
     
     # convert temperature and salinity values to TEOS10:
-    if interp_info.variable == 'SALT':
-        print(f'Converting {interp_info.variable} to TEOS10')    
-        source_converted = convert_to_teos10(source_var, var=interp_info.variable)
-    elif interp_info.variable == 'THETA':
-        print(f'Converting {interp_info.variable} to TEOS10')
+    if interp_info['variable'] == 'SALT':
+        print(f'Converting {interp_info['variable']} to TEOS10')    
+        source_converted = convert_to_teos10(source_var, var=interp_info['variable'])
+    elif interp_info['variable'] == 'THETA':
+        print(f'Converting {interp_info['variable']} to TEOS10')
         print('Note: to convert potential temperature to conservative temperature, TEOS10 uses absolute salinity. Make sure a salinity file is specified.')
-        source_salt        = xr.open_dataset(f'{interp_info.salt_file}').rename(name_remapping).sel(lat=slice(-90, -48))    
+        source_salt        = xr.open_dataset(f'{interp_info['salt_file']}').rename(name_remapping).sel(lat=slice(-90, -48))    
         source_salt['lon'] = fix_lon_range(source_salt.lon)
         source_salt        = source_salt.sortby('lon') 
         source_dataset     = source_var.assign(SALT=source_salt['SALT'])
         source_converted   = convert_to_teos10(source_dataset, var=variable)
     else:
-        source_converted   = source_var[interp_info.variable]
+        source_converted   = source_var[interp_info['variable']]
 
-    print(f'Horizontally interpolating each depth level in {interp_info.source} dataset to NEMO grid')
+    print(f'Horizontally interpolating each depth level in {interp_info['source']} dataset to NEMO grid')
     datasets = []
     # Loop over all source dataset depth levels:
     for dl in tqdm.tqdm(range(source_var.Z.size)):
-        if interp_info.source == 'SOSE':
+        if interp_info['source'] == 'SOSE':
             # Mask values that are on land in the source dataset
             var_source = xr.where(source_var.maskC.isel(depth=dl)==1, source_converted.isel(depth=dl), np.nan)
             var_source = xr.where(var_source==0, np.nan, var_source)
