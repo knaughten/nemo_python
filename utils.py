@@ -449,7 +449,7 @@ def convert_to_teos10(dataset, var='SALT'):
         lat   = xr.broadcast(dataset['lat'], dataset[var])[0]
     if dataset.depth.values.ndim <= 2:
         # Need pressure in dbar at every 3D point: approx depth in m
-        press = np.abs(xr.broadcast(dataset['depth'], dataset[dataset_var])[0])
+        press = np.abs(xr.broadcast(dataset['depth'], dataset[var])[0])
     else:
         press = np.abs(dataset['depth'])
     
