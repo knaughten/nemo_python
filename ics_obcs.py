@@ -199,7 +199,7 @@ def ics_horizontal_interp(interp_info, in_file, out_file):
             
             datasets.append(interp_src)
     
-    source_interpolated = xr.concat(datasets, dim='z').assign_coords(z=np.abs(source_var.Z.values[0:dl+1]))
+    source_interpolated = xr.concat(datasets, dim='z').assign_coords(z=np.abs(source_var.depth.values[0:dl+1]))
     source_interpolated.to_netcdf(f'{out_file}')
     
     return
