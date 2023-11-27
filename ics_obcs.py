@@ -22,7 +22,7 @@ def vertical_edges(mesh, mtype='nemo'):
         z_centres = mesh.gdept_0.isel(time_counter=0).values
         dz        = mesh.e3t_0.isel(time_counter=0).values
     elif mtype=='SOSE':  # 1D --> 2D
-        z_centres, _ = xr.broadcast(-1*mesh.Z, mesh[list(mesh.keys())[0]].isel(z=0))
+        z_centres, _ = xr.broadcast(mesh.z, mesh[list(mesh.keys())[0]].isel(z=0))
         dz, _        = xr.broadcast(mesh.drF, mesh[list(mesh.keys())[0]].isel(z=0))
         
         z_centres = z_centres.values
@@ -134,13 +134,15 @@ def vertical_interp(interp_info, in_file, out_file):
     # Find edges of the NEMO and source dataset vertical levels: 
     nemo_mask_file    = xr.open_dataset(f"{interp_info['nemo_mask']}")
     source_coord_file = xr.open_dataset(f"{interp_info['source_coord']}")
-    nemo_edges        = vertical_edges(nemo_coord_file, mtype='nemo')
-    source_edges      = vertical_edges(source_coord_file, mtype=interp_info['source'])    
+    if interp_info['source']=='SOSE':
+       source_coord   = hinterp_var.assign(drF=(['z'], source_coord_file.drF.values))
+    nemo_edges        = vertical_edges(nemo_mask_file, mtype='nemo')
+    source_edges      = vertical_edges(source_coord, mtype=interp_info['source'])    
 
     # Loop over vertical NEMO levels to interpolate slices from the source dataset:
     print(f"Vertically interpolating variable {interp_info['variable']}")
     model_ICs = []
-    for n in tqdm.tqdm(range(len(nemo_mask.nav_lev.values))):
+    for n in tqdm.tqdm(range(len(nemo_mask_file.nav_lev.values))):
         data_interp = interp_depth(hinterp_var, source_edges, nemo_edges, n)
         model_ICs.append(data_interp) # Add interpolated layers to dataset
     
@@ -217,7 +219,8 @@ def create_ics(variable, in_file, out_file,
                source_coord='/gws/nopw/j04/terrafirma/birgal/NEMO_AIS/B-SOSE/climatology/SALT_climatology_m01.nc',
                nemo_coord  ='/gws/nopw/j04/terrafirma/birgal/NEMO_AIS/bathymetry/coordinates_AIS.nc',
                nemo_mask   ='/gws/nopw/j04/terrafirma/birgal/NEMO_AIS/bathymetry/mesh_mask-20231025.nc',
-               salt_file   ='/gws/nopw/j04/terrafirma/birgal/NEMO_AIS/B-SOSE/climatology/SALT_climatology_m01.nc'):
+               salt_file   ='/gws/nopw/j04/terrafirma/birgal/NEMO_AIS/B-SOSE/climatology/SALT_climatology_m01.nc', 
+               folder      ='/gws/nopw/j04/terrafirma/birgal/NEMO_AIS/initial-conditions/'):
 
     print(f'---- Creating NEMO initial conditions for variable {variable} from {source} ----')
                    
@@ -233,15 +236,16 @@ def create_ics(variable, in_file, out_file,
                    'salt_file':salt_file}
     
     # Horizontally interpolate source dataset to NEMO grid:
-    ics_horizontal_interp(interp_info, in_file, f'{in_file[:-3]}-horizontal-interp.nc')
+    ics_horizontal_interp(interp_info, in_file, f'{folder}{source}-{variable}-horizontal-interp.nc')
         
     # Vertically interpolate the above horizontally interpolated dataset to NEMO grid:
-    vertical_interp(interp_info, f'{in_file[:-3]}-horizontal-interp.nc', f'{in_file[:-3]}-vertical-interp.nc')
+    vertical_interp(interp_info, f'{folder}{source}-{variable}-horizontal-interp.nc', f'{folder}{source}-{variable}-vertical-interp.nc')
         
     # Fill values just above the bottom with their nearest neighbour:
-    SOSE_interp_filled = fill_near_bottom(variable, f'{in_file[:-3]}-vertical-interp.nc')
+    SOSE_interp_filled = fill_near_bottom(variable, f'{folder}{source}-{variable}-vertical-interp.nc')
     # Fill areas that are masked in source dataset but not in NEMO with nearest neighbours:
-    SOSE_extended = fill_mask(SOSE_interp_filled, variable, nemo_mask)
+    nemo_mask_ds  = xr.open_dataset(f'{nemo_mask}')
+    SOSE_extended = fill_mask(SOSE_interp_filled, variable, nemo_mask_ds)
 
     # Write output to file:
     SOSE_extended.to_netcdf(f'{out_file}')
