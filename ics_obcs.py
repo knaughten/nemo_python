@@ -103,21 +103,30 @@ def fill_near_bottom(variable, file_interp):
 # variable: string name of the variable to be filled
 # fill_val: the temporary fill value assigned to values in the source dataset that are masked
 # niter: maximum number of iterations used to fill connected nearest neighbours
-def fill_mask(input_dataset, variable, nemo_mask, fill_val=1000, niter=100):
+def fill_mask(input_dataset, variable, nemo_mask, fill_val=1000, niter=100, dim='3D'):
     
     print('Filling gaps with connected nearest neighbours')
     
-    nemo_ocn     = (nemo_mask.tmask.isel(time_counter=0) != 0)
+    if dim=='3D':
+        use_3d = True; use_2d=False;
+        nemo_ocn = (nemo_mask.tmask.isel(time_counter=0) != 0)
+    elif dim=='2D':
+        use_2d = True; use_3d=False;
+        nemo_ocn = (nemo_mask.tmask.isel(time_counter=0, nav_lev=0) != 0)
+
     src_to_fill  = xr.where(np.isnan(input_dataset[variable].values)*nemo_ocn, fill_val, input_dataset[variable].values)
-    var_filled   = extend_into_mask(src_to_fill.values, missing_val=fill_val)
+    var_filled   = extend_into_mask(src_to_fill.values, missing_val=fill_val, use_2d=use_2d, use_3d=use_3d)
     
     for iter in tqdm.tqdm(range(niter)):
-        if sum(sum(sum(var_filled==fill_val))) == 0: # stop looping if all missing values have been filled
+        if np.sum(var_filled==fill_val) == 0: # stop looping if all missing values have been filled
             break
         else:
-            var_filled = extend_into_mask(var_filled, missing_val=fill_val) 
+            var_filled = extend_into_mask(var_filled, missing_val=fill_val, use_2d=use_2d, use_3d=use_3d) 
 
-    input_dataset[variable] = (('z','y','x'), var_filled)
+    if dim=='3D':
+       input_dataset[variable] = (('z','y','x'), var_filled)
+    elif dim=='2D':
+       input_dataset[variable] = (('y','x'), var_filled)
         
     return input_dataset 
 
@@ -160,7 +169,10 @@ def ics_horizontal_interp(interp_info, in_file, out_file):
     
     # Specify coordinate names:
     if interp_info['source']=='SOSE':
-        name_remapping = {'XC':'lon', 'YC':'lat', 'Z':'depth'}
+        if interp_info['dim']=='2D':
+            name_remapping = {'XC':'lon', 'YC':'lat'}
+        elif interp_info['dim']=='3D':
+            name_remapping = {'XC':'lon', 'YC':'lat', 'Z':'depth'}
     else:
         raise Exception('Only currently set up for reading SOSE')
 
@@ -170,6 +182,10 @@ def ics_horizontal_interp(interp_info, in_file, out_file):
         source_var['lon'] = fix_lon_range(source_var.lon)
         source_var        = source_var.sortby('lon') 
     
+    # fill ocean points in source dataset that have NaN values to start with zeros.
+    #if interp_info['dim']=='2D':
+    #    source_var        = xr.where((source_var.maskInC == 1) & (source_var.isnan()), 0, source_var)
+
     # convert temperature and salinity values to TEOS10:
     if interp_info['variable'] == 'SALT':
         print(f"Converting {interp_info['variable']} to TEOS10")    
@@ -188,11 +204,22 @@ def ics_horizontal_interp(interp_info, in_file, out_file):
     print(f"Horizontally interpolating each depth level in {interp_info['source']} dataset to NEMO grid")
     datasets = []
     # Loop over all source dataset depth levels:
-    for dl in tqdm.tqdm(range(source_var.depth.size)):
+    if interp_info['dim']=='3D':
+       z_levels = range(source_var.depth.size)
+    elif interp_info['dim']=='2D':
+       z_levels = [0]
+    for dl in tqdm.tqdm(z_levels):
         if interp_info['source'] == 'SOSE':
             # Mask values that are on land in the source dataset
-            var_source = xr.where(source_var.maskC.isel(depth=dl)==1, source_converted.isel(depth=dl), np.nan)
-            var_source = xr.where(var_source==0, np.nan, var_source)
+            if interp_info['dim']=='3D':
+                var_source = xr.where(source_var.maskC.isel(depth=dl)==1, source_converted.isel(depth=dl), np.nan)
+                var_source = xr.where(var_source==0, np.nan, var_source) # needed to mask a couple of missing land points
+            elif interp_info['dim']=='2D':
+                var_source = xr.where(source_converted==0, np.nan, source_converted)
+                var_source = xr.where((source_var.maskInC == 1) & np.isnan(var_source), 0, var_source)
+                var_source = xr.where(source_var.maskInC == 1, var_source, np.nan)
+
+            #var_source = xr.where(var_source==0, np.nan, var_source)
             # Now wrap up into a new Dataset
             ds_source = xr.Dataset({'lon':source_var['lon'], 'lat':source_var['lat'], interp_info['variable']:var_source}) 
             
@@ -201,7 +228,11 @@ def ics_horizontal_interp(interp_info, in_file, out_file):
             
             datasets.append(interp_src)
     
-    source_interpolated = xr.concat(datasets, dim='z').assign_coords(z=np.abs(source_var.depth.values[0:dl+1]))
+    if interp_info['dim'] =='3D':
+       source_interpolated = xr.concat(datasets, dim='z').assign_coords(z=np.abs(source_var.depth.values[0:dl+1]))
+    elif interp_info['dim'] =='2D':
+       source_interpolated = interp_src
+
     source_interpolated.to_netcdf(f'{out_file}')
     
     return
@@ -227,25 +258,39 @@ def create_ics(variable, in_file, out_file,
     if source!='SOSE':
          raise Exception('Functions only set up for SOSE currently')
 
+    # Check number of dimensions of variable (2D or 3D):
+    dimension = f"{len(xr.open_dataset(f'{in_file}')[variable].dims)}D"
+    if dimension != '2D' and dimension !='3D':
+       raise Exception('Input variable must be either 2D or 3D')
+    
+
     # Dictionary specifying file names and locations for subsequent functions:
     interp_info = {'source': source,
                    'variable': variable,
                    'nemo_coord': nemo_coord,
                    'nemo_mask': nemo_mask,
                    'source_coord': source_coord,
-                   'salt_file':salt_file}
+                   'salt_file':salt_file,
+                   'dim':dimension}
     
     # Horizontally interpolate source dataset to NEMO grid:
     ics_horizontal_interp(interp_info, in_file, f'{folder}{source}-{variable}-horizontal-interp.nc')
         
-    # Vertically interpolate the above horizontally interpolated dataset to NEMO grid:
-    vertical_interp(interp_info, f'{folder}{source}-{variable}-horizontal-interp.nc', f'{folder}{source}-{variable}-vertical-interp.nc')
+    if dimension=='3D':
+       # Vertically interpolate the above horizontally interpolated dataset to NEMO grid:
+       vertical_interp(interp_info, f'{folder}{source}-{variable}-horizontal-interp.nc', f'{folder}{source}-{variable}-vertical-interp.nc')
         
-    # Fill values just above the bottom with their nearest neighbour:
-    SOSE_interp_filled = fill_near_bottom(variable, f'{folder}{source}-{variable}-vertical-interp.nc')
-    # Fill areas that are masked in source dataset but not in NEMO with nearest neighbours:
-    nemo_mask_ds  = xr.open_dataset(f'{nemo_mask}')
-    SOSE_extended = fill_mask(SOSE_interp_filled, variable, nemo_mask_ds)
+       # Fill values just above the bottom with their nearest neighbour:
+       SOSE_interp_filled = fill_near_bottom(variable, f'{folder}{source}-{variable}-vertical-interp.nc')
+
+       # Fill areas that are masked in source dataset but not in NEMO with nearest neighbours:
+       nemo_mask_ds  = xr.open_dataset(f'{nemo_mask}')
+       SOSE_extended = fill_mask(SOSE_interp_filled, variable, nemo_mask_ds, dim=dimension)
+    elif dimension=='2D':
+       # Fill areas that are masked in source dataset but not in NEMO with nearest neighbours:
+       nemo_mask_ds  = xr.open_dataset(f'{nemo_mask}')
+       SOSE_interp   = xr.open_dataset(f'{folder}{source}-{variable}-horizontal-interp.nc')
+       SOSE_extended = fill_mask(SOSE_interp, variable, nemo_mask_ds, dim=dimension)
 
     # Write output to file:
     SOSE_extended.to_netcdf(f'{out_file}')
