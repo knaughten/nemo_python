@@ -472,6 +472,20 @@ def convert_to_teos10(dataset, var='SALT'):
     else:
         raise Exception('Variable options are SALT or THETA')
 
+# Function to calculate climatology
+# Inputs:
+# in_file: string path/name to NetCDF file containing the input data (should include "time" variable)
+# out_file: string path/name to NetCDF file base name to write to (will produce monthly outputs)
+# freq: frequency of climatology
+def create_climatology(in_file, out_file, freq='monthly'):
+    ds_in  = xr.open_dataset(in_file)
+    if freq=='monthly':
+        for month in range(1,13):
+            var_mean = ds_in.isel(time=(ds_in.time.dt.month == month)).mean(dim='time')
+            var_mean.to_netcdf(f"{out_file.split('.nc')[0]}_m{month:02}.nc")
+    return
+
+
         
         
         
