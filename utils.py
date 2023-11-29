@@ -486,6 +486,27 @@ def create_climatology(in_file, out_file, freq='monthly'):
     return
 
 
+# Function to change the frequency of the atmospheric forcing files
+# Inputs:
+# folder_in: string path to input atmospheric forcing files
+# folder_out: string path to output resampled files to
+# year: year of files to load
+# source: string specifying atmospheric data source (default ERA5)
+# freq: string specifying the frequency to resample the atmospheric forcing files to
+def resample_atm(folder_in, folder_out, year, source='ERA5', freq='1d'):
+
+    if source=='ERA5':
+        variables = ['d2m', 'msdwlwrf', 'msdwswrf', 'msl', 'msr', 'mtpr', 't2m', 'u10', 'v10']
+        for var in variables:
+            print(f'Resampling {var}')
+            for month in tqdm.tqdm(range(1,13)):
+                var_file = xr.open_dataset(f'{folder_in}{var}_y{year}m{month:02}.nc')
+                var_mean = var_file[var].resample(time=freq).mean()
+                var_mean.to_netcdf(f'{folder_out}{var}_{freq}_y{year}m{month:02}.nc')
+    else:
+        raise Exception('Only set up for ERA5 files currently')
+
+    return
         
         
         
