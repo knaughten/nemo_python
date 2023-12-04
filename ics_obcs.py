@@ -333,43 +333,7 @@ def create_bcs(variable, in_file, out_file,
             # name_remapping2 = {'XG':'lon', 'YG':'lat'} # for velocity grid points
         elif dimension=='3D': name_remapping = {'XC':'lon', 'YC':'lat', 'Z':'depth'}
         
-    # Dictionary specifying file names and locations for subseque###########################################################
-# Generate initial conditions and open boundary conditions.
-###########################################################
-
-import numpy as np
-import xarray as xr
-import gsw
-import tqdm
-
-from .interpolation import interp_latlon_cf, neighbours, neighbours_z, extend_into_mask
-from .utils import fix_lon_range, convert_to_teos10
-
-
-# Function to compute edges of the z-levels
-# Inputs:
-# mesh: xarray dataset of the specified grid type to get depth levels and grid cell sizes from
-# mtype: string name specifying the mesh type (currently only includes nemo and SOSE)
-# source_file: --- > "sose"
-def vertical_edges(mesh, mtype='nemo'):
-
-    if mtype=='nemo':    # 2D
-        z_centres = mesh.gdept_0.isel(time_counter=0).values
-        dz        = mesh.e3t_0.isel(time_counter=0).values
-    elif mtype=='SOSE':  # 1D --> 2D
-        z_centres, _ = xr.broadcast(mesh.z, mesh[list(mesh.keys())[0]].isel(z=0))
-        dz, _        = xr.broadcast(mesh.drF, mesh[list(mesh.keys())[0]].isel(z=0))
-        
-        z_centres = z_centres.values
-        dz        = dz.values
-    else:
-        print('Only mesh types included are nemo and SOSE')
-
-    z_top_edge = z_centres - 0.5*dz
-    z_bot_edge = z_centres + 0.5*dz
-    
-    z_top_edge[z_top_edge < 0] = 0
-nt functions:
+    # Dictionary specifying file names and locations for subsequent functions:
     interp_info = {'source': source,
                    'variable': variable,
                    'nemo_coord': nemo_coord,
