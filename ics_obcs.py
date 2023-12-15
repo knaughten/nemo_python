@@ -206,21 +206,30 @@ def ics_obcs_horizontal_interp(interp_info, in_file, out_file, ln_obcs=False, bd
     else:
         source_converted   = source_var[interp_info['variable']]
 
-    print(f"Horizontally interpolating each depth level in {interp_info['source']} dataset to NEMO grid")
+    print(f"Horizontally interpolating variable {interp_info['variable']} at each depth level from {interp_info['source']} to NEMO grid")
     datasets = []
     # Loop over all source dataset depth levels:
     if interp_info['dim']=='3D':   z_levels = range(source_var.depth.size)
     elif interp_info['dim']=='2D': z_levels = [0]
     for dl in tqdm.tqdm(z_levels):
         if interp_info['source'] == 'SOSE':
-            # Mask values that are on land in the source dataset
-            if interp_info['dim']=='3D':
-                var_source = xr.where(source_var.maskC.isel(depth=dl)==1, source_converted.isel(depth=dl), np.nan)
-                var_source = xr.where(var_source==0, np.nan, var_source) # needed to mask a couple of missing land points
-            elif interp_info['dim']=='2D':
-                var_source = xr.where(source_converted==0, np.nan, source_converted)
-                var_source = xr.where((source_var.maskInC == 1) & np.isnan(var_source), 0, var_source)
-                var_source = xr.where(source_var.maskInC == 1, var_source, np.nan)
+            if interp_info['variable']=='UVEL':
+                if interp_info['dim']=='3D':
+                    var_source = xr.where(source_var.maskW.isel(depth=dl)==1, source_converted.isel(depth=dl), np.nan)
+                    var_source = xr.where(var_source==0, np.nan, var_source) # needed to mask a couple of missing land points
+            elif interp_info['variable']=='VVEL':
+                if interp_info['dim']=='3D':
+                    var_source = xr.where(source_var.maskS.isel(depth=dl)==1, source_converted.isel(depth=dl), np.nan)
+                    var_source = xr.where(var_source==0, np.nan, var_source) # needed to mask a couple of missing land points
+            else:
+                # Mask values that are on land in the source dataset
+                if interp_info['dim']=='3D':
+                    var_source = xr.where(source_var.maskC.isel(depth=dl)==1, source_converted.isel(depth=dl), np.nan)
+                    var_source = xr.where(var_source==0, np.nan, var_source) # needed to mask a couple of missing land points
+                elif interp_info['dim']=='2D':
+                    var_source = xr.where(source_converted==0, np.nan, source_converted)
+                    var_source = xr.where((source_var.maskInC == 1) & np.isnan(var_source), 0, var_source)
+                    var_source = xr.where(source_var.maskInC == 1, var_source, np.nan)
 
             # Now wrap up into a new Dataset
             ds_source = xr.Dataset({'lon':source_var['lon'], 'lat':source_var['lat'], interp_info['variable']:var_source}) 
@@ -267,8 +276,8 @@ def create_ics(variable, in_file, out_file,
     
     # Specify coordinate names:
     if source=='SOSE':
-        if interp_info['dim']=='2D':   name_remapping = {'XC':'lon', 'YC':'lat'}
-        elif interp_info['dim']=='3D': name_remapping = {'XC':'lon', 'YC':'lat', 'Z':'depth'}
+        if dimension=='2D':   name_remapping = {'XC':'lon', 'YC':'lat'}
+        elif dimension=='3D': name_remapping = {'XC':'lon', 'YC':'lat', 'Z':'depth'}
         
     # Dictionary specifying file names and locations for subsequent functions:
     interp_info = {'source': source,
@@ -329,9 +338,13 @@ def create_bcs(variable, in_file, out_file,
 
     # Specify coordinate names:
     if source=='SOSE':
-        if dimension=='2D':   name_remapping = {'XC':'lon', 'YC':'lat'}
-            # name_remapping2 = {'XG':'lon', 'YG':'lat'} # for velocity grid points
-        elif dimension=='3D': name_remapping = {'XC':'lon', 'YC':'lat', 'Z':'depth'}
+        if variable=='UVEL':
+            if dimension=='3D': name_remapping = {'XG':'lon', 'YC':'lat', 'Z':'depth'}
+        elif variable=='VVEL':
+            if dimension=='3D': name_remapping = {'XC':'lon', 'YG':'lat', 'Z':'depth'}
+        else:
+            if dimension=='2D':   name_remapping = {'XC':'lon', 'YC':'lat'}
+            elif dimension=='3D': name_remapping = {'XC':'lon', 'YC':'lat', 'Z':'depth'}
         
     # Dictionary specifying file names and locations for subsequent functions:
     interp_info = {'source': source,
@@ -363,8 +376,9 @@ def create_bcs(variable, in_file, out_file,
        SOSE_extended = fill_mask(SOSE_interp_filled, variable, nemo_mask_ds, dim=dimension)
     elif dimension=='2D':
        # Fill areas that are masked in source dataset but not in NEMO with nearest neighbours:
-       SOSE_interp_filled = xr.open_dataset(f'{folder}{source}-{variable}-horizontal-interp.nc')
-       SOSE_extended = fill_mask(SOSE_interp, variable, nemo_mask_ds, dim=dimension)
+       SOSE_interp   = xr.open_dataset(f'{folder}{source}-{variable}-horizontal-interp.nc')
+       SOSE_extended = fill_mask(SOSE_interp.isel(y=1), variable, nemo_mask_ds, dim=dimension)
 
     # Write output to file:
     SOSE_extended.assign_coords(x=nemo_mask_ds.nav_lon.isel(y=0).values, y=[nemo_mask_ds.nav_lat.isel(x=0,y=0).values]).to_netcdf(f'{out_file}')
+    return
