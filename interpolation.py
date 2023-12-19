@@ -1,8 +1,8 @@
 import xarray as xr
 import numpy as np
 import os
-import sys
 import numpy.ma as ma
+import sys
 from .utils import polar_stereo, fix_lon_range, extend_grid_edges, polar_stereo_inv
 
 # Interpolate the source dataset to the NEMO coordinates using a binning approach. This assumes the source dataset is much finer resolution, and will simply average over all source points in each NEMO grid cell.
@@ -376,12 +376,128 @@ def interp_latlon_cf_blocks (source, nemo, pster_src=True, periodic_nemo=True, p
     return interp
             
             
-            
-            
-            
+# Finds the value of the given array to the west, east, south, north of every point, as well as which neighbours are non-missing, and how many neighbours are non-missing.
+# Can also do 1D arrays (so just neighbours to the left and right) if you pass use_1d=True.
+def neighbours (data, missing_val=-9999, use_1d=False):
 
-    
-    
-    
-            
+    # Find the value to the west, east, south, north of every point
+    # Just copy the boundaries
+    data_w          = np.empty(data.shape)
+    data_w[...,1:]  = data[...,:-1]
+    data_w[...,0]   = data[...,0]
+    data_e          = np.empty(data.shape)
+    data_e[...,:-1] = data[...,1:]
+    data_e[...,-1]  = data[...,-1]
+    if not use_1d:
+        data_s            = np.empty(data.shape)
+        data_s[...,1:,:]  = data[...,:-1,:]
+        data_s[...,0,:]   = data[...,0,:]
+        data_n            = np.empty(data.shape)
+        data_n[...,:-1,:] = data[...,1:,:]
+        data_n[...,-1,:]  = data[...,-1,:]     
         
+    # Arrays of 1s and 0s indicating whether these neighbours are non-missing
+    valid_w = ((data_w != missing_val)*~np.isnan(data_w)).astype(float)
+    valid_e = ((data_e != missing_val)*~np.isnan(data_e)).astype(float)
+    data_w[np.isnan(data_w)] = 10000 # because 0*NaN = NaN
+    data_e[np.isnan(data_e)] = 10000
+    if use_1d:
+        # Number of valid neighoburs of each point
+        num_valid_neighbours = valid_w + valid_e
+        # Finished
+        return data_w, data_e, valid_w, valid_e, num_valid_neighbours
+        
+    valid_s = ((data_s != missing_val)*~np.isnan(data_s)).astype(float)
+    valid_n = ((data_n != missing_val)*~np.isnan(data_n)).astype(float)
+    data_s[np.isnan(data_s)] = 10000
+    data_n[np.isnan(data_n)] = 10000
+    
+    num_valid_neighbours = valid_w + valid_e + valid_s + valid_n
+    
+    return data_w, data_e, data_s, data_n, valid_w, valid_e, valid_s, valid_n, num_valid_neighbours
+
+
+# Like the neighbours function, but in the vertical dimension: neighbours above and below
+def neighbours_z (data, missing_val=-9999):
+
+    data_u              = np.empty(data.shape)
+    data_u[...,1:,:,:]  = data[...,:-1,:,:]
+    data_u[...,0,:,:]   = data[...,0,:,:]
+    
+    data_d              = np.empty(data.shape)
+    data_d[...,:-1,:,:] = data[...,1:,:,:]
+    data_d[...,-1,:,:]  = data[...,-1,:,:]
+
+    # Land has NaN values in this case, so ignore those points, should probably have a more eloquent solution normally
+    valid_u = ((data_u  != missing_val)*~np.isnan(data_u)).astype(float)
+    valid_d = ((data_d  != missing_val)*~np.isnan(data_d)).astype(float)
+    data_d[np.isnan(data_d)] = 10000 # because 0*NaN = NaN
+    data_u[np.isnan(data_u)] = 10000
+    
+    num_valid_neighbours_z = valid_u + valid_d
+    
+    return data_u, data_d, valid_u, valid_d, num_valid_neighbours_z
+
+# Given an array with missing values, extend the data into the mask by setting missing values to the average of their non-missing neighbours, and repeating as many times as the user wants.
+# If "data" is a regular array with specific missing values, set missing_val (default -9999). If "data" is a MaskedArray, set masked=True instead.
+# Setting use_3d=True indicates this is a 3D array, and where there are no valid neighbours on the 2D plane, neighbours above and below should be used.
+# Setting preference='vertical' (instead of default 'horizontal') indicates that if use_3d=True, vertical neighbours should be preferenced over horizontal ones.
+# Setting use_1d=True indicates this is a 1D array, use_2d=True, indicates it's a 2D array (x,y)
+def extend_into_mask (data, missing_val=-9999, masked=False, use_1d=False, use_2d=False, use_3d=False, preference='horizontal', num_iters=1):
+
+    if missing_val != -9999 and masked:
+        print("Error (extend_into_mask): can't set a missing value for a masked array")
+        sys.exit()
+    if (use_1d + use_2d + use_3d) != 1 :
+        print("Error (extend_into_mask): can't have use_1d, use_2d, and/or use_3d at the same time")
+        sys.exit()
+    if use_3d and preference not in ['horizontal', 'vertical']:
+        print('Error (extend_into_mask): invalid preference ' + preference)
+
+    if masked:
+        # MaskedArrays will mess up the extending
+        # Unmask the array and fill the mask with missing values
+        data_unmasked = data.data
+        data_unmasked[data.mask] = missing_val
+        data = data_unmasked
+
+    for iter in range(num_iters):
+        # Find the neighbours of each point, whether or not they are missing, and how many non-missing neighbours there are.
+        # Then choose the points that can be filled.
+        # Then set them to the average of their non-missing neighbours.
+        if use_1d:
+            # Just consider horizontal neighbours in one direction
+            data_w, data_e, valid_w, valid_e, num_valid_neighbours = neighbours(data, missing_val=missing_val, use_1d=True)
+            index = (data == missing_val)*(num_valid_neighbours > 0)
+            data[index] = (data_w[index]*valid_w[index] + data_e[index]*valid_e[index])/num_valid_neighbours[index]
+        elif use_3d and preference == 'vertical':
+            # Consider vertical neighbours
+            data_d, data_u, valid_d, valid_u, num_valid_neighbours = neighbours_z(data, missing_val=missing_val)
+            index = (data == missing_val)*(num_valid_neighbours > 0)
+            data[index] = (data_u[index]*valid_u[index] + data_d[index]*valid_d[index])/num_valid_neighbours[index]
+        else:
+            # Consider horizontal neighbours in both directions
+            data_w, data_e, data_s, data_n, valid_w, valid_e, valid_s, valid_n, num_valid_neighbours = neighbours(data, missing_val=missing_val)
+            index = (data == missing_val)*(num_valid_neighbours > 0)
+            data[index] = (data_w[index]*valid_w[index] + data_e[index]*valid_e[index] + data_s[index]*valid_s[index] + data_n[index]*valid_n[index])/num_valid_neighbours[index]
+        if use_3d:
+            # Consider the other dimension(s). Find the points that haven't already been filled based on the first dimension(s) we checked, but could be filled now.
+            if preference == 'vertical':
+                # Look for horizontal neighbours
+                data_w, data_e, data_s, data_n, valid_w, valid_e, valid_s, valid_n, num_valid_neighbours_new = neighbours(data, missing_val=missing_val)
+                index = (data == missing_val)*(num_valid_neighbours == 0)*(num_valid_neighbours_new > 0)
+                data[index] = (data_w[index]*valid_w[index] + data_e[index]*valid_e[index] + data_s[index]*valid_s[index] + data_n[index]*valid_n[index])/num_valid_neighbours_new[index]
+            elif preference == 'horizontal':
+                # Look for vertical neighbours
+                data_d, data_u, valid_d, valid_u, num_valid_neighbours_new = neighbours_z(data, missing_val=missing_val)
+                index = (data == missing_val)*(num_valid_neighbours == 0)*(num_valid_neighbours_new > 0)
+                data[index] = (data_u[index]*valid_u[index] + data_d[index]*valid_d[index])/num_valid_neighbours_new[index]
+                
+    if masked:
+        # Remask the MaskedArray
+        data = ma.masked_where(data==missing_val, data)
+
+    return data   
+            
+            
+    
