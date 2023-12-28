@@ -103,7 +103,7 @@ def fill_near_bottom(variable, file_interp):
 # variable: string name of the variable to be filled
 # fill_val: the temporary fill value assigned to values in the source dataset that are masked
 # niter: maximum number of iterations used to fill connected nearest neighbours
-def fill_mask(input_dataset, variable, nemo_mask, fill_val=1000, niter=100, dim='3D'):
+def fill_ocean(input_dataset, variable, nemo_mask, fill_val=1000, niter=100, dim='3D'):
     
     print('Filling gaps with connected nearest neighbours')
     
@@ -301,12 +301,12 @@ def create_ics(variable, in_file, out_file,
 
        # Fill areas that are masked in source dataset but not in NEMO with nearest neighbours:
        nemo_mask_ds  = xr.open_dataset(f'{nemo_mask}')
-       SOSE_extended = fill_mask(SOSE_interp_filled, variable, nemo_mask_ds, dim=dimension)
+       SOSE_extended = fill_ocean(SOSE_interp_filled, variable, nemo_mask_ds, dim=dimension)
     elif dimension=='2D':
        # Fill areas that are masked in source dataset but not in NEMO with nearest neighbours:
        nemo_mask_ds  = xr.open_dataset(f'{nemo_mask}')
        SOSE_interp   = xr.open_dataset(f'{folder}{source}-{variable}-horizontal-interp.nc')
-       SOSE_extended = fill_mask(SOSE_interp, variable, nemo_mask_ds, dim=dimension)
+       SOSE_extended = fill_ocean(SOSE_interp, variable, nemo_mask_ds, dim=dimension)
 
     # Write output to file:
     SOSE_extended.to_netcdf(f'{out_file}')
@@ -373,11 +373,11 @@ def create_bcs(variable, in_file, out_file,
        SOSE_interp_filled = fill_near_bottom(variable, f'{folder}{source}-{variable}-vertical-interp.nc')
 
        # Fill areas that are masked in source dataset but not in NEMO with nearest neighbours:
-       SOSE_extended = fill_mask(SOSE_interp_filled, variable, nemo_mask_ds, dim=dimension)
+       SOSE_extended = fill_ocean(SOSE_interp_filled, variable, nemo_mask_ds, dim=dimension)
     elif dimension=='2D':
        # Fill areas that are masked in source dataset but not in NEMO with nearest neighbours:
        SOSE_interp   = xr.open_dataset(f'{folder}{source}-{variable}-horizontal-interp.nc')
-       SOSE_extended = fill_mask(SOSE_interp.isel(y=1), variable, nemo_mask_ds, dim=dimension)
+       SOSE_extended = fill_ocean(SOSE_interp.isel(y=1), variable, nemo_mask_ds, dim=dimension)
 
     # Write output to file:
     SOSE_extended.assign_coords(x=nemo_mask_ds.nav_lon.isel(y=0).values, y=[nemo_mask_ds.nav_lat.isel(x=0,y=0).values]).to_netcdf(f'{out_file}')
