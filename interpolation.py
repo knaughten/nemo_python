@@ -463,7 +463,9 @@ def extend_into_mask (data, missing_val=-9999, masked=False, use_1d=False, use_2
         data = data_unmasked
 
     for iter in tqdm.tqdm(range(num_iters)):
+        sum_missing = np.sum(data==missing_val)
         if np.sum(data==missing_val) == 0: # stop looping if all missing values have been filled
+            print('Completed filling missing values')
             break
         else:
             # Find the neighbours of each point, whether or not they are missing, and how many non-missing neighbours there are.
@@ -498,6 +500,10 @@ def extend_into_mask (data, missing_val=-9999, masked=False, use_1d=False, use_2
                     data_d, data_u, valid_d, valid_u, num_valid_neighbours_new = neighbours_z(data, missing_val=missing_val)
                     index = (data == missing_val)*(num_valid_neighbours == 0)*(num_valid_neighbours_new > 0)
                     data[index] = (data_u[index]*valid_u[index] + data_d[index]*valid_d[index])/num_valid_neighbours_new[index]
+            
+            if (iter > 1) & (np.sum(data==missing_val) == sum_missing):
+                print(f'Previous loop was unable to fill more missing values, so filled with constant: {np.nanmean(data):.4f}')
+                data[data==missing_val] = np.nanmean(data)
                 
     if masked:
         # Remask the MaskedArray
