@@ -444,7 +444,7 @@ def neighbours_z (data, missing_val=-9999):
 # Setting use_3d=True indicates this is a 3D array, and where there are no valid neighbours on the 2D plane, neighbours above and below should be used.
 # Setting preference='vertical' (instead of default 'horizontal') indicates that if use_3d=True, vertical neighbours should be preferenced over horizontal ones.
 # Setting use_1d=True indicates this is a 1D array, use_2d=True, indicates it's a 2D array (x,y)
-def extend_into_mask (data, missing_val=-9999, masked=False, use_1d=False, use_2d=False, use_3d=False, preference='horizontal', num_iters=1):
+def extend_into_mask (data, missing_val=-9999, fill_val=np.nan, masked=False, use_1d=False, use_2d=False, use_3d=False, preference='horizontal', num_iters=1):
 
     if missing_val != -9999 and masked:
         print("Error (extend_into_mask): can't set a missing value for a masked array")
@@ -500,10 +500,9 @@ def extend_into_mask (data, missing_val=-9999, masked=False, use_1d=False, use_2
                     data_d, data_u, valid_d, valid_u, num_valid_neighbours_new = neighbours_z(data, missing_val=missing_val)
                     index = (data == missing_val)*(num_valid_neighbours == 0)*(num_valid_neighbours_new > 0)
                     data[index] = (data_u[index]*valid_u[index] + data_d[index]*valid_d[index])/num_valid_neighbours_new[index]
-            
-            if (iter > 1) & (np.sum(data==missing_val) == sum_missing):
-                print(f'Previous loop was unable to fill more missing values, so filled with constant: {np.nanmean(data):.4f}')
-                data[data==missing_val] = np.nanmean(data)
+            if (iter > 1) & (np.sum(data==missing_val) == sum_missing):                
+                print('Previous loop was unable to fill more missing values, so filled with constant', fill_val)
+                data[data==missing_val] = fill_val
                 
     if masked:
         # Remask the MaskedArray
@@ -511,11 +510,3 @@ def extend_into_mask (data, missing_val=-9999, masked=False, use_1d=False, use_2
 
     return data   
             
-            
-            
-
-    
-    
-    
-            
-        
