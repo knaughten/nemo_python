@@ -4,9 +4,9 @@
 
 import numpy as np
 import xarray as xr
-import gsw
+import cftime
 import tqdm
-
+import gsw
 from .interpolation import interp_latlon_cf, neighbours, neighbours_z, extend_into_mask
 from .utils import fix_lon_range, convert_to_teos10
 
@@ -15,7 +15,7 @@ from .utils import fix_lon_range, convert_to_teos10
 # Inputs:
 # mesh: xarray dataset of the specified grid type to get depth levels and grid cell sizes from
 # mtype: string name specifying the mesh type (currently only includes nemo and SOSE)
-# source_file: --- > "sose"
+# Returns: tuple of coordinate arrays of top edge, centre, and bottom edge of cells
 def vertical_edges(mesh, mtype='nemo'):
 
     if mtype=='nemo':    # 2D
@@ -30,6 +30,8 @@ def vertical_edges(mesh, mtype='nemo'):
     else:
         print('Only mesh types included are nemo and SOSE')
 
+    assert (z_centres >= 0.0).all(), 'There is at least one negative depth value (all depths should be positive)'
+    
     z_top_edge = z_centres - 0.5*dz
     z_bot_edge = z_centres + 0.5*dz
     
@@ -43,6 +45,7 @@ def vertical_edges(mesh, mtype='nemo'):
 # source_edges: 3D numpy array of locations of source grid edges
 # nemo_edges: 3D numpy array of locations of NEMO grid edges
 # n: integer index of vertical depth level within nemo
+# Returns: xarray dataset with variables vertically interpolated
 def interp_depth(source, source_edges, nemo_edges, n):
     # For a particular input nemo depth level, interpolate from source grid to nemo grid (conservatively nearest-neighbour)
     
@@ -51,34 +54,47 @@ def interp_depth(source, source_edges, nemo_edges, n):
     dataset = xr.Dataset({}) #.assign_coords(x=source.x, y=source.y)
 
     for var in source: # loop over the variables in the source dataset
-        # find the source edges that fall within the depth ranges of the NEMO grid cells:
-        Var = 0; 
+        # find the source edges that fall within the depth ranges of the NEMO grid cells and weight source variable by depth
+        Var_total = np.zeros(NEMO_top_edge.shape); 
         for zs in range(0,source.z.size):
             src_top_edge = source_edges[0][zs,:,:]; src_bot_edge = source_edges[2][zs,:,:];
 
-            Var = xr.where((NEMO_top_edge >= src_top_edge)*(NEMO_bot_edge < src_bot_edge), 
-                           Var + (NEMO_bot_edge - NEMO_top_edge)* (source.isel(z=zs)), Var)
-
-            Var = xr.where((NEMO_top_edge >= src_top_edge)*(src_bot_edge < NEMO_bot_edge)*(src_bot_edge > NEMO_top_edge), 
-                           Var + (src_bot_edge - NEMO_top_edge) * source.isel(z=zs), Var)
-
-            Var = xr.where((NEMO_top_edge < src_top_edge)*(src_bot_edge > NEMO_bot_edge)*(src_top_edge < NEMO_bot_edge), 
-                           Var + (NEMO_bot_edge - src_top_edge) * source.isel(z=zs), Var)
-
-            Var = xr.where((NEMO_top_edge < src_top_edge)*(src_bot_edge < NEMO_bot_edge)*(src_top_edge < NEMO_bot_edge), 
-                           Var + (src_bot_edge - src_top_edge) * source.isel(z=zs), Var)
-
-            # if the SOSE bottom grid cell is shallower than the WOA bottom grid cell, the value of the cell is NaN
+            # NEMO cells that fall fully within the source cell:
+            Var = 0
+            
+            Var = xr.where((NEMO_top_edge >= src_top_edge)*(NEMO_bot_edge <= src_bot_edge), \
+                           source.isel(z=zs)*(NEMO_bot_edge - NEMO_top_edge), 0)
         
-        Var = Var/(NEMO_bot_edge - NEMO_top_edge)
-        dataset[var] = (('y', 'x'), Var[var].values)
+            # NEMO cells that have an overlap at the bottom: 
+            Var = xr.where((NEMO_top_edge <= src_bot_edge)*(NEMO_bot_edge >= src_bot_edge)*(NEMO_top_edge >= src_top_edge), \
+                           source.isel(z=zs)*(src_bot_edge - NEMO_top_edge), Var)
+        
+            # NEMO cells that have an overlap at the top:
+            Var = xr.where((NEMO_top_edge < src_top_edge)*(NEMO_bot_edge >= src_top_edge)*(NEMO_bot_edge < src_bot_edge), \
+                           source.isel(z=zs)*(NEMO_bot_edge - src_top_edge), Var)
+
+            # source cell smaller than NEMO cell and fully encapsulated:
+            Var = xr.where((NEMO_top_edge <= src_bot_edge)*(NEMO_bot_edge >= src_bot_edge)*(NEMO_top_edge < src_top_edge)*(NEMO_bot_edge <= np.max(source_edges[2])), \
+                           Var + source.isel(z=zs)*(src_bot_edge - src_top_edge), Var)
+
+            Var_total += Var
+
+        # If the NEMO cell is deeper than the maximum source depth, fill cell with NaN so that fill_ocean can deal with it later
+        Var_total    = xr.where((NEMO_bot_edge > np.max(source_edges[2][~np.isnan(source[var])], axis=0)), \
+                                 np.nan, Var_total) 
+
+        # Remove depth weighting
+        Var_total    = Var_total/(NEMO_bot_edge - NEMO_top_edge)
+        dataset[var] = (('y', 'x'), Var_total[var].values)
         
     return dataset
 
 # Helper function to fill the bottom grid cell with values from above to avoid any issues with edges
 # Inputs:
 # variable: string name of variable that is being interpolated/filled
-# file_interp: string name of file produced by vertical_interp function (horizontally and vertically interpolated variable, with missing points not yet filled)
+# file_interp: string name of file produced by vertical_interp function (horizontally and vertically interpolated variable, 
+#              with missing points not yet filled)
+# Returns: xarray dataset with variable filled
 def fill_near_bottom(variable, file_interp):
     # Load file that contains vertical and horizontally interpolated variable:
     var_interp = xr.open_dataset(file_interp)
@@ -103,30 +119,28 @@ def fill_near_bottom(variable, file_interp):
 # variable: string name of the variable to be filled
 # fill_val: the temporary fill value assigned to values in the source dataset that are masked
 # niter: maximum number of iterations used to fill connected nearest neighbours
-def fill_ocean(input_dataset, variable, nemo_mask, fill_val=1000, niter=100, dim='3D'):
-    
+# Returns: xarray dataset with specified variable with empty ocean points filled with connected nearest neighbour
+def fill_ocean(input_dataset, variable, nemo_mask, missing_val=-9999, fill_val=np.nan, niter=100, dim='3D'):
+
     print('Filling gaps with connected nearest neighbours')
     
     if dim=='3D':
         use_3d=True; use_2d=False;
-        nemo_ocn = (nemo_mask.tmask.isel(time_counter=0).values != 0)
+        nemo_ocn = (nemo_mask.tmask.isel(time_counter=0).values == 1)
+        # might need to fix the nemo mask at the deepest cell to fill that cell as well
     elif dim=='2D':
         use_2d=True; use_3d=False;
-        nemo_ocn = (nemo_mask.tmask.isel(time_counter=0, nav_lev=0).values != 0)
+        nemo_ocn = (nemo_mask.tmask.isel(time_counter=0, nav_lev=0).values == 1)
 
-    src_to_fill  = xr.where(np.isnan(input_dataset[variable].values)*nemo_ocn, fill_val, input_dataset[variable].values)
-    var_filled   = extend_into_mask(src_to_fill, missing_val=fill_val, use_2d=use_2d, use_3d=use_3d)
+    # Fill gaps in source dataset with nearest neighbour
+    src_to_fill = xr.where(np.isnan(input_dataset[variable].values)*nemo_ocn, missing_val, input_dataset[variable].values)
+    var_filled  = extend_into_mask(src_to_fill, missing_val=missing_val, fill_val=fill_val, use_2d=use_2d, use_3d=use_3d, num_iters=niter) 
+
+    # Remove any points with values that are actually in the land
+    var_filled = xr.where(~nemo_ocn, np.nan, var_filled)
     
-    for iter in tqdm.tqdm(range(niter)):
-        if np.sum(var_filled==fill_val) == 0: # stop looping if all missing values have been filled
-            break
-        else:
-            var_filled = extend_into_mask(var_filled, missing_val=fill_val, use_2d=use_2d, use_3d=use_3d) 
-
-    if dim=='3D':
-       input_dataset[variable] = (('z','y','x'), var_filled)
-    elif dim=='2D':
-       input_dataset[variable] = (('y','x'), var_filled)
+    if dim=='3D':   input_dataset[variable] = (('z','y','x'), var_filled)
+    elif dim=='2D': input_dataset[variable] = (('y','x')    , var_filled)
         
     return input_dataset 
 
@@ -211,6 +225,7 @@ def ics_obcs_horizontal_interp(interp_info, in_file, out_file, ln_obcs=False, bd
     # Loop over all source dataset depth levels:
     if interp_info['dim']=='3D':   z_levels = range(source_var.depth.size)
     elif interp_info['dim']=='2D': z_levels = [0]
+    
     for dl in tqdm.tqdm(z_levels):
         if interp_info['source'] == 'SOSE':
             if interp_info['variable']=='UVEL':
@@ -250,6 +265,7 @@ def ics_obcs_horizontal_interp(interp_info, in_file, out_file, ln_obcs=False, bd
     source_interpolated.to_netcdf(f'{out_file}')
     
     return
+    
 
 # Main function to create inititial conditions for NEMO configuration from a source, currently set up for B-SOSE
 # Input:
@@ -265,7 +281,10 @@ def create_ics(variable, in_file, out_file,
                nemo_coord  ='/gws/nopw/j04/terrafirma/birgal/NEMO_AIS/bathymetry/coordinates_AIS.nc',
                nemo_mask   ='/gws/nopw/j04/terrafirma/birgal/NEMO_AIS/bathymetry/mesh_mask-20231025.nc',
                salt_file   ='/gws/nopw/j04/terrafirma/birgal/NEMO_AIS/B-SOSE/climatology/SALT_climatology_m01.nc', 
-               folder      ='/gws/nopw/j04/terrafirma/birgal/NEMO_AIS/initial-conditions/'):
+               folder      ='/gws/nopw/j04/terrafirma/birgal/NEMO_AIS/initial-conditions/',
+               fill_value  = np.nan,
+               seaice      = False,
+               num_iter    =100):
 
     print(f'---- Creating NEMO initial conditions for variable {variable} from {source} ----')
     if source!='SOSE': raise Exception('Functions only set up for SOSE currently')
@@ -290,26 +309,33 @@ def create_ics(variable, in_file, out_file,
                    'renaming':name_remapping}
     
     # Horizontally interpolate source dataset to NEMO grid:
-    ics_obcs_horizontal_interp(interp_info, in_file, f'{folder}{source}-{variable}-horizontal-interp.nc')
+    ics_obcs_horizontal_interp(interp_info, in_file, f'{folder}temp/{source}-{variable}-IC-horizontal-interp.nc')
         
     if dimension=='3D':
        # Vertically interpolate the above horizontally interpolated dataset to NEMO grid:
-       vertical_interp(interp_info, f'{folder}{source}-{variable}-horizontal-interp.nc', f'{folder}{source}-{variable}-vertical-interp.nc')
-        
-       # Fill values just above the bottom with their nearest neighbour:
-       SOSE_interp_filled = fill_near_bottom(variable, f'{folder}{source}-{variable}-vertical-interp.nc')
-
-       # Fill areas that are masked in source dataset but not in NEMO with nearest neighbours:
-       nemo_mask_ds  = xr.open_dataset(f'{nemo_mask}')
-       SOSE_extended = fill_ocean(SOSE_interp_filled, variable, nemo_mask_ds, dim=dimension)
+       vertical_interp(interp_info, f'{folder}temp/{source}-{variable}-IC-horizontal-interp.nc', f'{folder}temp/{source}-{variable}-IC-vertical-interp.nc')
+       SOSE_interp   = xr.open_dataset(f'{folder}temp/{source}-{variable}-IC-vertical-interp.nc')
     elif dimension=='2D':
-       # Fill areas that are masked in source dataset but not in NEMO with nearest neighbours:
-       nemo_mask_ds  = xr.open_dataset(f'{nemo_mask}')
-       SOSE_interp   = xr.open_dataset(f'{folder}{source}-{variable}-horizontal-interp.nc')
-       SOSE_extended = fill_ocean(SOSE_interp, variable, nemo_mask_ds, dim=dimension)
+       SOSE_interp   = xr.open_dataset(f'{folder}temp/{source}-{variable}-IC-horizontal-interp.nc')
 
+    # Fill areas that are masked in source dataset but not in NEMO with nearest neighbours:
+    nemo_mask_ds  = xr.open_dataset(f'{nemo_mask}')
+    SOSE_extended = fill_ocean(SOSE_interp, variable, nemo_mask_ds, dim=dimension, niter=num_iter, fill_val=fill_value)
+
+    # Final processing (fill NaNs with a real value and shift very deepest grid cell value):
+    if seaice:
+        SOSE_extended[variable] = xr.where(np.isnan(SOSE_extended[variable]), 0, SOSE_extended[variable])
+        SOSE_extended[variable] = xr.where(SOSE_extended[variable] < 0.0001, 0, SOSE_extended[variable])
+    else:
+        SOSE_extended[variable] = xr.where(np.isnan(SOSE_extended[variable]), 9999, SOSE_extended[variable])
+    if dimension=='3D':
+        SOSE_extended[variable] = xr.where(SOSE_extended.z == SOSE_extended.z[-1], SOSE_extended[variable].isel(z=-2), SOSE_extended[variable])
+        SOSE_extended[variable] = ('time_counter','deptht','y','x'), SOSE_extended[variable].values[np.newaxis, ...]
+    elif dimension=='2D':
+        SOSE_extended[variable] = ('time_counter','y','x'), SOSE_extended[variable].values[np.newaxis, ...]
+        
     # Write output to file:
-    SOSE_extended.to_netcdf(f'{out_file}')
+    SOSE_extended.to_netcdf(f'{out_file}', unlimited_dims='time_counter')
     return
 
 # Main function to create boundary conditions for NEMO configuration from a source, currently set up for B-SOSE
@@ -327,6 +353,8 @@ def create_bcs(variable, in_file, out_file,
                nemo_mask   ='/gws/nopw/j04/terrafirma/birgal/NEMO_AIS/bathymetry/mesh_mask-20231025.nc',
                salt_file   ='/gws/nopw/j04/terrafirma/birgal/NEMO_AIS/B-SOSE/climatology/SALT_climatology_m01.nc', 
                folder      ='/gws/nopw/j04/terrafirma/birgal/NEMO_AIS/boundary-conditions/B-SOSE/',
+               fill_value  = np.nan,
+               seaice      = False,
                bdy_lat     = -50):
 
     print(f'---- Creating NEMO boundary conditions for variable {variable} from {source} ----')
@@ -357,7 +385,7 @@ def create_bcs(variable, in_file, out_file,
                    'renaming':name_remapping}
     
     # Horizontally interpolate source dataset to NEMO grid:
-    ics_obcs_horizontal_interp(interp_info, in_file, f'{folder}{source}-{variable}-horizontal-interp.nc', ln_obcs=True, bdy_lat=bdy_lat)
+    ics_obcs_horizontal_interp(interp_info, in_file, f'{folder}temp/{source}-{variable}-BC-horizontal-interp.nc', ln_obcs=True, bdy_lat=bdy_lat)
 
     # take a slice of the nemo mask:
     nemo_coord_ds = xr.open_dataset(f'{nemo_coord}')
@@ -366,19 +394,29 @@ def create_bcs(variable, in_file, out_file,
         
     if dimension=='3D':
        # Vertically interpolate the above horizontally interpolated dataset to NEMO grid:
-       vertical_interp(interp_info, f'{folder}{source}-{variable}-horizontal-interp.nc', f'{folder}{source}-{variable}-vertical-interp.nc', 
-                       ln_obcs=True, bdy_lat=bdy_lat)
-        
-       # Fill values just above the bottom with their nearest neighbour:
-       SOSE_interp_filled = fill_near_bottom(variable, f'{folder}{source}-{variable}-vertical-interp.nc')
-
-       # Fill areas that are masked in source dataset but not in NEMO with nearest neighbours:
-       SOSE_extended = fill_ocean(SOSE_interp_filled, variable, nemo_mask_ds, dim=dimension)
+       vertical_interp(interp_info, f'{folder}temp/{source}-{variable}-BC-horizontal-interp.nc', \
+                       f'{folder}temp/{source}-{variable}-BC-vertical-interp.nc', ln_obcs=True)
+       SOSE_interp   = xr.open_dataset(f'{folder}temp/{source}-{variable}-BC-vertical-interp.nc')
     elif dimension=='2D':
        # Fill areas that are masked in source dataset but not in NEMO with nearest neighbours:
-       SOSE_interp   = xr.open_dataset(f'{folder}{source}-{variable}-horizontal-interp.nc')
-       SOSE_extended = fill_ocean(SOSE_interp.isel(y=1), variable, nemo_mask_ds, dim=dimension)
+       SOSE_interp   = xr.open_dataset(f'{folder}temp/{source}-{variable}-BC-horizontal-interp.nc').isel(y=1)
 
+    # Fill areas that are masked in source dataset but not in NEMO with nearest neighbours:
+    SOSE_extended = fill_ocean(SOSE_interp, variable, nemo_mask_ds, dim=dimension, niter=100, fill_val=fill_value)
+
+    # Final processing (fill NaNs with a real value and shift very deepest grid cell value):
+    if seaice:
+        SOSE_extended[variable] = xr.where(np.isnan(SOSE_extended[variable]), 0, SOSE_extended[variable])
+        SOSE_extended[variable] = xr.where(SOSE_extended[variable] < 0.0001, 0, SOSE_extended[variable])
+    else:
+        SOSE_extended[variable] = xr.where(np.isnan(SOSE_extended[variable]), 9999, SOSE_extended[variable])
+    if dimension=='3D':
+        SOSE_extended[variable] = xr.where(SOSE_extended.z == SOSE_extended.z[-1], SOSE_extended[variable].isel(z=-2), SOSE_extended[variable])
+        SOSE_extended[variable] = ('time_counter','deptht','y','x'), SOSE_extended[variable].values[np.newaxis, ...]
+    elif dimension=='2D':
+        SOSE_extended[variable] = ('time_counter','y','x'), SOSE_extended[variable].values[np.newaxis, ...]
+        
     # Write output to file:
-    SOSE_extended.assign_coords(x=nemo_mask_ds.nav_lon.isel(y=0).values, y=[nemo_mask_ds.nav_lat.isel(x=0,y=0).values]).to_netcdf(f'{out_file}')
+    SOSE_extended.assign_coords(x=nemo_mask_ds.nav_lon.isel(y=0).values, y=[nemo_mask_ds.nav_lat.isel(x=0,y=0).values]).to_netcdf(f'{out_file}', \
+                                                                                                                                  unlimited_dims='time_counter')
     return
