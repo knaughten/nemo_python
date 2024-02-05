@@ -420,3 +420,65 @@ def create_bcs(variable, in_file, out_file,
     SOSE_extended.assign_coords(x=nemo_mask_ds.nav_lon.isel(y=0).values, y=[nemo_mask_ds.nav_lat.isel(x=0,y=0).values]).to_netcdf(f'{out_file}', \
                                                                                                                                   unlimited_dims='time_counter')
     return
+
+
+# Function makes a NEMO coordinate_bdy NetCDF file given input coordinates and a domain 
+# Inputs:
+# t_coords: list of tuples of i,j coordinates of gridT points in the boundary. Assumes the order goes from the inside of the domain to the outside.
+# u_coords: list, same as above but for the grid U points
+# v_coords: list, same as above but for the grid V points
+# domain_cfg: xarray dataset of the domain_cfg NEMO file
+# filename: string of output file name / location
+# rimwidth: integer of width of the NEMO boundary (typically between 8-10 gridpoints)
+# Returns: xarray dataset containing the variables required to specify the boundary in the NEMO namelist
+def make_bdy_coord(t_coords, u_coords, v_coords, domain_cfg, 
+                   rimwidth=1, filename='/home/users/birgal/data/NEMO/coordinates_bdy_new.nc'):
+
+    it_coords, jt_coords = np.array(list(zip(*t_coords))).astype(int)
+    iu_coords, ju_coords = np.array(list(zip(*u_coords))).astype(int)
+    iv_coords, jv_coords = np.array(list(zip(*v_coords))).astype(int)
+
+    # Take subsets of the domain_cfg dataset based on the coordinates of boundary points
+    domain_cfg_subset_t = domain_cfg.sel(x=xr.DataArray(it_coords, dims='z'), y=xr.DataArray(jt_coords, dims='z'))
+    domain_cfg_subset_u = domain_cfg.sel(x=xr.DataArray(iu_coords, dims='z'), y=xr.DataArray(ju_coords, dims='z'))
+    domain_cfg_subset_v = domain_cfg.sel(x=xr.DataArray(iv_coords, dims='z'), y=xr.DataArray(jv_coords, dims='z'))
+    
+    # Dimensions:
+    bdy_length = int(np.floor(len(t_coords)/rimwidth))
+    yb_dim     = 1 # always
+    xbv_dim    = (bdy_length)  *rimwidth
+    xbu_dim    = (bdy_length-1)*rimwidth
+    xbt_dim    = (bdy_length)  *rimwidth
+                       
+    # Create xarray dataset:
+    ds = xr.Dataset(
+        data_vars=dict(
+                    e1t=(["yb", "xbt"], domain_cfg_subset_t['e1t'].values.astype(float)),
+                    e1u=(["yb", "xbu"], domain_cfg_subset_u['e1u'].values.astype(float)), 
+                    e1v=(["yb", "xbv"], domain_cfg_subset_v['e1v'].values.astype(float)), 
+                    e2t=(["yb", "xbt"], domain_cfg_subset_t['e2t'].values.astype(float)),
+                    e2u=(["yb", "xbu"], domain_cfg_subset_u['e2u'].values.astype(float)),
+                    e2v=(["yb", "xbv"], domain_cfg_subset_v['e2v'].values.astype(float)),
+                    glamt=(["yb", "xbt"], domain_cfg_subset_t['glamt'].values.astype(float)),
+                    glamu=(["yb", "xbu"], domain_cfg_subset_u['glamu'].values.astype(float)),
+                    glamv=(["yb", "xbv"], domain_cfg_subset_v['glamv'].values.astype(float)),
+                    gphit=(["yb", "xbt"], domain_cfg_subset_t['gphit'].values.astype(float)),
+                    gphiu=(["yb", "xbu"], domain_cfg_subset_u['gphiu'].values.astype(float)),
+                    gphiv=(["yb", "xbv"], domain_cfg_subset_v['gphiv'].values.astype(float)),                
+                    nbit=(["yb", "xbt"], np.reshape(it_coords+1, (yb_dim, xbt_dim)).astype(int)),
+                    nbiu=(["yb", "xbu"], np.reshape(iu_coords+1, (yb_dim, xbu_dim)).astype(int)),
+                    nbiv=(["yb", "xbv"], np.reshape(iv_coords+1, (yb_dim, xbv_dim)).astype(int)),
+                    nbjt=(["yb", "xbt"], np.reshape(jt_coords+1, (yb_dim, xbt_dim)).astype(int)),
+                    nbju=(["yb", "xbu"], np.reshape(ju_coords+1, (yb_dim, xbu_dim)).astype(int)),
+                    nbjv=(["yb", "xbv"], np.reshape(jv_coords+1, (yb_dim, xbv_dim)).astype(int)),
+                    nbrt=(["yb", "xbt"], np.reshape(np.repeat(np.arange(1,rimwidth+1), bdy_length)  , (yb_dim, xbt_dim)).astype(int)),
+                    nbru=(["yb", "xbu"], np.reshape(np.repeat(np.arange(1,rimwidth+1), bdy_length-1), (yb_dim, xbu_dim)).astype(int)),
+                    nbrv=(["yb", "xbv"], np.reshape(np.repeat(np.arange(1,rimwidth+1), bdy_length)  , (yb_dim, xbv_dim)).astype(int)),
+        ),
+        attrs=dict(description="Boundary condition coordinates file"),
+    )
+    
+    ds.to_netcdf(f'{filename}')
+
+
+    return ds
