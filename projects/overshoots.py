@@ -3004,6 +3004,7 @@ def plot_SLR_timeseries (base_dir='./', draft=False):
 def count_simulation_years (base_dir='./'):
 
     timeseries_file = 'timeseries.nc'
+    smooth = 5*months_per_year
 
     years = 0
     for scenario in suites_by_scenario:
@@ -3012,6 +3013,20 @@ def count_simulation_years (base_dir='./'):
         for suite in suites_by_scenario[scenario]:
             file_path = base_dir+'/'+suite+'/'+timeseries_file
             ds = xr.open_dataset(file_path)
+            if 'ramp_down' in scenario:
+                # Check if simulation has cooled below PI, based on 5-year running mean going below PI baseline and staying there
+                warming = moving_average(global_warming(suite), smooth)
+                if warming.min() < 0:
+                    # Find first instance of temp going below PI
+                    t_start = np.where(warming.data < 0)[0][0]
+                    for t in range(t_start, warming.sizes['time_centered']):
+                        if warming.isel(time_centered=slice(t,None)).max() < 0:
+                            t_end = t
+                            break
+                    # Truncate the dataset to this date
+                    t_truncate = np.argwhere(ds['time_centered'].data == t_end.data)[0][0]
+                    print('Removing last '+str((ds.sizes['time_centered']-t_truncate+1)/months_per_year)+' years of '+suite+' which cools below PI')
+                    ds = ds.isel(time_centered=slice(0,t_truncate))
             num_months = ds.sizes['time_centered']
             ds.close()
             years += num_months/months_per_year
