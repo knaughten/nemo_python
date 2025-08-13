@@ -132,7 +132,7 @@ def new_timeseries_var (suite_id, timeseries_types, timeseries_file_new, timeser
     # Now concatenate with existing file
     print('Merging with '+timeseries_file)
     os.rename(suite_id+'/'+timeseries_file, suite_id+'/tmp_'+timeseries_file)
-    ds = xr.open_mfdataset([suite_id+'/tmp_'+timeseries_file, suite_id+'/'+timeseries_file_new])
+    ds = xr.open_mfdataset([suite_id+'/tmp_'+timeseries_file, suite_id+'/'+timeseries_file_new], decode_times=time_coder)
     ds.to_netcdf(suite_id+'/'+timeseries_file)
     os.remove(suite_id+'/tmp_'+timeseries_file)
     os.remove(suite_id+'/'+timeseries_file_new)
@@ -313,7 +313,7 @@ def integrated_gw (suite, pi_suite='cs495', timeseries_file_um='timeseries_um.nc
 
     # Inner function to read global mean SAT
     def global_mean_sat (suite):
-        ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file_um)
+        ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file_um, decode_times=time_coder)
         sat = ds['global_mean_sat']
         ds.close()
         return sat
@@ -647,7 +647,7 @@ def cold_cavities_by_bwsalt (var_name, base_dir='./', fig_name=None):
                     data_x.append(None)
                     data_y.append(None)
                     continue
-                ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file)
+                ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file, decode_times=time_coder)
                 data_x.append(moving_average(ds[var_x[n]], smooth))
                 data_y.append(moving_average(ds[var_y[n]], smooth))
                 ds.close()
@@ -674,7 +674,7 @@ def plot_bwsalt_vs_obs (suite='cy691', schmidtko_file='/gws/nopw/j04/terrafirma/
 
     sim_dir = base_dir + '/' + suite + '/'
     if os.path.isfile(sim_dir+precomputed_file):
-        nemo = xr.open_dataset(sim_dir+precomputed_file)
+        nemo = xr.open_dataset(sim_dir+precomputed_file, decode_times=time_coder)
     else:
         # Identify NEMO output files in the suite directory within the given date range
         file_head = 'nemo_'+suite+'o_1m_'
@@ -686,7 +686,7 @@ def plot_bwsalt_vs_obs (suite='cy691', schmidtko_file='/gws/nopw/j04/terrafirma/
                 if year >= start_year and year <= end_year:
                     nemo_files.append(sim_dir+f)
         # Read and time-average
-        nemo = xr.open_mfdataset(nemo_files, concat_dim='time_counter', combine='nested')
+        nemo = xr.open_mfdataset(nemo_files, concat_dim='time_counter', combine='nested', decode_times=time_coder)
         nemo = nemo.mean(dim='time_counter').squeeze()
         nemo.load()
         # Save to NetCDF for next time
@@ -764,7 +764,7 @@ def calc_stabilisation_means (base_dir='./', file_type='grid-T', out_dir='time_a
         if num_files == 0:
             continue
         for n in tqdm(range(num_files), desc=' files'):
-            ds = xr.open_dataset(nemo_files[n]).squeeze()
+            ds = xr.open_dataset(nemo_files[n], decode_times=time_coder).squeeze()
             if ds_accum is None:
                 ds_accum = ds
             else:
@@ -774,7 +774,7 @@ def calc_stabilisation_means (base_dir='./', file_type='grid-T', out_dir='time_a
         if update_file:
             # Now combine with existing mean as weighted average
             num_files_total = num_files + num_old_files
-            ds_mean_old = xr.open_dataset(out_file)
+            ds_mean_old = xr.open_dataset(out_file, decode_times=time_coder)
             ds_mean = ds_mean*num_files/num_files_total + ds_mean_old*num_old_files/num_files_total
         ds_mean.to_netcdf(out_file+'_tmp', mode='w')
         ds_mean.close()
@@ -830,13 +830,13 @@ def plot_stabilisation_maps (var_name, fig_name=None):
     gs = plt.GridSpec(num_scenarios//2, 2)
     gs.update(left=0.05, right=0.95, bottom=0.1, top=0.9, hspace=0.2, wspace=0.2)
     for n in range(num_scenarios):
-        ds = xr.open_dataset(in_dir+scenarios[n]+'_'+file_type+'.nc').squeeze()
+        ds = xr.open_dataset(in_dir+scenarios[n]+'_'+file_type+'.nc', decode_times=time_coder).squeeze()
         if var_name=='barotropic_streamfunction':
             if n==0:
                 # Grab e2u from domain_cfg
-                ds_domcfg = xr.open_dataset(domain_cfg).squeeze()
+                ds_domcfg = xr.open_dataset(domain_cfg, decode_times=time_coder).squeeze()
                 ds_domcfg = ds_domcfg.isel(y=slice(0, ds.sizes['y']))
-            ds_v = xr.open_dataset(in_dir+scenarios[n]+'_'+file_type_2+'.nc').squeeze()
+            ds_v = xr.open_dataset(in_dir+scenarios[n]+'_'+file_type_2+'.nc', decode_times=time_coder).squeeze()
         if var_name == 'barotropic_streamfunction':
             data_plot = barotropic_streamfunction(ds, ds_v, ds_domcfg, periodic=True, halo=True)
         elif var_name == 'temp500m':
@@ -873,7 +873,7 @@ def plot_stabilisation_profiles (region='amundsen_sea', fig_name=None):
     gs.update(left=0.1, right=0.98, bottom=0.2, top=0.85, wspace=0.2)
     ax_all = [plt.subplot(gs[0,v]) for v in range(num_var)]
     for n in range(num_scenarios):
-        ds = xr.open_dataset(in_dir+scenarios[n]+file_tail).squeeze()
+        ds = xr.open_dataset(in_dir+scenarios[n]+file_tail, decode_times=time_coder).squeeze()
         if n==0:
             mask, ds, region_name = region_mask(region, ds, option='shelf', return_name=True)
             mask_3d = xr.where(ds[var_names[0]]==0, 0, mask)
@@ -960,7 +960,7 @@ def build_timeseries_trajectory (suite_list, var_name, base_dir='./', timeseries
                 break
         if stype is None:
             raise Exception('Simulation type not found')
-        ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file)
+        ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file, decode_times=time_coder)
         data = ds[var_name] + offset
         data = data.assign_coords(scenario_type=('time_centered', np.ones(data.size)*stype))
         if 'time_counter' in data.coords:
@@ -1352,7 +1352,7 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
 
     # Inner function to read global mean SAT from precomputed timeseries
     def global_mean_sat (suite):
-        ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file_um)
+        ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file_um, decode_times=time_coder)
         sat = ds['global_mean_sat']
         ds.close()
         return sat
@@ -1377,7 +1377,7 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
             month_start = time.month
             year_end, month_end = add_months(year_start, month_start, 1)
             file_path = base_dir+'/'+suite+'/nemo_'+suite+'o_1m_'+str(year_start)+str(month_start).zfill(2)+'01-'+str(year_end)+str(month_end).zfill(2)+'01_grid-T.nc'
-            ds = xr.open_dataset(file_path)
+            ds = xr.open_dataset(file_path, decode_times=time_coder)
             bwsalt = ds['sob']
             if eos == 'teos10':
                 # Convert to absolute salinity
@@ -1473,7 +1473,7 @@ def warming_implied_by_salinity_bias (salt_bias=None, base_dir='./'):
 
     # Calculate area-weighting of each region
     area = []
-    ds = xr.open_dataset(sample_file)
+    ds = xr.open_dataset(sample_file, decode_times=time_coder)
     for region in regions:
         mask = region_mask(region, ds, option='shelf')[0]
         dA = ds['area']*mask
@@ -1492,7 +1492,7 @@ def warming_implied_by_salinity_bias (salt_bias=None, base_dir='./'):
         suite = suites_by_scenario['ramp_up'][n]
         # Get timeseries of global warming
         warming_orig = global_warming(suite, pi_suite=pi_suite, base_dir=base_dir)
-        ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file)
+        ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file, decode_times=time_coder)
         # Get timeseries of Ross cavity temp to determine tipping: only want untipped sections, and Ross alway tips first
         ross_temp_orig = ds['ross_cavity_temp']
         # Trim and align; smooth
@@ -1588,7 +1588,7 @@ def plot_ross_fris_by_bwsalt (base_dir='./'):
                     direction.append(-1)
                 elif 'ramp_up' in scenario or 'stabilise' in scenario:
                     direction.append(0)
-                ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file)
+                ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file, decode_times=time_coder)
                 bwsalt = ds[regions[n]+'_shelf_bwsalt']
                 cavity_temp = ds[regions[n]+'_cavity_temp']
                 ds.close()
@@ -1725,17 +1725,17 @@ def plot_amundsen_temp_velocity (base_dir='./'):
     [vmin, vmax] = [0, 4.5]
 
     # Set up grid for plotting
-    ds_grid = xr.open_dataset(mean_dir+scenarios[0]+'_grid-T.nc').squeeze()
+    ds_grid = xr.open_dataset(mean_dir+scenarios[0]+'_grid-T.nc', decode_times=time_coder).squeeze()
     lon_edges = cfxr.bounds_to_vertices(ds_grid['bounds_lon'], 'nvertex')
     lat_edges = cfxr.bounds_to_vertices(ds_grid['bounds_lat'], 'nvertex')
     bathy, draft, ocean_mask, ice_mask = calc_geometry(ds_grid)
-    ds_domcfg = xr.open_dataset(domain_cfg).squeeze()
+    ds_domcfg = xr.open_dataset(domain_cfg, decode_times=time_coder).squeeze()
     ds_domcfg = ds_domcfg.isel(y=slice(0, ds_grid.sizes['y']))
 
     # Inner functions
     # Read a variable
     def read_var (var_name, scenario, gtype):
-        ds = xr.open_dataset(mean_dir + scenario + '_grid-' + gtype + '.nc')
+        ds = xr.open_dataset(mean_dir + scenario + '_grid-' + gtype + '.nc', decode_times=time_coder)
         data = ds[var_name].squeeze()
         ds.close()
         return data
@@ -1785,8 +1785,8 @@ def plot_amundsen_temp_velocity (base_dir='./'):
         all_u.append(apply_mask(ug))
         all_v.append(apply_mask(vg))
         # Barotropic streamfunction, interpolated to tracer grid
-        ds_u = xr.open_dataset(mean_dir+scenario+'_grid-U.nc').squeeze()
-        ds_v = xr.open_dataset(mean_dir+scenario+'_grid-V.nc').squeeze()
+        ds_u = xr.open_dataset(mean_dir+scenario+'_grid-U.nc', decode_times=time_coder).squeeze()
+        ds_v = xr.open_dataset(mean_dir+scenario+'_grid-V.nc', decode_times=time_coder).squeeze()
         strf = barotropic_streamfunction(ds_u, ds_v, ds_domcfg, periodic=True, halo=True)
         all_strf.append(apply_mask(strf, mask_shallow=True))
 
@@ -1912,7 +1912,7 @@ def dashboard_animation (suite_string, region, base_dir='./', out_dir='animation
             file_list.append(f)
     file_list.sort()
     f = file_list[-1]
-    grid = xr.open_dataset(base_dir+'/cx209/'+f)
+    grid = xr.open_dataset(base_dir+'/cx209/'+f, decode_times=time_coder)
     # Choose bounds of map to show
     mask = region_mask(region, grid)[0]
     x, y = polar_stereo(grid['nav_lon'], grid['nav_lat'])
@@ -1940,7 +1940,7 @@ def dashboard_animation (suite_string, region, base_dir='./', out_dir='animation
     print('Reading 2D data')
     precomputed_file = out_dir+'/precomputed/'+suite_string+'_'+region+'.nc'
     if os.path.isfile(precomputed_file):
-        ds_2D = xr.open_dataset(precomputed_file)
+        ds_2D = xr.open_dataset(precomputed_file, decode_times=time_coder)
         num_years = ds_2D.sizes['time_centered']
     else:
         ds_2D = None
@@ -1976,7 +1976,7 @@ def dashboard_animation (suite_string, region, base_dir='./', out_dir='animation
         bwtemp_accum = None
         ismr_accum = None
         for file_pattern in nemo_files:
-            ds = xr.open_mfdataset(file_pattern).isel(y=slice(jmin,jmax))
+            ds = xr.open_mfdataset(file_pattern, decode_times=time_coder).isel(y=slice(jmin,jmax))
             ds.load()
             ds = ds.swap_dims({'time_counter':'time_centered'}).drop_vars(['time_counter'])
             if os.path.isfile(file_pattern.replace('*','_grid')):
@@ -2198,8 +2198,8 @@ def merge_sfc_files (suite='cx209', subdir='sfc'):
         if not f.endswith('.nc'):
             continue
         print('Processing '+f)
-        ds1 = xr.open_dataset(suite+'/'+f)
-        ds2 = xr.open_dataset(suite+'/'+subdir+'/'+f)
+        ds1 = xr.open_dataset(suite+'/'+f, decode_times=time_coder)
+        ds2 = xr.open_dataset(suite+'/'+subdir+'/'+f, decode_times=time_coder)
         ds = xr.merge([ds1, ds2])
         ds.to_netcdf(suite+'/'+f+'_tmp')
         ds.close()
@@ -2226,7 +2226,7 @@ def find_stages_start_end (suite_list, base_dir='./', timeseries_file='timeserie
     stage_end = []
     for suite in suite_list:
         file_path = base_dir+'/'+suite+'/'+timeseries_file
-        ds = xr.open_dataset(file_path)
+        ds = xr.open_dataset(file_path, decode_times=time_coder)
         stage_start.append(ds.time_centered[0].item())
         stage_end.append(ds.time_centered[-1].item())
         ds.close()
@@ -2264,7 +2264,7 @@ def plot_FW_timeseries (base_dir='./'):
     # Inner function to read the variable from the main trajectory and subtract the PI baseline
     def read_var_anomaly (var, fname):
         data = build_timeseries_trajectory(suite_list, var, base_dir=base_dir, timeseries_file=fname)
-        ds = xr.open_dataset(base_dir+'/'+pi_suite+'/'+fname)
+        ds = xr.open_dataset(base_dir+'/'+pi_suite+'/'+fname, decode_times=time_coder)
         baseline = ds[var].isel(time_centered=slice(0,pi_years*months_per_year)).mean(dim='time_centered')
         ds.close()
         return data-baseline
@@ -2583,7 +2583,7 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
     latt = [-74, -77]
     depth0 = 1500
 
-    ds_grid = xr.open_dataset(sample_file).squeeze()
+    ds_grid = xr.open_dataset(sample_file, decode_times=time_coder).squeeze()
     bathy0, draft0, ocean_mask0, ice_mask0 = calc_geometry(ds_grid)
     # Mask cavities out of bathymetry for shelf break contour
     bathy0 = bathy0.where(np.invert(ice_mask0))
@@ -2703,7 +2703,7 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
             ocean_mask = None
             ice_mask = None
             for file_pattern in files_to_read:
-                ds = xr.open_mfdataset(file_pattern)
+                ds = xr.open_mfdataset(file_pattern, decode_times=time_coder)
                 ds.load()
                 ds = ds.swap_dims({'time_counter':'time_centered'}).drop_vars(['time_counter'])
                 data_tmp = ds[nemo_var].where(ds[nemo_var]!=0)
@@ -3052,7 +3052,7 @@ def find_corrupted_files (base_dir='./', log=False):
     file_tails = ['grid-T.nc', 'isf-T.nc']
     ref_file = '/gws/nopw/j04/terrafirma/kaight/overshoots/cw988/nemo_cw988o_1m_21491201-21500101_grid-T.nc'  # compare draft to file that is definitely an example of the problem
 
-    ds_ref = xr.open_dataset(ref_file)
+    ds_ref = xr.open_dataset(ref_file, decode_times=time_coder)
     draft_ref = calc_geometry(ds_ref)[1]
     ds_ref.close()
 
@@ -3095,7 +3095,7 @@ def find_corrupted_files (base_dir='./', log=False):
             num_blocks = 0
             print('Processing '+suite+' ('+scenario+')')
             # Read precomputed timeseries of mean ice draft
-            ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file)
+            ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file, decode_times=time_coder)
             draft = ds['all_draft']
             time = ds['time_centered']
             ds.close()
@@ -3126,7 +3126,7 @@ def find_corrupted_files (base_dir='./', log=False):
                         print('\nBlock starts at '+str(time[t].dt.year.item())+'-'+str(time[t].dt.month.item()))
                         # Check if draft matches the reference file
                         try:
-                            ds = xr.open_dataset(base_dir+'/'+suite+'/'+nemo_file)
+                            ds = xr.open_dataset(base_dir+'/'+suite+'/'+nemo_file, decode_times=time_coder)
                             draft_2D = calc_geometry(ds)[1]
                             is_ref = (draft_2D==draft_ref).all()
                             if is_ref:
@@ -3145,7 +3145,7 @@ def find_corrupted_files (base_dir='./', log=False):
                                 timestamps.append(date)
                             # Now check timestamp in file before
                             last_file = add_files(suite, time[t-1], add=False)
-                            ds_before = xr.open_dataset(base_dir+'/'+suite+'/'+last_file)
+                            ds_before = xr.open_dataset(base_dir+'/'+suite+'/'+last_file, decode_times=time_coder)
                             date_before = datetime.datetime.strptime(ds_before.attrs['timeStamp'], "%Y-%b-%d %H:%M:%S UTC")
                             ds_before.close()
                             delta = date - date_before
@@ -3235,11 +3235,11 @@ def overwrite_corrupted_timeseries (in_file='corrupted_files', timeseries_file='
                 file_patterns.append(file_pattern)
         # Read timeseries file and get list of variables to precompute
         file_path_ts = base_dir+'/'+suite+'/'+timeseries_file
-        ds_ts = xr.open_dataset(file_path_ts)
+        ds_ts = xr.open_dataset(file_path_ts, decode_times=time_coder)
         var_names = [var for var in ds_ts]
         for file_pattern in file_patterns:
             print('Processing '+file_pattern)
-            ds_nemo = xr.open_mfdataset(suite+'/'+file_pattern)
+            ds_nemo = xr.open_mfdataset(suite+'/'+file_pattern, decode_times=time_coder)
             ds_nemo.load()
             # Remove halo
             ds_nemo = ds_nemo.isel(x=slice(1,-1))
@@ -3320,7 +3320,7 @@ def find_problem_suites (base_dir='./', in_file='problem_events'):
         # Extract suite name
         suite = file_path[len('nemo_'):file_path.index('o_1m_')]
         # Get date object from relevant file
-        ds = xr.open_dataset(suite+'/'+file_path)
+        ds = xr.open_dataset(suite+'/'+file_path, decode_times=time_coder)
         date = ds['time_centered'].squeeze().item()
         ds.close()
         if suite in problems_by_suite:
@@ -3504,7 +3504,7 @@ def bug_recovery_timescale (base_dir='./'):
     std_cutoff = 1
 
     def read_var (suite, var):
-        ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file)
+        ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file, decode_times=time_coder)
         data = ds[var]
         ds.close()
         return data
@@ -3570,7 +3570,7 @@ def mask_problems (base_dir='./', in_file='problem_events'):
         # Make a copy of timeseries
         shutil.copyfile(file_path, base_dir+'/'+suite+'/'+timeseries_copy)
         # Read timeseries and get time axis
-        ds = xr.open_dataset(file_path)
+        ds = xr.open_dataset(file_path, decode_times=time_coder)
         time = ds['time_centered']
         # Loop over problems in this suite
         masked_months = 0
@@ -3649,7 +3649,7 @@ def spatial_regression_bwsalt_gw (base_dir='./', out_file='bwsalt_warming_regres
     smooth = smooth_years*months_per_year
 
     # Make combined mask
-    ds = xr.open_dataset(sample_file)
+    ds = xr.open_dataset(sample_file, decode_times=time_coder)
     masks = [region_mask(region, ds, option='shelf')[0] for region in regions]
     mask = (masks[0] + masks[1]).squeeze()
     ds.close()
@@ -3684,7 +3684,7 @@ def spatial_regression_bwsalt_gw (base_dir='./', out_file='bwsalt_warming_regres
         print('Reading data')
         # Read bottom salinity from every file
         for file_path in nemo_files:
-            ds = xr.open_dataset(file_path)
+            ds = xr.open_dataset(file_path, decode_times=time_coder)
             # Only keep the indices inside the mask to save memory
             bwsalt = ds['sob'].where(mask).swap_dims({'time_counter':'time_centered'})
             bwsalt = bwsalt.where(bwsalt.notnull(), drop=True)
@@ -3735,7 +3735,7 @@ def stabilisation_tipping_list (base_dir='./', out_file='stabilisation_tipping_t
         for suite in suites_by_scenario[scenario]:
             f.write(suite+' ('+scenario+')\n')
             # Get starting date
-            ds = xr.open_dataset(suite+'/'+timeseries_file)
+            ds = xr.open_dataset(suite+'/'+timeseries_file, decode_times=time_coder)
             date0 = ds['time_centered'][0]
             ds.close()
             f.write('Starts in '+str(date0.dt.year.item())+'\n')
@@ -3765,15 +3765,15 @@ def temp_correction_uncertainty (base_dir='./', bias_file='bwsalt_bias.nc', slop
     p0 = 0.05
 
     # Make combined mask
-    ds_grid = xr.open_dataset(sample_file)
+    ds_grid = xr.open_dataset(sample_file, decode_times=time_coder)
     masks = [region_mask(region, ds_grid, option='shelf')[0] for region in regions]
     mask = (masks[0] + masks[1]).squeeze()
 
     # Read bias and slopes
-    ds = xr.open_dataset(bias_file)
+    ds = xr.open_dataset(bias_file, decode_times=time_coder)
     bias = ds['bwsalt_bias'].squeeze().where(mask)
     ds.close()
-    ds = xr.open_dataset(slope_file)
+    ds = xr.open_dataset(slope_file, decode_times=time_coder)
     slopes = ds['slope'].where(mask)
     ds.close()
     # Get ensemble mean slope and mask out regions where not significant
@@ -3833,8 +3833,8 @@ def merge_rerun_suite (suite_old, suite_new, base_dir='./'):
     for ts_file in timeseries_files:
         file_old = base_dir+'/'+suite_old+'/'+ts_file
         file_new = base_dir+'/'+suite_new+'/'+ts_file
-        ds_old = xr.open_dataset(file_old)
-        ds_new = xr.open_dataset(file_new)
+        ds_old = xr.open_dataset(file_old, decode_times=time_coder)
+        ds_new = xr.open_dataset(file_new, decode_times=time_coder)
         date_branch = ds_new['time_centered'][0]
         print('Merging at '+str(date_branch.dt.year.item())+'-'+str(date_branch.dt.month.item()))
         t_merge = np.argwhere(ds_old['time_centered'].data == date_branch.data)[0][0]
@@ -3857,7 +3857,7 @@ def problem_effect_recovery (base_dir='./'):
     for suite in [suite_old, suite_new]:
         print(suite)
         warming = moving_average(global_warming(suite, base_dir=base_dir), smooth)
-        ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file)
+        ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file, decode_times=time_coder)
         cavity_temp = moving_average(ds[region+'_cavity_temp'], smooth)
         cavity_temp, warming = align_timeseries(cavity_temp, warming)
         recovers, date_recovers, t_recovers = check_recover(cavity_temp=cavity_temp, smoothed=True, return_date=True, return_t=True, base_dir=base_dir)
@@ -3879,7 +3879,7 @@ def check_pi_drift (base_dir='./'):
         if 'piControl' in scenario:
             for suite in suites_by_scenario[scenario]:
                 print(suite+' ('+scenario+')')
-                ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file)
+                ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file, decode_times=time_coder)
                 for region in regions:
                     print(region+', '+suite)
                     massloss = moving_average(ds[region+'_massloss'], smooth)
