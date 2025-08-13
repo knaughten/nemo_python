@@ -81,6 +81,7 @@ tipping_threshold = -1.9  # If cavity mean temp is warmer than surface freezing 
 temp_correction = 1.1403043611842025 # Precomputed by warming_implied_by_salinity_bias()
 temp_correction_lower = 0.15386275907205732
 temp_correction_upper = 2.004807510160955  # 10-90% bounds precomputed by temp_correction_uncertainty
+time_coder = xr.coders.CFDatetimeCoder(use_cftime=True)
 
 # End global vars
 
@@ -294,7 +295,7 @@ def plot_all_timeseries_by_expt (base_dir='./', regions=['all', 'amundsen_sea', 
 
 # Helper function to read global mean SAT
 def global_temp (suite, base_dir='./', timeseries_file_um='timeseries_um.nc'):
-    ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file_um)
+    ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file_um, decode_times=time_coder)
     sat = ds['global_mean_sat']
     ds.close()
     return sat
@@ -3004,7 +3005,7 @@ def plot_SLR_timeseries (base_dir='./', draft=False):
 def count_simulation_years (base_dir='./'):
 
     timeseries_file = 'timeseries.nc'
-    smooth = 5*months_per_year
+    smooth = 5*months_per_year+1
 
     years = 0
     for scenario in suites_by_scenario:
@@ -3012,7 +3013,7 @@ def count_simulation_years (base_dir='./'):
             continue
         for suite in suites_by_scenario[scenario]:
             file_path = base_dir+'/'+suite+'/'+timeseries_file
-            ds = xr.open_dataset(file_path)
+            ds = xr.open_dataset(file_path, decode_times=time_coder)
             if 'ramp_down' in scenario:
                 # Check if simulation has cooled below PI, based on 5-year running mean going below PI baseline and staying there
                 warming = moving_average(global_warming(suite), smooth)
@@ -3021,10 +3022,10 @@ def count_simulation_years (base_dir='./'):
                     t_start = np.where(warming.data < 0)[0][0]
                     for t in range(t_start, warming.sizes['time_centered']):
                         if warming.isel(time_centered=slice(t,None)).max() < 0:
-                            t_end = t
+                            date_end = warming.coords['time_centered'].data[t]
                             break
                     # Truncate the dataset to this date
-                    t_truncate = np.argwhere(ds['time_centered'].data == t_end.data)[0][0]
+                    t_truncate = np.argwhere(ds['time_centered'].data == date_end)[0][0]
                     print('Removing last '+str((ds.sizes['time_centered']-t_truncate+1)/months_per_year)+' years of '+suite+' which cools below PI')
                     ds = ds.isel(time_centered=slice(0,t_truncate))
             num_months = ds.sizes['time_centered']
