@@ -6,6 +6,7 @@ from .constants import region_points, region_names, rho_fw, rho_ice, sec_per_yea
 from .utils import add_months, closest_point, month_convert, bwsalt_abs
 from .grid import single_cavity_mask, region_mask, calc_geometry
 from .diagnostics import transport, weddell_gyre_transport
+time_coder = xr.coders.CFDatetimeCoder(use_cftime=True)
 
 # Calculate a timeseries of the given preset variable from an xarray Dataset of NEMO output (must have halo removed). Returns DataArrays of the timeseries data, the associated time values, and the variable title. Specify whether there is a halo (true for periodic boundaries in NEMO 3.6).
 # Preset variables include:
@@ -155,7 +156,7 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
 
     if var == 'drake_passage_transport' and 'e2u' not in ds_nemo:
         # Need to add e2u from domain_cfg
-        ds_domcfg = xr.open_dataset(domain_cfg).squeeze()
+        ds_domcfg = xr.open_dataset(domain_cfg, decode_times=time_coder).squeeze()
         if ds_nemo.sizes['y'] < ds_domcfg.sizes['y']:
             # The NEMO dataset was trimmed (eg by MOOSE for UKESM) to the southernmost latitudes. Do the same for domain_cfg.
             ds_domcfg = ds_domcfg.isel(y=slice(0, ds_nemo.sizes['y']))
@@ -177,13 +178,13 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         if region in region_points and region_type == 'cavity':
             # Single ice shelf
             if nemo_mesh:
-                nemo_file = xr.open_dataset(nemo_mesh)
+                nemo_file = xr.open_dataset(nemo_mesh, decode_times=time_coder)
                 mask, _, region_name = single_cavity_mask(region, nemo_file, return_name=True)
             else:
                 mask, ds_nemo, region_name = single_cavity_mask(region, ds_nemo, return_name=True)
         else:
             if nemo_mesh:
-                nemo_file = xr.open_dataset(nemo_mesh)
+                nemo_file = xr.open_dataset(nemo_mesh, decode_times=time_coder)
                 mask, _, region_name = region_mask(region, nemo_file, option=region_type, return_name=True)
             else:
                 mask, ds_nemo, region_name = region_mask(region, ds_nemo, option=region_type, return_name=True)
@@ -228,7 +229,7 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         # Calculate zonal or meridional transport
         data = transport(ds_nemo, lon0=lon0, lat0=lat0, lon_bounds=lon_bounds, lat_bounds=lat_bounds)
     elif option == 'weddell_transport':
-        ds_domcfg = xr.open_dataset(domain_cfg).squeeze()
+        ds_domcfg = xr.open_dataset(domain_cfg, decode_times=time_coder).squeeze()
         if ds_nemo.sizes['y'] < ds_domcfg.sizes['y']:
             # The NEMO dataset was trimmed (eg by MOOSE for UKESM) to the southernmost latitudes. Do the same for domain_cfg.
             ds_domcfg = ds_domcfg.isel(y=slice(0, ds_nemo.sizes['y']))
@@ -325,7 +326,7 @@ def precompute_timeseries (ds_nemo, timeseries_types, timeseries_file, halo=True
 
     if os.path.isfile(timeseries_file):
         # File already exists; read it
-        ds_old = xr.open_dataset(timeseries_file)
+        ds_old = xr.open_dataset(timeseries_file, decode_times=time_coder)
         if 'forecast_period' in ds_old:
             # Old formulation using conversion from Iris (breaks in 2300s with datetime overflow): drop unused coordinates
             ds_old = ds_old.drop_vars(['forecast_period', 'forecast_reference_time', 'height', 'latitude', 'longitude'])
@@ -349,7 +350,7 @@ def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='t
     if update:
         # Timeseries file already exists
         # Get last time index
-        ds_ts = xr.open_dataset(sim_dir+timeseries_file)
+        ds_ts = xr.open_dataset(sim_dir+timeseries_file, decode_times=time_coder)
         time_last  = ds_ts['time_centered'][-1].dt
         year_last  = time_last.year
         month_last = time_last.month
@@ -422,11 +423,11 @@ def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='t
         if 'weddell_gyre_transport' in timeseries_types: # need to load both gridU and grid V files to be able to calculate this; not currently the neatest approach
             if gtype not in ['U', 'V']:
                 raise Exception('Grid type must be specified as either U or V when calculating Weddell Gyre Transport') # should be U and V:
-            dsU = xr.open_dataset(glob.glob(f'{sim_dir}/{file_pattern}'.replace('V.nc', 'U.nc'))[0])[['e3u','uo']].rename({'nav_lon':'nav_lon_grid_U','nav_lat':'nav_lat_grid_U'})
-            dsV = xr.open_dataset(glob.glob(f'{sim_dir}/{file_pattern}'.replace('U.nc', 'V.nc'))[0])[['e3v','vo']].rename({'nav_lon':'nav_lon_grid_V','nav_lat':'nav_lat_grid_V'})
+            dsU = xr.open_dataset(glob.glob(f'{sim_dir}/{file_pattern}'.replace('V.nc', 'U.nc'))[0], decode_times=time_coder)[['e3u','uo']].rename({'nav_lon':'nav_lon_grid_U','nav_lat':'nav_lat_grid_U'})
+            dsV = xr.open_dataset(glob.glob(f'{sim_dir}/{file_pattern}'.replace('U.nc', 'V.nc'))[0], decode_times=time_coder)[['e3v','vo']].rename({'nav_lon':'nav_lon_grid_V','nav_lat':'nav_lat_grid_V'})
             ds_nemo = dsU.merge(dsV)
         else:
-            ds_nemo = xr.open_mfdataset(f'{sim_dir}/{file_pattern}')
+            ds_nemo = xr.open_mfdataset(f'{sim_dir}/{file_pattern}', decode_times=time_coder)
         ds_nemo.load()
         precompute_timeseries(ds_nemo, timeseries_types, f'{sim_dir}/{timeseries_file}', halo=halo, periodic=periodic, domain_cfg=domain_cfg,
                               name_remapping=name_remapping, nemo_mesh=nemo_mesh)
@@ -440,7 +441,7 @@ def update_simulation_timeseries_um (suite_id, timeseries_types, timeseries_file
     if update:
         # Timeseries file already exists
         # Get last time index
-        ds_ts = xr.open_dataset(sim_dir+timeseries_file)
+        ds_ts = xr.open_dataset(sim_dir+timeseries_file, decode_times=time_coder)
         time_last = ds_ts['time_centered'].data[-1]
         year_last = time_last.year
         month_last = time_last.month
@@ -484,9 +485,9 @@ def calc_hovmoeller_region(var, region,
     
     # Load gridT files into dataset:
     gridT_files = glob.glob(f'{run_folder}*grid_T*')
-    nemo_ds     = xr.open_mfdataset(gridT_files).isel(x_grid_T=region['x'], y_grid_T=region['y']) # load all the gridT files in the run folder
+    nemo_ds     = xr.open_mfdataset(gridT_files, decode_times=time_coder).isel(x_grid_T=region['x'], y_grid_T=region['y']) # load all the gridT files in the run folder
 
-    nemo_mesh_ds     = xr.open_dataset(f'{nemo_mesh}')
+    nemo_mesh_ds     = xr.open_dataset(f'{nemo_mesh}', decode_times=time_coder)
     nemo_mesh_subset = nemo_mesh_ds.rename({'x':'x_grid_T','y':'y_grid_T','nav_lev':'deptht'}).isel(x_grid_T=region['x'], y_grid_T=region['y'], time_counter=0)
     
     var_ocean  = xr.where(nemo_mesh_subset.tmask==0, np.nan, nemo_ds[var]) 
@@ -501,7 +502,7 @@ def fix_missing_months (timeseries_file):
 
     import cftime
 
-    ds = xr.open_dataset(timeseries_file)
+    ds = xr.open_dataset(timeseries_file, decode_times=time_coder)
     t_start = 0
     while True:
         time = ds['time_centered']
@@ -537,7 +538,7 @@ def check_nans (timeseries_file, var_names=['all_massloss', 'all_bwtemp']):
 
     limit = 3
 
-    ds = xr.open_dataset(timeseries_file)
+    ds = xr.open_dataset(timeseries_file, decode_times=time_coder)
     for var in var_names:
         if np.count_nonzero(ds[var].isnull()):
             # There are some NaNs; check for consecutive ones

@@ -2295,7 +2295,7 @@ def plot_FW_timeseries (base_dir='./'):
     recover_times = [check_recover(suite=suite_string, region=region, return_date=True, base_dir=base_dir)[1] for region in tip_regions]
 
     # Plot
-    fig = plt.figure(figsize=(8,3.5))
+    fig = plt.figure(figsize=(9,3.5))
     gs = plt.GridSpec(1,1)
     gs.update(left=0.1, right=0.95, bottom=0.15, top=0.9, hspace=0.05)
     ax = plt.subplot(gs[0,0])
@@ -2321,7 +2321,7 @@ def plot_FW_timeseries (base_dir='./'):
     ax.set_ylabel(units)
     ax.set_xlim([stage_start[0], stage_end[-1]])
     ax.set_title('Antarctic freshwater fluxes (anomalies from preindustrial)', fontsize=14)
-    plt.text(618, ax.get_ylim()[0]-6, 'years', ha='left', va='top')
+    plt.text(718, ax.get_ylim()[0]-7, 'years', ha='left', va='top')
     plt.text(0.5, 0.01, trajectory_title(suite_string), ha='center', va='bottom', transform=fig.transFigure, fontsize=12)
     ax.legend(loc='upper left')
     finished_plot(fig, fig_name='figures/FW_timeseries.png', dpi=300)
