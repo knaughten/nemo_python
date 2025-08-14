@@ -2235,6 +2235,23 @@ def find_stages_start_end (suite_list, base_dir='./', timeseries_file='timeserie
     return stage_start, stage_end
 
 
+# Helper function to find if/when a given suite cools below PI.
+def truncate_rampdown_PI (suite):
+
+    # Check if 5-year running mean GMST goes below PI and stays there
+    smooth = 5*months_per_year
+    warming = moving_average(global_warming(suite), smooth)
+    if warming.min() < 0:
+        t_start = np.where(warming.data < 0)[0][0]
+        for t in range(t_start, warming.sizes['time_centered']):
+            if warming.isel(time_centered=slice(t,None)).max() < 0:
+                date_end = warming.coords['time_centered'].data[t]
+                break
+        return date_end
+    else:
+        return None
+
+
 # Timeseries of various freshwater fluxes, relative to preindustrial baseline, for one trajectory.
 def plot_FW_timeseries (base_dir='./'):
 
@@ -2289,15 +2306,19 @@ def plot_FW_timeseries (base_dir='./'):
     stage_start, stage_end = find_stages_start_end(suite_list, base_dir=base_dir, timeseries_file=timeseries_files[0])
     stage_start = [date.year-year0 for date in stage_start]
     stage_end = [date.year-year0 for date in stage_end]
+    # Check if ramp-down cooled below PI
+    date_end = truncate_rampdown_PI
+    if date_end is not None:
+        stage_end[-1] = date_end.year-year0
 
     # Find the time of tipping and recovery for each cavity
     tip_times = [check_tip(suite=suite_string, region=region, return_date=True, base_dir=base_dir)[1] for region in tip_regions]
     recover_times = [check_recover(suite=suite_string, region=region, return_date=True, base_dir=base_dir)[1] for region in tip_regions]
 
     # Plot
-    fig = plt.figure(figsize=(9,3.5))
+    fig = plt.figure(figsize=(8.5,3.5))
     gs = plt.GridSpec(1,1)
-    gs.update(left=0.1, right=0.95, bottom=0.15, top=0.9, hspace=0.05)
+    gs.update(left=0.07, right=0.99, bottom=0.15, top=0.9, hspace=0.05)
     ax = plt.subplot(gs[0,0])
     for v in range(len(data_plot)):
         # Get time axis in years since beginning
@@ -2324,7 +2345,7 @@ def plot_FW_timeseries (base_dir='./'):
     plt.text(718, ax.get_ylim()[0]-7, 'years', ha='left', va='top')
     plt.text(0.5, 0.01, trajectory_title(suite_string), ha='center', va='bottom', transform=fig.transFigure, fontsize=12)
     ax.legend(loc='upper left')
-    finished_plot(fig, fig_name='figures/FW_timeseries.png', dpi=300)
+    finished_plot(fig) #, fig_name='figures/FW_timeseries.png', dpi=300)
 
 
 # Plot shelf bwsalt and its time-derivative for the Ross and FRIS regions in untipped trajectories, with the given level of smoothing (in years).
@@ -3015,17 +3036,10 @@ def count_simulation_years (base_dir='./'):
             file_path = base_dir+'/'+suite+'/'+timeseries_file
             ds = xr.open_dataset(file_path, decode_times=time_coder)
             if 'ramp_down' in scenario:
-                # Check if simulation has cooled below PI, based on 5-year running mean going below PI baseline and staying there
-                warming = moving_average(global_warming(suite), smooth)
-                if warming.min() < 0:
-                    # Find first instance of temp going below PI
-                    t_start = np.where(warming.data < 0)[0][0]
-                    for t in range(t_start, warming.sizes['time_centered']):
-                        if warming.isel(time_centered=slice(t,None)).max() < 0:
-                            date_end = warming.coords['time_centered'].data[t]
-                            break
-                    # Truncate the dataset to this date
-                    t_truncate = np.argwhere(ds['time_centered'].data == date_end)[0][0]
+                # Check if simulation has cooled below PI
+                date_end = truncate_rampdown_PI(suite)
+                if date_end is not None:
+                    t_truncate = np.argwhere(ds['time_centered'].data > date_end)[0][0]
                     print('Removing last '+str((ds.sizes['time_centered']-t_truncate+1)/months_per_year)+' years of '+suite+' which cools below PI')
                     ds = ds.isel(time_centered=slice(0,t_truncate))
             num_months = ds.sizes['time_centered']
