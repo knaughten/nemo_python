@@ -2307,7 +2307,7 @@ def plot_FW_timeseries (base_dir='./'):
     stage_start = [date.year-year0 for date in stage_start]
     stage_end = [date.year-year0 for date in stage_end]
     # Check if ramp-down cooled below PI
-    date_end = truncate_rampdown_PI
+    date_end = truncate_rampdown_PI(suite_list[-1])
     if date_end is not None:
         stage_end[-1] = date_end.year-year0
 
@@ -2316,9 +2316,9 @@ def plot_FW_timeseries (base_dir='./'):
     recover_times = [check_recover(suite=suite_string, region=region, return_date=True, base_dir=base_dir)[1] for region in tip_regions]
 
     # Plot
-    fig = plt.figure(figsize=(8.5,3.5))
+    fig = plt.figure(figsize=(8,3.5))
     gs = plt.GridSpec(1,1)
-    gs.update(left=0.07, right=0.99, bottom=0.15, top=0.9, hspace=0.05)
+    gs.update(left=0.08, right=0.99, bottom=0.15, top=0.9, hspace=0.05)
     ax = plt.subplot(gs[0,0])
     for v in range(len(data_plot)):
         # Get time axis in years since beginning
@@ -2342,10 +2342,10 @@ def plot_FW_timeseries (base_dir='./'):
     ax.set_ylabel(units)
     ax.set_xlim([stage_start[0], stage_end[-1]])
     ax.set_title('Antarctic freshwater fluxes (anomalies from preindustrial)', fontsize=14)
-    plt.text(718, ax.get_ylim()[0]-7, 'years', ha='left', va='top')
+    plt.text(615, ax.get_ylim()[0]-7, 'years', ha='left', va='top')
     plt.text(0.5, 0.01, trajectory_title(suite_string), ha='center', va='bottom', transform=fig.transFigure, fontsize=12)
     ax.legend(loc='upper left')
-    finished_plot(fig) #, fig_name='figures/FW_timeseries.png', dpi=300)
+    finished_plot(fig, fig_name='figures/FW_timeseries.png', dpi=300)
 
 
 # Plot shelf bwsalt and its time-derivative for the Ross and FRIS regions in untipped trajectories, with the given level of smoothing (in years).
@@ -3907,6 +3907,67 @@ def check_pi_drift (base_dir='./'):
                     else:
                         print('No significant trend')
                 ds.close()
+
+
+def case_study_timeseries (base_dir='./'):
+
+    regions = ['ross', 'filchner_ronne']
+    colours = ['DarkGreen', 'Purple']
+    suite_strings = ['cx209-cz376-da892', 'cx209-cz378-de943']
+    suite_lists = [suite_string.split('-') for suite_string in suite_strings]
+    region_titles = ['Ross', 'Filchner-Ronne']
+    suite_titles = [trajectory_title(suites) for suites in suite_strings]
+    num_regions = len(regions)
+    var_names = ['global_mean_sat', 'cavity_temp', 'massloss']
+    var_titles = ['a) Global warming', 'b) Ocean temperature in ice shelf cavities', 'c) Melting beneath ice shelves']
+    units = 2*[deg_string+'C'] + ['Gt/y']
+    num_var = len(var_names)
+    timeseries_file = ['timeseries_um.nc'] + 2*['timeseries.nc']
+    baseline_temp = pi_baseline_temp(base_dir=base_dir)
+    smooth = 5*months_per_year
+
+    # Read data
+    data_plot = []
+    for v in range(num_var):
+        data_var = []
+        for n in range(num_regions):
+            if var_names[v] == 'global_mean_sat':
+                data = build_timeseries_trajectory(suite_lists[n], var_names[v], base_dir=base_dir, timeseries_file=timeseries_file[v], offset=-baseline_temp)
+            else:
+                data = build_timeseries_trajectory(suite_lists[n], regions[n]+'_'+var_names[v], base_dir=base_dir, timeseries_file=timeseries_file[v])
+            # Smooth
+            data = moving_average(data, smooth)
+            data_var.append(data)
+        data_plot.append(data_var)
+    date_end = [truncate_rampdown_PI(suite_list[-1]) for suite_list in suite_lists]
+
+    # Plot
+    fig = plt.figure(figsize=(7,7))
+    gs = plt.GridSpec(num_var,1)
+    gs.update(left=0.1, right=0.93, bottom=0.15, top=0.95, hspace=0.35)
+    for v in range(num_var):
+        ax = plt.subplot(gs[v,0])
+        for n in range(num_regions):
+            data = data_plot[v][n]
+            if date_end[n] is not None:
+                t_truncate = np.argwhere((data.coords['time_centered'] > date_end[n]).data)[0][0]
+                data = data.isel(time_centered=slice(0,t_truncate))
+            # Get time axis in years since beginning
+            year0 = data.time_centered[0].dt.year.item()
+            years = np.array([(date.dt.year.item() - year0) + (date.dt.month.item() - 1)/months_per_year + 0.5 for date in data.time_centered])
+            ax.plot(years, data, '-', color=colours[n], label=region_titles[n]+': '+suite_titles[n], linewidth=1.5)
+        ax.grid(linestyle='dotted')
+        if var_names[v] == 'cavity_temp':
+            ax.axhline(tipping_threshold, color='black', linestyle='dashed')
+        ax.set_ylabel(units[v])
+        ax.set_title(var_titles[v], fontsize=13)
+        plt.text(1.017, -0.138, 'years', fontsize=10, transform=ax.transAxes)
+    ax.legend(loc='lower center', bbox_to_anchor=(0.5,-0.65))
+    finished_plot(fig, fig_name='figures/case_study_timeseries.png', dpi=300)
+            
+        
+
+    
                     
                 
     
