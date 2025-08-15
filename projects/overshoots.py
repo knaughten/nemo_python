@@ -3961,7 +3961,7 @@ def case_study_timeseries (base_dir='./'):
             ax.axhline(tipping_threshold, color='black', linestyle='dashed')
         ax.set_ylabel(units[v])
         ax.set_title(var_titles[v], fontsize=13)
-        plt.text(1.017, -0.138, 'years', fontsize=10, transform=ax.transAxes)
+        plt.text(1.018, -0.137, 'years', fontsize=10, transform=ax.transAxes)
     ax.legend(loc='lower center', bbox_to_anchor=(0.5,-0.65))
     finished_plot(fig, fig_name='figures/case_study_timeseries.png', dpi=300)
             
