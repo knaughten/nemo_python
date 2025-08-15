@@ -2524,7 +2524,7 @@ def stage_timescales (base_dir='./', fig_dir=None, plot_traj=False):
                 ramp_down_time = stype_date(cavity_temp, -1)
                 if ramp_down_time is not None and tip_time > ramp_down_time:
                     tip_ramp_down += 1
-                if stab_time is not None and tip_time > stab_time:
+                elif stab_time is not None and tip_time > stab_time:
                     tip_stab += 1
                     # Save years between stabilisation and tipping
                     stab_to_tip.append(years_between(stab_time, tip_time))
