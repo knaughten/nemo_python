@@ -2403,7 +2403,7 @@ def plot_untipped_salinity (smooth=30, base_dir='./'):
                 ax2.legend(handles=handles, loc='lower center', bbox_to_anchor=(0.5,-0.25), ncol=3)
                 finished_plot(fig)
 
-# Calculate the timescales for different stages in the tipping process; plot 1x3 timeseries (shelf salinity, cavity temperature, mass loss) for each trajectory and region (optional), and histograms of 4 different timescales.
+# Calculate the timescales for different stages in the tipping process; plot 1x3 timeseries (shelf salinity, cavity temperature, mass loss) for each trajectory and region (optional), and histograms of 4 different timescales. Also print information about how many trajectories tip and recover in what combinations.
 def stage_timescales (base_dir='./', fig_dir=None, plot_traj=False):
 
     regions = ['ross', 'filchner_ronne']
@@ -2433,6 +2433,52 @@ def stage_timescales (base_dir='./', fig_dir=None, plot_traj=False):
             return date, t0
         else:
             return date
+
+    none_tip = 0
+    ross_only_tip = 0
+    ross_only_tip_no_recover = 0
+    ross_only_tip_recovers = 0
+    both_tip = 0
+    both_tip_no_recover = 0
+    both_tip_only_fris_recover = 0
+    both_tip_both_recover = 0
+    suite_lists = all_suite_trajectories()
+    for suite_list in suite_lists:
+        suite_string = '-'.join(suite_list)
+        ross_tips = check_tip(suite=suite_string, region='ross')
+        fris_tips = check_tip(suite=suite_string, region='filchner_ronne')      
+        if not ross_tips and not fris_tips:
+            none_tip += 1
+        elif ross_tips and not fris_tips:
+            ross_only_tip += 1
+            ross_recovers = check_recover(suite=suite_string, region='ross')
+            if not ross_recovers:
+                ross_only_tip_no_recover += 1
+            else:
+                ross_only_tip_recovers += 1
+        elif ross_tips and fris_tips:
+            both_tip += 1
+            ross_recovers = check_recover(suite=suite_string, region='ross')
+            fris_recovers = check_recover(suite=suite_string, region='filchner_ronne')
+            if not ross_recovers and not fris_recovers:
+                both_tip_no_recover += 1
+            elif fris_recovers and not ross_recovers:
+                both_tip_only_fris_recover += 1
+            elif ross_recovers and fris_recovers:
+                both_tip_both_recover += 1
+            else:
+                raise Exception('Ross recovers but not FRIS for '+suite_string)
+        else:
+            raise Exception('FRIS tips but not Ross for '+suite_string)
+    print('# trajectories: '+str(len(suite_lists)))
+    print('Neither tips: '+str(none_tip))
+    print('Only Ross tips: '+str(ross_only_tip))
+    print('  does not recover: '+str(ross_only_tip_no_recover))
+    print('  recovers: '+str(ross_only_tip_recovers))
+    print('Both tip: '+str(both_tip))
+    print('  neither recovers: '+str(both_tip_no_recover))
+    print('  only FRIS recovers: '+str(both_tip_only_fris_recover))
+    print('  both recover: '+str(both_tip_both_recover))
 
     stab_to_tip_all = []
     tip_to_melt_max_all = []
