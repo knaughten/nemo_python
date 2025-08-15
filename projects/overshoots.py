@@ -2498,6 +2498,7 @@ def stage_timescales (base_dir='./', fig_dir=None, plot_traj=False):
         num_tip = 0
         tip_ramp_up = 0
         tip_stab = 0
+        tip_ramp_down = 0
         num_recover = 0
         recover_stab = 0
         recover_ramp_down = 0
@@ -2522,7 +2523,7 @@ def stage_timescales (base_dir='./', fig_dir=None, plot_traj=False):
                 stab_time = stype_date(cavity_temp, 0)
                 ramp_down_time = stype_date(cavity_temp, -1)
                 if ramp_down_time is not None and tip_time > ramp_down_time:
-                    raise Exception(suite_string+' tips during ramp down')
+                    tip_ramp_down += 1
                 if stab_time is not None and tip_time > stab_time:
                     tip_stab += 1
                     # Save years between stabilisation and tipping
@@ -2607,6 +2608,7 @@ def stage_timescales (base_dir='./', fig_dir=None, plot_traj=False):
         print(region+' tips: '+str(num_tip))
         print(region+' tips during ramp-up: '+str(tip_ramp_up))
         print(region+' tips during stabilisation: '+str(tip_stab))
+        print(region+' tips during ramp-down: '+str(tip_ramp_down))
         print(region+' recovers: '+str(num_recover))
         print(region+' recovers during stabilisation: '+str(recover_stab))
         print(region+' recovers during ramp-down: '+str(recover_ramp_down))
