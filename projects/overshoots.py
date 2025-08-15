@@ -2241,7 +2241,7 @@ def truncate_rampdown_PI (suite):
     # Check if 5-year running mean GMST goes below PI and stays there
     smooth = 5*months_per_year
     warming = moving_average(global_warming(suite), smooth)
-    if warming.min() < 0:
+    if warming.min() < 0 and warming.isel(time_centered=-1) < 0:
         t_start = np.where(warming.data < 0)[0][0]
         for t in range(t_start, warming.sizes['time_centered']):
             if warming.isel(time_centered=slice(t,None)).max() < 0:
@@ -2495,6 +2495,13 @@ def stage_timescales (base_dir='./', fig_dir=None, plot_traj=False):
         ramp_down_to_recovery = []
         tip_to_recovery = []
         ramp_down_to_min_s = []
+        num_tip = 0
+        tip_ramp_up = 0
+        tip_stab = 0
+        num_recover = 0
+        recover_stab = 0
+        recover_ramp_down = 0
+        no_recover_PI = 0
         # Loop over trajectories
         for suite_string, shelf_bwsalt, cavity_temp, massloss in zip(suite_strings, all_shelf_bwsalt, all_cavity_temp, all_massloss):
             print(suite_string+', '+region)
@@ -2510,11 +2517,18 @@ def stage_timescales (base_dir='./', fig_dir=None, plot_traj=False):
             # Check for trajectories which tip
             tips, tip_time = check_tip(cavity_temp=cavity_temp, smoothed=False, return_date=True, base_dir=base_dir)
             if tips:
-                # Check for trajectories which tip after stabilisation
+                num_tip += 1
+                # Check for trajectories which tip during each phase
                 stab_time = stype_date(cavity_temp, 0)
+                ramp_down_time = stype_date(cavity_temp, -1)
+                if ramp_down_time is not None and tip_time > ramp_down_time:
+                    raise Exception(suite_string+' tips during ramp down')
                 if stab_time is not None and tip_time > stab_time:
+                    tip_stab += 1
                     # Save years between stabilisation and tipping
                     stab_to_tip.append(years_between(stab_time, tip_time))
+                else:
+                    tip_ramp_up += 1
                 # Find time of max smoothed mass loss
                 melt_max_time = massloss_smooth.time_centered[massloss_smooth.argmax()]
                 # Save years between tipping and max mass loss
@@ -2522,13 +2536,23 @@ def stage_timescales (base_dir='./', fig_dir=None, plot_traj=False):
                 # Check for trajectories which recover
                 recovers, recover_time = check_recover(cavity_temp=cavity_temp, smoothed=False, return_date=True, base_dir=base_dir)
                 if recovers:
+                    num_recover += 1
                     # Save years between tipping and recovery
                     tip_to_recovery.append(years_between(tip_time, recover_time))
-                # Check for trajectories which have a ramp-down
-                ramp_down_time = stype_date(cavity_temp, -1)
-                if ramp_down_time is not None and recovers:
-                    # Save years between ramp-down and recovery
-                    ramp_down_to_recovery.append(years_between(ramp_down_time, recover_time))                
+                    if ramp_down_time is not None and recover_time > ramp_down_time:
+                        recover_ramp_down += 1
+                        # Save years between ramp-down and recovery
+                        ramp_down_to_recovery.append(years_between(ramp_down_time, recover_time))
+                    elif stab_time is not None and recover_time > stab_time:
+                        recover_stab += 1
+                    else:
+                        raise Exception(suite_string+' recovers during ramp-up')
+                else:
+                    # Check if final temp below PI
+                    ramp_down_suite = suite_string.split('-')[-1]
+                    date_PI = truncate_rampdown_PI(ramp_down_suite)
+                    if date_PI is not None:
+                        no_recover_PI += 1
             else:
                 # Untipped
                 recovers = False
@@ -2580,6 +2604,13 @@ def stage_timescales (base_dir='./', fig_dir=None, plot_traj=False):
         tip_to_recovery_all.append(np.unique(tip_to_recovery))
         ramp_down_to_recovery_all.append(np.unique(ramp_down_to_recovery))
         ramp_down_to_min_s_all.append(np.unique(ramp_down_to_min_s))
+        print(region+' tips: '+str(num_tip))
+        print(region+' tips during ramp-up: '+str(tip_ramp_up))
+        print(region+' tips during stabilisation: '+str(tip_stab))
+        print(region+' recovers: '+str(num_recover))
+        print(region+' recovers during stabilisation: '+str(recover_stab))
+        print(region+' recovers during ramp-down: '+str(recover_ramp_down))
+        print(region+' does not recover when temperatures cool below PI: '+str(no_recover_PI))
 
     # Plot histograms
     def plot_histogram (all_times, title, abbrev):
