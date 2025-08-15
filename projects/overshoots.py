@@ -4001,36 +4001,34 @@ def plot_ross_special_cases (base_dir='./'):
     
     fig = plt.figure(figsize=(10, 3.25))
     gs = plt.GridSpec(1,3)
-    gs.update(left=0.03, right=0.97, bottom=0.2, top=0.8, wspace=0.15)
+    gs.update(left=0.04, right=0.96, bottom=0.21, top=0.8, wspace=0.15)
     for n in range(num_traj):
         ax = plt.subplot(gs[0,n])
         # Get time axis in years since beginning
         years, year0 = time_in_years(data[n], return_year0=True)
         for m in range(len(stypes)):
             index = data[n].scenario_type == stypes[m]
-            ax.plot(years, data[n].where(index), '-', color=colours[m], linewidth=1, label=labels[m])
+            ax.plot(years, data[n].where(index), '-', color=colours[m], linewidth=1.5, label=labels[m])
         if n == 2:
-            plt.text(0.965, -0.105, 'years', fontsize=10, transform=ax.transAxes)
+            plt.text(0.98, -0.115, 'years', fontsize=12, transform=ax.transAxes)
         ax.grid(linestyle='dotted')
+        ax.tick_params(axis='both', labelsize=12)
         ax.set_ylim([min_temp, max_temp])
         ax.axhline(tipping_threshold, color='black', linestyle='dashed', linewidth=1)
         if tip_dates[n] is not None:
             tip_year = tip_dates[n].dt.year.item() - year0
             ax.axvline(tip_year, color='black', linestyle='dashed', linewidth=1)
-            plt.text(tip_year, max_temp, ' tips', ha='left', va='top', rotation=-90)
+            plt.text(tip_year, max_temp, ' tips', ha='left', va='top', rotation=-90, fontsize=12)
         if recovery_dates[n] is not None:
             recovery_year = recovery_dates[n].dt.year.item() - year0
             ax.axvline(recovery_year, color='black', linestyle='dashed', linewidth=1)
-            plt.text(recovery_year, max_temp, ' recovers', ha='left', va='top', rotation=-90)
-        if 'ramp down' in suite_titles[n]:
-            i0 = suite_titles[n].index('ramp down')
-            title = suite_title_prefix[n] + suite_titles[n][:i0] + '\n' + suite_titles[n][i0:]
-        else:
-            title = suite_title_prefix[n] + suite_titles[n]
-        ax.set_title(title, fontsize=11)
+            plt.text(recovery_year, max_temp, ' recovers', ha='left', va='top', rotation=-90, fontsize=12)
+        i0 = suite_titles[n].index('stabilise')
+        title = suite_title_prefix[n] + 'S' + suite_titles[n][i0+1:]
+        ax.set_title(title, fontsize=14)
         if n == 1:
-            ax.legend(loc='lower center', bbox_to_anchor=(0.5, -0.33), ncol=2)
-    plt.suptitle(var_title, fontsize=14)
+            ax.legend(loc='lower center', bbox_to_anchor=(0.5, -0.37), ncol=2, fontsize=13)
+    plt.suptitle(var_title, fontsize=16)
     finished_plot(fig, fig_name='figures/ross_special_cases.png', dpi=300)
         
     
