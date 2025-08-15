@@ -2252,6 +2252,16 @@ def truncate_rampdown_PI (suite):
         return None
 
 
+# Helper function to get time axis in years since beginning; pass DataArray with coordinate 'time_centered'
+def time_in_years (data, year0=None, return_year0=False):
+    year0 = data.time_centered[0].dt.year.item()
+    years = np.array([(date.dt.year.item() - year0) + (date.dt.month.item() - 1)/months_per_year + 0.5 for date in data.time_centered])
+    if return_year0:
+        return years, year0
+    else:
+        return years    
+
+
 # Timeseries of various freshwater fluxes, relative to preindustrial baseline, for one trajectory.
 def plot_FW_timeseries (base_dir='./'):
 
@@ -2322,7 +2332,7 @@ def plot_FW_timeseries (base_dir='./'):
     ax = plt.subplot(gs[0,0])
     for v in range(len(data_plot)):
         # Get time axis in years since beginning
-        years = np.array([(date.dt.year.item() - year0) + (date.dt.month.item() - 1)/months_per_year + 0.5 for date in data_plot[v].time_centered])
+        years = time_in_years(data_plot[v], year0=year0)
         ax.plot(years, data_plot[v], '-', color=colours[v], label=var_titles[v], linewidth=1)
     # Shade each stage
     for t in range(len(stage_start)):
@@ -2514,9 +2524,11 @@ def stage_timescales (base_dir='./', fig_dir=None, plot_traj=False):
                 plt.suptitle(suite_string+', '+region_names[region], fontsize=14)
                 if fig_dir is not None:
                     fig_name = fig_dir+'/'+suite_string+'_'+region+'.png'
+                    finished_plot(fig, fig_name=fig_name)
                 else:
-                    fig_name = None
-                finished_plot(fig, fig_name=fig_name)
+                    # Purposefully wait until user closes window before proceeding to next plot, or you get 106 
+                    plt.show()
+                
         stab_to_tip_all.append(np.unique(stab_to_tip))
         tip_to_melt_max_all.append(np.unique(tip_to_melt_max))
         tip_to_recovery_all.append(np.unique(tip_to_recovery))
@@ -3551,7 +3563,7 @@ def bug_recovery_timescale (base_dir='./'):
             # Get difference
             data_diff = data_old - data_new
             # Get time axis: years since problem ended
-            years = np.array([(date.dt.year.item() - year0) + (date.dt.month.item() - 1)/months_per_year + 0.5 for date in data_diff['time_centered']])
+            years = time_in_years(data_diff, year0=year0)
             # Plot
             fig, ax = plt.subplots()
             ax.plot(years, data_diff, '-', color='blue')
@@ -3953,8 +3965,7 @@ def case_study_timeseries (base_dir='./'):
                 t_truncate = np.argwhere((data.coords['time_centered'] > date_end[n]).data)[0][0]
                 data = data.isel(time_centered=slice(0,t_truncate))
             # Get time axis in years since beginning
-            year0 = data.time_centered[0].dt.year.item()
-            years = np.array([(date.dt.year.item() - year0) + (date.dt.month.item() - 1)/months_per_year + 0.5 for date in data.time_centered])
+            years = time_in_years(data)
             ax.plot(years, data, '-', color=colours[n], label=region_titles[n]+': '+suite_titles[n], linewidth=1.5)
         ax.grid(linestyle='dotted')
         if var_names[v] == 'cavity_temp':
@@ -3964,6 +3975,67 @@ def case_study_timeseries (base_dir='./'):
         plt.text(1.018, -0.137, 'years', fontsize=10, transform=ax.transAxes)
     ax.legend(loc='lower center', bbox_to_anchor=(0.5,-0.65))
     finished_plot(fig, fig_name='figures/case_study_timeseries.png', dpi=300)
+
+
+def plot_ross_special_cases (base_dir='./'):
+
+    region = 'ross'
+    var_name = 'cavity_temp'
+    var_title = 'Temperature in Ross Ice Shelf cavity ('+deg_string+'C)'
+    suite_strings = ['cx209-cy838', 'cw988-cz859', 'cx209-cz375']
+    suite_title_prefix = ['a) ', 'b) ', 'c) ']
+    suite_titles = [trajectory_title(suites) for suites in suite_strings]
+    num_traj = len(suite_strings)
+    stypes = [1, 0] #, -1]
+    colours = ['Crimson', 'Grey'] #, 'DodgerBlue']
+    labels = ['ramp-up', 'stabilise'] #, 'ramp-down']
+    smooth = 5*months_per_year
+    min_temp = -2.1
+    max_temp = 2
+
+    # Read cavity temperature from each trajectory
+    data = [moving_average(build_timeseries_trajectory(suite_string.split('-'), region+'_'+var_name, base_dir=base_dir), smooth) for suite_string in suite_strings]
+    # Get tipping and recovery dates, if relevant
+    tip_dates = [check_tip(suite=suite_string, region=region, return_date=True)[1] for suite_string in suite_strings]
+    recovery_dates = [check_recover(suite=suite_string, region=region, return_date=True)[1] for suite_string in suite_strings]
+    
+    fig = plt.figure(figsize=(10, 3.25))
+    gs = plt.GridSpec(1,3)
+    gs.update(left=0.03, right=0.97, bottom=0.2, top=0.8, wspace=0.15)
+    for n in range(num_traj):
+        ax = plt.subplot(gs[0,n])
+        # Get time axis in years since beginning
+        years, year0 = time_in_years(data[n], return_year0=True)
+        for m in range(len(stypes)):
+            index = data[n].scenario_type == stypes[m]
+            ax.plot(years, data[n].where(index), '-', color=colours[m], linewidth=1, label=labels[m])
+        if n == 2:
+            plt.text(0.965, -0.105, 'years', fontsize=10, transform=ax.transAxes)
+        ax.grid(linestyle='dotted')
+        ax.set_ylim([min_temp, max_temp])
+        ax.axhline(tipping_threshold, color='black', linestyle='dashed', linewidth=1)
+        if tip_dates[n] is not None:
+            tip_year = tip_dates[n].dt.year.item() - year0
+            ax.axvline(tip_year, color='black', linestyle='dashed', linewidth=1)
+            plt.text(tip_year, max_temp, ' tips', ha='left', va='top', rotation=-90)
+        if recovery_dates[n] is not None:
+            recovery_year = recovery_dates[n].dt.year.item() - year0
+            ax.axvline(recovery_year, color='black', linestyle='dashed', linewidth=1)
+            plt.text(recovery_year, max_temp, ' recovers', ha='left', va='top', rotation=-90)
+        if 'ramp down' in suite_titles[n]:
+            i0 = suite_titles[n].index('ramp down')
+            title = suite_title_prefix[n] + suite_titles[n][:i0] + '\n' + suite_titles[n][i0:]
+        else:
+            title = suite_title_prefix[n] + suite_titles[n]
+        ax.set_title(title, fontsize=11)
+        if n == 1:
+            ax.legend(loc='lower center', bbox_to_anchor=(0.5, -0.33), ncol=2)
+    plt.suptitle(var_title, fontsize=14)
+    finished_plot(fig, fig_name='figures/ross_special_cases.png', dpi=300)
+        
+    
+
+    
             
         
 
