@@ -4033,11 +4033,12 @@ def case_study_timeseries (base_dir='./'):
     date_end = [truncate_rampdown_PI(suite_list[-1]) for suite_list in suite_lists]
 
     # Plot
-    fig = plt.figure(figsize=(7,7))
+    fig = plt.figure(figsize=(5,7))
     gs = plt.GridSpec(num_var,1)
-    gs.update(left=0.1, right=0.93, bottom=0.15, top=0.95, hspace=0.35)
+    gs.update(left=0.14, right=0.93, bottom=0.2, top=0.95, hspace=0.5)
     for v in range(num_var):
         ax = plt.subplot(gs[v,0])
+        last_year = None
         for n in range(num_regions):
             data = data_plot[v][n]
             if date_end[n] is not None:
@@ -4045,14 +4046,24 @@ def case_study_timeseries (base_dir='./'):
                 data = data.isel(time_centered=slice(0,t_truncate))
             # Get time axis in years since beginning
             years = time_in_years(data)
-            ax.plot(years, data, '-', color=colours[n], label=region_titles[n]+': '+suite_titles[n], linewidth=1.5)
+            if last_year is None:
+                last_year = years[-1]
+            else:
+                last_year = max(last_year, years[-1])
+            i0 = suite_titles[n].index('for')
+            ax.plot(years, data, '-', color=colours[n], label=region_titles[n]+': '+suite_titles[n][:i0]+'\n'+suite_titles[n][i0:], linewidth=1.5)
         ax.grid(linestyle='dotted')
+        ax.set_xlim([0, last_year])
         if var_names[v] == 'cavity_temp':
             ax.axhline(tipping_threshold, color='black', linestyle='dashed')
+            ax.set_ylim([-3.2, None])
+            plt.text(10, -2.5, 'untipped', ha='left', va='top', fontweight='bold')
+            plt.text(170, -1.7, 'tipped', ha='right', va='bottom', fontweight='bold')
+            plt.text(650, -2.2, 'recovered', ha='right', va='top', fontweight='bold')
         ax.set_ylabel(units[v])
         ax.set_title(var_titles[v], fontsize=13)
-        plt.text(1.018, -0.137, 'years', fontsize=10, transform=ax.transAxes)
-    ax.legend(loc='lower center', bbox_to_anchor=(0.5,-0.65))
+        plt.text(0.94, -0.15, 'years', fontsize=10, transform=ax.transAxes)
+    ax.legend(loc='lower center', bbox_to_anchor=(0.5,-1))
     finished_plot(fig, fig_name='figures/case_study_timeseries.png', dpi=300)
 
 
