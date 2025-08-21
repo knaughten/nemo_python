@@ -959,7 +959,7 @@ def build_timeseries_trajectory (suite_list, var_name, base_dir='./', timeseries
                     raise Exception('invalid scenario type')
                 break
         if stype is None:
-            raise Exception('Simulation type not found')
+            raise Exception('Simulation type not found for '+suite)
         ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file, decode_times=time_coder)
         data = ds[var_name] + offset
         data = data.assign_coords(scenario_type=('time_centered', np.ones(data.size)*stype))
@@ -1194,8 +1194,10 @@ def tipping_stats (base_dir='./'):
                     print('Significant difference (p='+str(p_val)+')')
                 else:
                     print('No significant difference (p='+str(p_val)+')')
-        '''if recovery_floor is not None:
-            print('Trajectories as cool as '+str(recovery_floor+temp_correction)+'K still have not recovered')'''
+        if recovery_floor is not None:
+            print('Trajectories as cool as '+str(recovery_floor+temp_correction)+'K still have not recovered')
+        else:
+            print('All trajectories which cool below '+str(np.amin(warming_at_recovery)+temp_correction)+'K recover')
         # Save results for plotting
         all_temp_tip.append(warming_at_tip)
         all_temp_recover.append(warming_at_recovery)
