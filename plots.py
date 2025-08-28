@@ -139,7 +139,7 @@ def circumpolar_plot (data, grid, pole='S', cice=False, ax=None, make_cbar=True,
     if shade_land:
         ocean_mask = build_ocean_mask(grid)[0]
         ocean_mask = ocean_mask.where(ocean_mask)
-        x_bg, y_bg = np.meshgrid(np.linspace(x_edges.min(), x_edges.max()), np.linspace(y_edges.min(), y_edges.max()))
+        x_bg, y_bg = np.meshgrid(np.linspace(x_edges.min().item(), x_edges.max().item()), np.linspace(y_edges.min().item(), y_edges.max().item()))
         mask_bg = np.ones(x_bg.shape)  
 
     if new_fig:

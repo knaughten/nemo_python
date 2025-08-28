@@ -1340,7 +1340,7 @@ def plot_bwtemp_massloss_by_gw_panels (base_dir='./', static_ice=False):
     finished_plot(fig, fig_name=fig_name, dpi=300)
 
 
-# Calculate UKESM's bias in bottom salinity on the continental shelf of Ross and FRIS (both regions together). To do this, find the global warming level averaged over 1995-2014 of a historical simulation with static cavities (cy691) and identify the corresponding 10-year period in each ramp-up ensemble member. Then, average bottom salinity over those years and ensemble members, compare to observational climatologies interpolated to NEMO grid, and calculate the area-averaged bias.
+# Calculate UKESM's bias in bottom salinity on the continental shelf of Ross and FRIS (both regions together). To do this, find the range of observed global warming between 2000-present from HadCRUT, and identify the years of each ramp-up ensemble member corresponding to this range. Then, average bottom salinity over those years and ensemble members, compare to observational climatologies interpolated to NEMO grid, and calculate the area-averaged bias.
 # Before running this on Jasmin, do "source ~/pyenv/bin/activate" so we can use gsw
 def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt_bias.nc'):
 
@@ -1348,55 +1348,62 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
     labels_lon = [-166, -45, -158, 162, -30, -70]
     labels_lat = [-72, -71, -79, -75, -78, -76.5]
     pi_suite = 'cs495'  # Preindustrial, static cavities
-    hist_suite = 'cy691'  # Historical, static cavities: to get UKESM's idea of warming relative to preindustrial
+    hadcrut_file = base_dir+'/'+'HadCRUT.5.0.2.0.analysis.summary_series.global.annual.nc'
+    obs_start = 2000  # Most of Shenjie's observations are from post-2005, so start date of 2000 allows for a small weighting of earlier data too. At time of access (28/08/2025) this presumably includes half of 2025.
+    obs_pi = [1850, 1900]  # Suggested "pre-industrial" baseline for HadCRUT
     timeseries_file_um = 'timeseries_um.nc'
-    num_years = 10
     obs_file = '/gws/nopw/j04/terrafirma/kaight/input_data/shenjie_climatology_bottom_TS.nc'  # Zhou 2025
 
-    # Inner function to read global mean SAT from precomputed timeseries
-    def global_mean_sat (suite):
-        ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file_um, decode_times=time_coder)
-        sat = ds['global_mean_sat']
-        ds.close()
-        return sat
-    # Get "present-day" warming according to UKESM
-    hist_warming = global_warming(hist_suite, pi_suite=pi_suite, base_dir=base_dir).mean()
-    print('UKESM historical 1995-2014 was '+str(hist_warming.data)+'K warmer than preindustrial')
+    # Read observed global warming
+    ds = xr.open_dataset(hadcrut_file)
+    # Reference to PI
+    obs_baseline = ds['tas_mean'].where((ds['time'].dt.year >= obs_pi[0])*(ds['time'].dt.year <= obs_pi[1])).mean()
+    obs_gw = ds['tas_mean'] - obs_baseline
+    # Select section of interest
+    obs_gw = obs_gw.where(ds['time'].dt.year >= obs_start)
+    # Save range of data
+    obs_gw_min = obs_gw.min().item()
+    obs_gw_max = obs_gw.max().item()
+    print('Range of observed warming from '+str(obs_start)+'-present: '+str(obs_gw_min)+' to '+str(obs_gw_max)+' degC')
 
     # Loop over ramp-up suites (no static ice)
     ramp_up_bwsalt = None
+    num_years = 0
     for suite in suites_by_scenario['ramp_up']:
         # Get timeseries of global warming relative to PI
         warming = global_warming(suite, pi_suite=pi_suite, base_dir=base_dir)
-        for t in range(warming.size):
-            if warming.isel(time_centered=slice(t,t+num_years*months_per_year)).mean() >= hist_warming:
-                # Care about the 10-year period beginning at this point
-                time_select = warming.time_centered.isel(time_centered=slice(t,t+num_years*months_per_year))
-                print(suite+' matches historical warming from '+str(t//months_per_year)+' years')
-                break
-        for time in time_select.data:
-            # Find the corresponding grid-T ocean file
-            year_start = time.year
-            month_start = time.month
-            year_end, month_end = add_months(year_start, month_start, 1)
-            file_path = base_dir+'/'+suite+'/nemo_'+suite+'o_1m_'+str(year_start)+str(month_start).zfill(2)+'01-'+str(year_end)+str(month_end).zfill(2)+'01_grid-T.nc'
-            ds = xr.open_dataset(file_path, decode_times=time_coder)
-            bwsalt = ds['sob']
-            if eos == 'teos10':
-                # Convert to absolute salinity
-                bwsalt = bwsalt_abs(ds)
-            elif eos == 'eos80':
+        # Take annual means
+        warming = warming.groupby('time_centered.year').mean('time_centered')
+        # Find last year when warming is below obs_gw_min; start counting the next year
+        t_start = np.argwhere(warming.data < obs_gw_min)[-1][0]
+        year_start = warming.year[t_start].item() + 1
+        # Find first year when warming is above obs_gw_max; finish counting the previous year
+        t_end = np.argwhere(warming.data > obs_gw_max)[0][0]
+        year_end = warming.year[t_end].item() - 1
+        print(suite+' matches historical warming range from '+str(year_start)+'-'+str(year_end))
+        # Read all the grid-T ocean files from these years
+        for year0 in range(year_start, year_end+1):
+            num_years += 1
+            for month0 in range(1, months_per_year+1):
+                year1, month1 = add_months(year0, month0, 1)
+                file_path = base_dir+'/'+suite+'/nemo_'+suite+'o_1m_'+str(year0)+str(month0).zfill(2)+'01-'+str(year1)+str(month1).zfill(2)+'01_grid-T.nc'
+                ds = xr.open_dataset(file_path, decode_times=time_coder)
                 bwsalt = ds['sob']
-            else:
-                raise Exception('Invalid EOS '+eos)
-            if ramp_up_bwsalt is None:
-                # Initialise
-                ramp_up_bwsalt = bwsalt
-            else:
-                # Accumulate
-                ramp_up_bwsalt += bwsalt
-    # Convert from integral to average (over months and ensemble members)
-    ramp_up_bwsalt /= (num_years*months_per_year*len(suites_by_scenario['ramp_up']))
+                if eos == 'teos10':
+                    # Convert to absolute salinity
+                    bwsalt = bwsalt_abs(ds)
+                elif eos == 'eos80':
+                    bwsalt = ds['sob']
+                else:
+                    raise Exception('Invalid EOS '+eos)
+                if ramp_up_bwsalt is None:
+                    # Initialise
+                    ramp_up_bwsalt = bwsalt
+                else:
+                    # Accumulate
+                    ramp_up_bwsalt += bwsalt
+    # Convert from integral to average (over time and ensemble members)
+    ramp_up_bwsalt /= (num_years*months_per_year)
 
     # Now read observations of bottom salinity and regrid to NEMO grid
     print('Reading Zhou 2025 data')
@@ -1417,6 +1424,9 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
         gs = plt.GridSpec(1,3)
         gs.update(left=0.1, right=0.9, bottom=0.05, top=0.8, wspace=0.1)
         ukesm_plot = ramp_up_bwsalt.where(ramp_up_bwsalt!=0).squeeze()
+        # Mask cavities in UKESM to match observations
+        ice_mask = build_ice_mask(ds)[0]
+        ukesm_plot = ukesm_plot.where(~ice_mask)
         obs_plot = obs_bwsalt.where(ukesm_plot.notnull()*obs_bwsalt.notnull())
         obs_plot = obs_plot.where(ramp_up_bwsalt!=0).squeeze()
         data_plot = [ukesm_plot, obs_plot, ukesm_plot-obs_plot]
@@ -1460,7 +1470,7 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
 
 
 # Calculate the global warming implied by the salinity bias (from above), using a linear regression for the untipped sections of ramp-up simulations.
-# Last calculation: salt_bias=-0.11203044309147714
+# Last calculation: salt_bias=-0.1517930177550042
 def warming_implied_by_salinity_bias (salt_bias=None, base_dir='./'):
 
     pi_suite = 'cs495'
