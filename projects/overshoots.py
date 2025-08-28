@@ -79,7 +79,7 @@ suites_overshoot_lengths = {'50 years': ['da697', 'dc052', 'di335', 'dc051', 'df
 suites_branched = {'cx209':None, 'cw988':None, 'cw989':None, 'cw990':None, 'cz826':None, 'cy837':'cx209', 'cy838':'cx209', 'cz374':'cx209', 'cz375':'cx209', 'cz376':'cx209', 'cz377':'cx209', 'cz378':'cx209', 'cz834':'cw988', 'cz855':'cw988', 'cz859':'cw988', 'db587':'cw988', 'db723':'cw988', 'db731':'cw988', 'da087':'cw989', 'da266':'cw989', 'db597':'cw989', 'db733':'cw989', 'dc324':'cw989', 'da800':'cy838', 'da697':'cy837', 'da892':'cz376', 'dc051':'cy838', 'dc052':'cy837', 'dc248':'cy837', 'dc249':'cz375', 'dc251':'cz377', 'dc032':'cz375', 'dc123':'cz376', 'dc130':'cz377', 'di335':'cy838', 'df453':'cz375', 'dc565':'cy838', 'dd210':'cz376', 'df028':'cz375', 'df025':'cy838', 'df027':'cy838', 'df021':'cz375', 'df023':'cz375', 'dh541':'cz376', 'dh859':'cz376', 'de943':'cz378', 'de962':'cz378', 'de963':'cz378', 'dg093':'cz377', 'dg094':'cz377', 'dg095':'cz377', 'dm357':'cz378', 'dm358':'cz378', 'dm359':'cz378', 'dn822':'da892'}
 
 tipping_threshold = -1.9  # If cavity mean temp is warmer than surface freezing point, it's tipped
-temp_correction = 1.1403043611842025 # Precomputed by warming_implied_by_salinity_bias()
+temp_correction = 1.5450286133565283 # Precomputed by warming_implied_by_salinity_bias()
 temp_correction_lower = 0.15386275907205732
 temp_correction_upper = 2.004807510160955  # 10-90% bounds precomputed by temp_correction_uncertainty
 time_coder = xr.coders.CFDatetimeCoder(use_cftime=True)
@@ -1560,7 +1560,7 @@ def warming_implied_by_salinity_bias (salt_bias=None, base_dir='./'):
     plt.text(0.95, 0.81, r'r$^2$ = '+str(np.round(np.amin(r2),3))+' - '+str(np.round(np.amax(r2),3)), ha='right', va='top', transform=ax.transAxes)
     plt.text(0.95, 0.74, 'Temperature correction '+str(np.round(implied_warming,3))+deg_string+'C', ha='right', va='top', transform=ax.transAxes)
     ax.set_xlabel('Global warming ('+deg_string+'C)')
-    ax.set_ylabel('Bottom salinity on Ross and FRIS shelves (psu)')
+    ax.set_ylabel('Bottom salinity on Ross and Filchner-Ronne shelves (psu)')
     ax.set_title('Calculation of temperature correction', fontsize=14)
     finished_plot(fig, fig_name='figures/bwsalt_warming_regression.png', dpi=300)
     
