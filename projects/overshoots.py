@@ -1858,7 +1858,7 @@ def trajectory_title (suites):
         for scenario in suites_by_scenario:
             if suite in suites_by_scenario[scenario]:
                 if 'ramp_up' in scenario:
-                    title += 'Ramp up 8 GtC/y'
+                    title += 'Ramp up'
                 elif 'stabilise' in scenario:
                     title += ' to '+scenario[:scenario.index('K_')]+deg_string+'C, zero emissions'
                 elif 'ramp_down' in scenario:
@@ -2852,7 +2852,7 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
                         lon_edges = cfxr.bounds_to_vertices(ds['bounds_lon'], 'nvertex')
                         lat_edges = cfxr.bounds_to_vertices(ds['bounds_lat'], 'nvertex')
                         x_edges, y_edges = polar_stereo(lon_edges, lat_edges)
-                        x_bg, y_bg = np.meshgrid(np.linspace(x_edges.min(), x_edges.max()), np.linspace(y_edges.min(), y_edges.max()))
+                        x_bg, y_bg = np.meshgrid(np.linspace(x_edges.min().item(), x_edges.max().item()), np.linspace(y_edges.min().item(), y_edges.max().item()))
                         mask_bg = np.ones(x_bg.shape)
                 else:
                     data_accum = xr.concat([data_accum, data_tmp], dim='time_centered')
