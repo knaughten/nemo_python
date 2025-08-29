@@ -68,15 +68,15 @@ suites_by_scenario_1ens = {'ramp_up': 'cx209',  # First ensemble member for ramp
                            '6K_ramp_down': 'de943'}
 # Dictionary of ramp-down rates
 suites_ramp_down_rates = {'8 Gt/y' : ['di335', 'da800', 'da697', 'da892', 'df453', 'dc251', 'de943', 'dg093', 'dm357'],
-                          '4 Gt/y' : ['dc051', 'dc052', 'dc248', 'dc249', 'dc565', 'dd210', 'dc032', 'df028', 'dc123', 'dc130', 'de962', 'dg094', 'dm358'],
-                          '2 Gt/y' : ['df025', 'df027', 'df021', 'df023', 'dh541', 'dh859', 'de963', 'dg095', 'dm359']}
+                          '4 Gt/y' : ['dc051', 'dc052', 'dc248', 'dc249', 'dc565', 'dd210', 'dc032', 'df028', 'dc123', 'do135', 'dc130', 'de962', 'dg094', 'dm358'],
+                          '2 Gt/y' : ['df025', 'df027', 'df021', 'df023', 'do136', 'dh541', 'dh859', 'de963', 'dg095', 'dm359']}
 # Dictionary of overshoot lengths
-suites_overshoot_lengths = {'50 years': ['da697', 'dc052', 'di335', 'dc051', 'df025', 'df453', 'df028', 'df021', 'da892', 'dc123', 'dh541', 'dc251', 'dc130', 'de943', 'de962', 'de963'],
-                            '200 years': ['dc248', 'da800', 'dc565', 'df027', 'dc249', 'df023', 'dh859', 'dd210', 'dg093', 'dg094', 'dg095', 'dm357', 'dm358', 'dm359'],
+suites_overshoot_lengths = {'50 years': ['da697', 'dc052', 'di335', 'dc051', 'df025', 'df453', 'df028', 'df021', 'da892', 'dc123', 'do135', 'dh541', 'dc251', 'dc130', 'de943', 'de962', 'de963'],
+                            '200 years': ['dc248', 'da800', 'dc565', 'df027', 'dc249', 'df023', 'do136', 'dh859', 'dd210', 'dg093', 'dg094', 'dg095', 'dm357', 'dm358', 'dm359'],
                             '30 years': ['dc032']}
 
 # Dictionary of which suites branch from which. None means it's a ramp-up suite (so branched from a piControl run, but we don't care about that for the purposes of integrated GW)
-suites_branched = {'cx209':None, 'cw988':None, 'cw989':None, 'cw990':None, 'cz826':None, 'cy837':'cx209', 'cy838':'cx209', 'cz374':'cx209', 'cz375':'cx209', 'cz376':'cx209', 'cz377':'cx209', 'cz378':'cx209', 'cz834':'cw988', 'cz855':'cw988', 'cz859':'cw988', 'db587':'cw988', 'db723':'cw988', 'db731':'cw988', 'da087':'cw989', 'da266':'cw989', 'db597':'cw989', 'db733':'cw989', 'dc324':'cw989', 'da800':'cy838', 'da697':'cy837', 'da892':'cz376', 'dc051':'cy838', 'dc052':'cy837', 'dc248':'cy837', 'dc249':'cz375', 'dc251':'cz377', 'dc032':'cz375', 'dc123':'cz376', 'dc130':'cz377', 'di335':'cy838', 'df453':'cz375', 'dc565':'cy838', 'dd210':'cz376', 'df028':'cz375', 'df025':'cy838', 'df027':'cy838', 'df021':'cz375', 'df023':'cz375', 'dh541':'cz376', 'dh859':'cz376', 'de943':'cz378', 'de962':'cz378', 'de963':'cz378', 'dg093':'cz377', 'dg094':'cz377', 'dg095':'cz377', 'dm357':'cz378', 'dm358':'cz378', 'dm359':'cz378', 'dn822':'da892'}
+suites_branched = {'cx209':None, 'cw988':None, 'cw989':None, 'cw990':None, 'cz826':None, 'cy837':'cx209', 'cy838':'cx209', 'cz374':'cx209', 'cz375':'cx209', 'cz376':'cx209', 'cz377':'cx209', 'cz378':'cx209', 'cz834':'cw988', 'cz855':'cw988', 'cz859':'cw988', 'db587':'cw988', 'db723':'cw988', 'db731':'cw988', 'da087':'cw989', 'da266':'cw989', 'db597':'cw989', 'db733':'cw989', 'dc324':'cw989', 'da800':'cy838', 'da697':'cy837', 'da892':'cz376', 'dc051':'cy838', 'dc052':'cy837', 'dc248':'cy837', 'dc249':'cz375', 'dc251':'cz377', 'dc032':'cz375', 'dc123':'cz376', 'do135':'cz376', 'dc130':'cz377', 'di335':'cy838', 'df453':'cz375', 'dc565':'cy838', 'dd210':'cz376', 'df028':'cz375', 'df025':'cy838', 'df027':'cy838', 'df021':'cz375', 'df023':'cz375', 'do136':'cz375', 'dh541':'cz376', 'dh859':'cz376', 'de943':'cz378', 'de962':'cz378', 'de963':'cz378', 'dg093':'cz377', 'dg094':'cz377', 'dg095':'cz377', 'dm357':'cz378', 'dm358':'cz378', 'dm359':'cz378', 'dn822':'da892'}
 
 tipping_threshold = -1.9  # If cavity mean temp is warmer than surface freezing point, it's tipped
 temp_correction = 1.5450286133565283 # Precomputed by warming_implied_by_salinity_bias()
@@ -1283,7 +1283,7 @@ def plot_bwtemp_massloss_by_gw_panels (base_dir='./', static_ice=False):
     regions = ['ross', 'filchner_ronne']
     num_regions = len(regions)
     highlights = ['cx209-cz376-da892', 'cx209-cz378-de943']
-    arrow_loc = [[[1.64, 3.64, 4.74], [5.14], [4.89, 3.64]], [[1.84, 4.84, 6.84], [], [6.74, 5.04, 3.44]], [[3.64, 4.54], [5.34], [5.24, 4.14]], [[4.34, 6.24, 6.74], [7.32], [7.14, 5.04, 3.64]]]
+    arrow_loc = [[[2.04, 4.04, 5.14], [5.54], [5.29, 4.04]], [[2.24, 5.24, 7.24], [], [7.14, 5.2, 3.84]], [[4.04, 4.94], [5.74], [5.64, 4.54]], [[4.74, 6.64, 7.14], [7.72], [7.54, 5.44, 4.04]]]
     var_names = ['cavity_temp', 'massloss']
     var_titles = ['a) Ocean temperature in ice shelf cavities', 'b) Melting beneath ice shelves']
     var_units = [deg_string+'C', 'Gt/y']
@@ -1575,7 +1575,7 @@ def warming_implied_by_salinity_bias (salt_bias=None, base_dir='./'):
 
 
 # Plot cavity-mean temperature beneath Ross and FRIS as a function of shelf-mean bottom water salinity, in all scenarios. Colour the lines based on the global warming level relative to preindustrial, and indicate the magnitude of the salinity bias.
-def plot_ross_fris_by_bwsalt (base_dir='./'):
+def plot_ross_fris_by_bwsalt (base_dir='./', compare_jacobs=False):
 
     regions = ['ross', 'filchner_ronne']
     title_prefix = ['a) ', 'b) ']
@@ -1671,7 +1671,7 @@ def plot_ross_fris_by_bwsalt (base_dir='./'):
         else:
             threshold_recover.append(None)
         print('Freshening of absolute salinity between beginning of ramp-up and tipping point has mean '+str(np.mean(freshening_to_tip))+', std '+str(np.std(freshening_to_tip)))
-        if region == 'ross':
+        if region == 'ross' and compare_jacobs:
             # Calculate bwsalt bias in TEOS-10
             ross_bias = calc_salinity_bias(base_dir=base_dir, eos='teos10', region='ross')
             # Compare observed freshening to freshening required to tip (plus correction)
@@ -1717,7 +1717,7 @@ def plot_ross_fris_by_bwsalt (base_dir='./'):
     cbar.set_ticklabels([])
     plt.colorbar(img_down, cax=cax2, orientation='horizontal')
     plt.text(0.3, 0.02, 'Effective global warming ('+deg_string+'C)', ha='center', va='center', fontsize=12, transform=fig.transFigure)
-    plt.text(0.51, 0.135, 'ramp-up + stabilise', ha='left', va='center', fontsize=10, transform=fig.transFigure)
+    plt.text(0.51, 0.135, 'ramp-up + zero-emission', ha='left', va='center', fontsize=10, transform=fig.transFigure)
     plt.text(0.51, 0.09, 'ramp-down', ha='left', va='center', fontsize=10, transform=fig.transFigure)
     # Manual legend
     colours = ['Crimson', 'DodgerBlue']
@@ -1725,7 +1725,7 @@ def plot_ross_fris_by_bwsalt (base_dir='./'):
     handles = []
     for m in range(len(colours)):
         handles.append(Line2D([0], [0], marker='o', markersize=5, markerfacecolor=colours[m], markeredgecolor='black', label=labels[m], linestyle=''))
-    plt.legend(handles=handles, loc='lower right', bbox_to_anchor=(0.85, -0.27))
+    plt.legend(handles=handles, loc='lower right', bbox_to_anchor=(0.95, -0.27))
     finished_plot(fig, fig_name='figures/ross_fris_by_bwsalt.png', dpi=300)
 
 
@@ -4076,11 +4076,11 @@ def case_study_timeseries (base_dir='./'):
         ax.grid(linestyle='dotted')
         ax.set_xlim([0, last_year])
         if var_names[v] == 'global_mean_sat':
-            plt.text(100, 2, 'ramp-up', rotation=45)
-            plt.text(325, 5.5, 'zero-\nemission')
-            plt.text(550, 3, 'ramp-down', rotation=-45)
+            plt.text(100, 2.8, 'ramp-up', rotation=35, ha='center', va='center')
+            plt.text(325, 5.15, 'zero-\nemission', ha='center', va='center')
+            plt.text(550, 3.4, 'ramp-down', rotation=-35, ha='center', va='center')
         elif var_names[v] == 'cavity_temp':
-            ax.axhline(tipping_threshold, color='black', linestyle='dashed')
+            ax.axhline(tipping_threshold, color='black', linestyle='dashed', linewidth=1)
             ax.set_ylim([-3.2, None])
             plt.text(10, -2.5, 'untipped', ha='left', va='top')
             plt.text(170, -1.7, 'tipped', ha='right', va='bottom')
