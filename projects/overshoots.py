@@ -245,7 +245,7 @@ def minimal_expt_list (one_ens=False):
         suite_list = suites_by_scenario
 
     keys = ['ramp_up', '_stabilise', '_ramp_down']
-    sim_names = ['Ramp up', 'Stabilise', 'Ramp down']
+    sim_names = ['ramp-up', 'zero-emission', 'ramp-down']
     colours = ['Crimson', 'Grey', 'DodgerBlue']
     sim_dirs = []
     for key in keys:
@@ -1262,7 +1262,7 @@ def tipping_stats (base_dir='./'):
         ax.set_yticks(np.arange(1,4))
         ax.set_yticklabels(['peak warming', 'at time of recovery', 'at time of tipping'])
         ax.grid(linestyle='dotted')       
-    ax.set_xlabel('Global warming ('+deg_string+'C), corrected', fontsize=10)
+    ax.set_xlabel('Effective global warming ('+deg_string+'C)', fontsize=10)
     # Manual legend
     colours = ['Crimson', 'DarkGrey', 'DodgerBlue', 'DarkOrchid']
     labels = ['tips', 'does not tip', 'recovers', 'Ross recovers\n(tipped FRIS)']
@@ -1312,7 +1312,7 @@ def plot_bwtemp_massloss_by_gw_panels (base_dir='./', static_ice=False):
             else:
                 ax.set_ylabel('')
             if n==0 and v==0:
-                ax.set_xlabel('Global warming ('+deg_string+'C), corrected', fontsize=12)
+                ax.set_xlabel('Effective global warming ('+deg_string+'C)', fontsize=12)
             else:
                 ax.set_xlabel('')
             ax.set_xlim([temp_correction,temp_correction+8])
@@ -1716,7 +1716,7 @@ def plot_ross_fris_by_bwsalt (base_dir='./'):
     cbar = plt.colorbar(img_up, cax=cax1, orientation='horizontal')
     cbar.set_ticklabels([])
     plt.colorbar(img_down, cax=cax2, orientation='horizontal')
-    plt.text(0.3, 0.02, 'Global warming ('+deg_string+'C), corrected', ha='center', va='center', fontsize=12, transform=fig.transFigure)
+    plt.text(0.3, 0.02, 'Effective global warming ('+deg_string+'C)', ha='center', va='center', fontsize=12, transform=fig.transFigure)
     plt.text(0.51, 0.135, 'ramp-up + stabilise', ha='left', va='center', fontsize=10, transform=fig.transFigure)
     plt.text(0.51, 0.09, 'ramp-down', ha='left', va='center', fontsize=10, transform=fig.transFigure)
     # Manual legend
@@ -1860,7 +1860,7 @@ def trajectory_title (suites):
                 if 'ramp_up' in scenario:
                     title += 'Ramp up 8 GtC/y'
                 elif 'stabilise' in scenario:
-                    title += ', stabilise '+scenario[:scenario.index('K_')]+deg_string+'C'
+                    title += ' to '+scenario[:scenario.index('K_')]+deg_string+'C, zero emissions'
                 elif 'ramp_down' in scenario:
                     # Figure out length of overshoot
                     for length in suites_overshoot_lengths:
@@ -4031,7 +4031,7 @@ def case_study_timeseries (base_dir='./'):
     suite_titles = [trajectory_title(suites) for suites in suite_strings]
     num_regions = len(regions)
     var_names = ['global_mean_sat', 'cavity_temp', 'massloss']
-    var_titles = ['a) Global warming', 'b) Ocean temperature in ice shelf cavities', 'c) Melting beneath ice shelves']
+    var_titles = ['a) Simulated global warming', 'b) Ocean temperature in ice shelf cavities', 'c) Melting beneath ice shelves']
     units = 2*[deg_string+'C'] + ['Gt/y']
     num_var = len(var_names)
     timeseries_file = ['timeseries_um.nc'] + 2*['timeseries.nc']
@@ -4075,7 +4075,11 @@ def case_study_timeseries (base_dir='./'):
             ax.plot(years, data, '-', color=colours[n], label=region_titles[n]+': '+suite_titles[n][:i0]+'\n'+suite_titles[n][i0:], linewidth=1.5)
         ax.grid(linestyle='dotted')
         ax.set_xlim([0, last_year])
-        if var_names[v] == 'cavity_temp':
+        if var_names[v] == 'global_mean_sat':
+            plt.text(100, 2, 'ramp-up', rotation=45)
+            plt.text(325, 5.5, 'zero-\nemission')
+            plt.text(550, 3, 'ramp-down', rotation=-45)
+        elif var_names[v] == 'cavity_temp':
             ax.axhline(tipping_threshold, color='black', linestyle='dashed')
             ax.set_ylim([-3.2, None])
             plt.text(10, -2.5, 'untipped', ha='left', va='top')
@@ -4099,7 +4103,7 @@ def plot_ross_special_cases (base_dir='./'):
     num_traj = len(suite_strings)
     stypes = [1, 0] #, -1]
     colours = ['Crimson', 'Grey'] #, 'DodgerBlue']
-    labels = ['ramp-up', 'stabilise'] #, 'ramp-down']
+    labels = ['ramp-up', 'zero-emission'] #, 'ramp-down']
     smooth = 5*months_per_year
     min_temp = -2.1
     max_temp = 2
@@ -4134,8 +4138,8 @@ def plot_ross_special_cases (base_dir='./'):
             recovery_year = recovery_dates[n].dt.year.item() - year0
             ax.axvline(recovery_year, color='black', linestyle='dashed', linewidth=1)
             plt.text(recovery_year, max_temp, ' recovers', ha='left', va='top', rotation=-90, fontsize=12)
-        i0 = suite_titles[n].index('stabilise')
-        title = suite_title_prefix[n] + 'S' + suite_titles[n][i0+1:]
+        i0 = suite_titles[n].index(' to ')
+        title = suite_title_prefix[n] + suite_titles[n][i0+4:]
         ax.set_title(title, fontsize=14)
         if n == 1:
             ax.legend(loc='lower center', bbox_to_anchor=(0.5, -0.37), ncol=2, fontsize=13)
