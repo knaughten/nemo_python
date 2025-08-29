@@ -1239,8 +1239,8 @@ def tipping_stats (base_dir='./'):
         # Plot individual data points
         ax.plot(np.array(all_temp_tip[r])+temp_correction, 3*np.ones(len(all_temp_tip[r])), 'o', markersize=3, color='Crimson')
         ax.plot(np.array(all_temp_recover[r])+temp_correction, 2*np.ones(len(all_temp_recover[r])), 'o', markersize=3, color='DodgerBlue')
-        if regions[r] == 'ross':
-            ax.plot(np.array(warming_at_recovery_fris_tip)+temp_correction, 2*np.ones(len(warming_at_recovery_fris_tip)), 'o', markersize=3, color='DarkOrchid')
+        #if regions[r] == 'ross':
+            #ax.plot(np.array(warming_at_recovery_fris_tip)+temp_correction, 2*np.ones(len(warming_at_recovery_fris_tip)), 'o', markersize=3, color='DarkOrchid')
         '''if all_recovery_floor[r] is not None:
             # Plot dotted blue line and open marker showing that recovery violin plot will extend at least this far
             ax.plot([all_recovery_floor[r]+temp_correction, np.amin(all_temp_recover[r])+temp_correction], [2, 2], color='DodgerBlue', linestyle='dotted', linewidth=1)
@@ -1264,8 +1264,8 @@ def tipping_stats (base_dir='./'):
         ax.grid(linestyle='dotted')       
     ax.set_xlabel('Effective global warming ('+deg_string+'C)', fontsize=10)
     # Manual legend
-    colours = ['Crimson', 'DarkGrey', 'DodgerBlue', 'DarkOrchid']
-    labels = ['tips', 'does not tip', 'recovers', 'Ross recovers\n(tipped FRIS)']
+    colours = ['Crimson', 'DarkGrey', 'DodgerBlue'] #, 'DarkOrchid']
+    labels = ['tips', 'does not tip', 'recovers'] #, 'Ross recovers\n(tipped FRIS)']
     handles = []
     for m in range(len(colours)):
         handles.append(Line2D([0], [0], marker='o', markersize=4, color=colours[m], label=labels[m], linestyle=''))
@@ -4139,7 +4139,8 @@ def plot_ross_special_cases (base_dir='./'):
             ax.axvline(recovery_year, color='black', linestyle='dashed', linewidth=1)
             plt.text(recovery_year, max_temp, ' recovers', ha='left', va='top', rotation=-90, fontsize=12)
         i0 = suite_titles[n].index(' to ')
-        title = suite_title_prefix[n] + suite_titles[n][i0+4:]
+        i1 = suite_titles[n].index(', zero emissions')
+        title = suite_title_prefix[n] + suite_titles[n][i0+4:i1] + ' GWL'
         ax.set_title(title, fontsize=14)
         if n == 1:
             ax.legend(loc='lower center', bbox_to_anchor=(0.5, -0.37), ncol=2, fontsize=13)
