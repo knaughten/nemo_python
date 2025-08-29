@@ -1342,7 +1342,7 @@ def plot_bwtemp_massloss_by_gw_panels (base_dir='./', static_ice=False):
 
 # Calculate UKESM's bias in bottom salinity on the continental shelf of Ross and FRIS (both regions together). To do this, find the range of observed global warming between 2000-present from HadCRUT, and identify the years of each ramp-up ensemble member corresponding to this range. Then, average bottom salinity over those years and ensemble members, compare to observational climatologies interpolated to NEMO grid, and calculate the area-averaged bias.
 # Before running this on Jasmin, do "source ~/pyenv/bin/activate" so we can use gsw
-def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt_bias.nc'):
+def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt_bias.nc', region='both'):
 
     regions = ['ross', 'filchner_ronne']  # Both together
     labels_lon = [-166, -45, -158, 162, -30, -70]
@@ -1412,9 +1412,13 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
     obs_bwsalt = obs_interp['salt']
 
     # Prepare masks of each region
-    masks = [region_mask(region, ds, option='shelf')[0] for region in regions]
-    # Make combined mask
-    mask = masks[0] + masks[1]
+    if region == 'both':
+        masks = [region_mask(r, ds, option='shelf')[0] for r in regions]
+        # Make combined mask
+        mask = masks[0] + masks[1]
+    else:
+        print('Using region '+region)
+        mask = region_mask(region, ds, option='shelf')[0]
     # Prepare coordinates for plotting masks
     x, y = polar_stereo(ds['nav_lon'], ds['nav_lat'])
 
@@ -1457,7 +1461,11 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
     # Calculate area-averaged bias
     dA = ds['area']*mask
     ukesm_mean = (ramp_up_bwsalt*dA).sum(dim=['x','y'])/dA.sum(dim=['x','y'])
-    print('UKESM mean '+str(ukesm_mean.data)+' psu')
+    if eos == 'eos80':
+        units = 'psu'
+    else:
+        units = ''
+    print('UKESM mean '+str(ukesm_mean.data)+' '+units)
     # Might have to area-average over a smaller region with missing observational points
     mask_obs = mask.where(obs_bwsalt.notnull())
     dA_obs = ds['area']*mask_obs
@@ -1665,8 +1673,7 @@ def plot_ross_fris_by_bwsalt (base_dir='./'):
         print('Freshening of absolute salinity between beginning of ramp-up and tipping point has mean '+str(np.mean(freshening_to_tip))+', std '+str(np.std(freshening_to_tip)))
         if region == 'ross':
             # Calculate bwsalt bias in TEOS-10
-            # Note this is both regions together!
-            ross_bias = calc_salinity_bias(base_dir=base_dir, eos='teos10')
+            ross_bias = calc_salinity_bias(base_dir=base_dir, eos='teos10', region='ross')
             # Compare observed freshening to freshening required to tip (plus correction)
             fresh_fraction = obs_freshening/(np.mean(freshening_to_tip)+ross_bias)*100
             print('Observed freshening is '+str(fresh_fraction)+'% of what is needed to tip')
@@ -4071,9 +4078,9 @@ def case_study_timeseries (base_dir='./'):
         if var_names[v] == 'cavity_temp':
             ax.axhline(tipping_threshold, color='black', linestyle='dashed')
             ax.set_ylim([-3.2, None])
-            plt.text(10, -2.5, 'untipped', ha='left', va='top', fontweight='bold')
-            plt.text(170, -1.7, 'tipped', ha='right', va='bottom', fontweight='bold')
-            plt.text(650, -2.2, 'recovered', ha='right', va='top', fontweight='bold')
+            plt.text(10, -2.5, 'untipped', ha='left', va='top')
+            plt.text(170, -1.7, 'tipped', ha='right', va='bottom')
+            plt.text(650, -2.2, 'recovered', ha='right', va='top')
         ax.set_ylabel(units[v])
         ax.set_title(var_titles[v], fontsize=13)
         plt.text(0.94, -0.15, 'years', fontsize=10, transform=ax.transAxes)
