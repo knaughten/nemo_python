@@ -80,8 +80,8 @@ suites_branched = {'cx209':None, 'cw988':None, 'cw989':None, 'cw990':None, 'cz82
 
 tipping_threshold = -1.9  # If cavity mean temp is warmer than surface freezing point, it's tipped
 temp_correction = 1.5450286133565283 # Precomputed by warming_implied_by_salinity_bias()
-temp_correction_lower = 0.5716454706352944
-temp_correction_upper = 2.394992374100425  # 10-90% bounds precomputed by temp_correction_uncertainty
+temp_correction_lower = 0.5750388984833114
+temp_correction_upper = 2.4080143958939746  # 10-90% bounds precomputed by temp_correction_uncertainty
 time_coder = xr.coders.CFDatetimeCoder(use_cftime=True)
 
 # End global vars
