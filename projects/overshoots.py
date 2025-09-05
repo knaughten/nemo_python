@@ -1566,10 +1566,10 @@ def warming_implied_by_salinity_bias (salt_bias=None, base_dir='./'):
     plt.text(0.95, 0.95, 'Salinity bias '+str(np.round(salt_bias,3))+' psu', ha='right', va='top', transform=ax.transAxes)
     plt.text(0.95, 0.88, 'Ensemble mean slope '+str(np.round(mean_slope,3))+' psu/'+deg_string+'C', ha='right', va='top', transform=ax.transAxes)
     plt.text(0.95, 0.81, r'r$^2$ = '+str(np.round(np.amin(r2),3))+' - '+str(np.round(np.amax(r2),3)), ha='right', va='top', transform=ax.transAxes)
-    plt.text(0.95, 0.74, 'Temperature correction '+str(np.round(implied_warming,3))+deg_string+'C', ha='right', va='top', transform=ax.transAxes)
-    ax.set_xlabel('Global warming ('+deg_string+'C)')
+    plt.text(0.95, 0.74, 'Temperature adjustment '+str(np.round(implied_warming,3))+deg_string+'C', ha='right', va='top', transform=ax.transAxes)
+    ax.set_xlabel('Simulated global warming ('+deg_string+'C)')
     ax.set_ylabel('Bottom salinity on Ross and Filchner-Ronne shelves (psu)')
-    ax.set_title('Calculation of temperature correction', fontsize=14)
+    ax.set_title('Calculation of temperature adjustment', fontsize=14)
     finished_plot(fig, fig_name='figures/bwsalt_warming_regression.png', dpi=300)
     
 
@@ -3929,7 +3929,7 @@ def temp_correction_uncertainty (base_dir='./', bias_file='bwsalt_bias.nc', slop
     # Map of temperature correction
     ax = plt.subplot(gs[0,1])
     ax.axis('equal')
-    circumpolar_plot(temp_correction_2D, ds_grid, ax=ax, title='b) Temperature correction ('+deg_string+'C)', titlesize=14, lat_max=-66, ctype='plusminus', vmin=-cutoff, vmax=cutoff, cbar_kwags={'extend':'both'})
+    circumpolar_plot(temp_correction_2D, ds_grid, ax=ax, title='b) Temperature adjustment ('+deg_string+'C)', titlesize=14, lat_max=-66, ctype='plusminus', vmin=-cutoff, vmax=cutoff, cbar_kwags={'extend':'both'})
     # Histogram showing distribution of points
     ax = plt.subplot(gs[1,:])    
     temp_correction_2D = temp_correction_2D.where((temp_correction_2D >= -cutoff)*(temp_correction_2D < cutoff))
@@ -3938,7 +3938,7 @@ def temp_correction_uncertainty (base_dir='./', bias_file='bwsalt_bias.nc', slop
     ax.axvline(pc10, color='black')
     ax.axvline(pc90, color='black')
     ax.grid(linestyle='dotted')
-    ax.set_title('c) Distribution of temperature correction values', fontsize=14)
+    ax.set_title('c) Distribution of temperature adjustment values', fontsize=14)
     ax.set_xlabel(deg_string+'C', fontsize=12)
     ax.set_ylabel('# grid cells', fontsize=12)
     finished_plot(fig, fig_name='figures/temp_correction_uncertainty.png', dpi=300)
