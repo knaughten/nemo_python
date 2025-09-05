@@ -44,9 +44,9 @@ suites_by_scenario = {'piControl_static_ice' : ['cs495'],
                       '2K_ramp_down': ['di335','dc051', 'da800', 'dc565', 'df025', 'df027'],
                       '2.5K_stabilise' : ['cz374','cz859'],
                       '3K_stabilise' : ['cz375','db587','db597'],
-                      '3K_ramp_down' : ['dc032', 'dc249', 'df453', 'df028', 'do136', 'df021'],
+                      '3K_ramp_down' : ['dc032', 'dc249', 'df453', 'df028', 'do136', 'df021'],  # do136 branched off df023 before first geometry problem
                       '4K_stabilise' : ['cz376','db723','db733'],
-                      '4K_ramp_down' : ['da892', 'do135', 'dh859', 'dd210', 'dh541'],
+                      '4K_ramp_down' : ['da892', 'do135', 'dh859', 'dd210', 'dh541'],  # do135 branched off dc123 before first geometry problem
                       '5K_stabilise' : ['cz377','db731','dc324'],
                       '5K_ramp_down' : ['dc251', 'dc130', 'dg095', 'dg093', 'dg094'],
                       '6K_stabilise' : ['cz378'],
@@ -3952,19 +3952,32 @@ def temp_correction_uncertainty (base_dir='./', bias_file='bwsalt_bias.nc', slop
 
 
 # A couple of the re-run problem simulations ran for long enough to replace the old ones. Merge into the old simulations where they branched just before the first problem.
-def merge_rerun_suite (suite_old, suite_new, base_dir='./'):
+def merge_rerun_suite (suite_old, suite_new, base_dir='./', vaf=False):
 
-    timeseries_files = ['timeseries.nc', 'timeseries_um.nc']
+    if vaf:
+        timeseries_files = ['_timeseries.nc']
+        vaf_dir = '/gws/nopw/j04/terrafirma/tm17544/TerraFIRMA_overshoots/processed_data/netcdf_files/'
+        time_coord = 'time'
+    else:
+        timeseries_files = ['timeseries.nc', 'timeseries_um.nc']
+        time_coord = 'time_centered'
 
     for ts_file in timeseries_files:
-        file_old = base_dir+'/'+suite_old+'/'+ts_file
-        file_new = base_dir+'/'+suite_new+'/'+ts_file
+        if vaf:
+            file_old = vaf_dir+'vaf_'+suite_old+ts_file
+            file_new = vaf_dir+'vaf_'+suite_new+ts_file
+        else:
+            file_old = base_dir+'/'+suite_old+'/'+ts_file
+            file_new = base_dir+'/'+suite_new+'/'+ts_file
         ds_old = xr.open_dataset(file_old, decode_times=time_coder)
         ds_new = xr.open_dataset(file_new, decode_times=time_coder)
-        date_branch = ds_new['time_centered'][0]
-        print('Merging at '+str(date_branch.dt.year.item())+'-'+str(date_branch.dt.month.item()))
-        t_merge = np.argwhere(ds_old['time_centered'].data == date_branch.data)[0][0]
-        ds_merge = xr.concat([ds_old.isel(time_centered=slice(0,t_merge)), ds_new], dim='time_centered')
+        date_branch = ds_new[time_coord][0]
+        if vaf:
+            print('Merging at '+str(date_branch.item()))
+        else:
+            print('Merging at '+str(date_branch.dt.year.item())+'-'+str(date_branch.dt.month.item()))
+        t_merge = np.argwhere(ds_old[time_coord].data == date_branch.data)[0][0]
+        ds_merge = xr.concat([ds_old.isel({time_coord:slice(0,t_merge)}), ds_new], dim=time_coord)
         ds_old.close()
         ds_new.close()
         print('Overwriting '+file_new)
