@@ -443,27 +443,52 @@ def cesm2_expt_all_ocn_forcing(expt, ens_strs=None, out_dir=None, start_year=185
 # - variable : string of forcing variable name (in ERA5 naming convention)
 # - (optional) year_start : start year for time averaging
 # - (optional) end_year   : end year for time averaging
-# - (optional) out_file   : path to file to write time mean to NetCDF in case you want to store it
-def era5_time_mean_forcing(variable, year_start=1979, year_end=2015, out_file=None, monthly=False,
-                           era5_folder='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/ERA5-forcing/daily/files/processed/',
+def era5_time_mean_forcing(variable, year_start=1979, year_end=2022, freq='daily',
+                           era5_folder='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/ERA5-forcing/',
                            land_mask='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/ERA5-forcing/daily/files/land_sea_mask.nc'):
 
-    ERA5_ds   = xr.open_mfdataset(f'{era5_folder}{variable}_*.nc')
-    ERA5_ds   = ERA5_ds.isel(time=((ERA5_ds.time.dt.year <= year_end)*(ERA5_ds.time.dt.year >= year_start)))
-    if monthly:
-        time_mean = ERA5_ds.groupby('time.month').mean(dim='time')
-    else:
-        time_mean = ERA5_ds.mean(dim='time')
+    if freq=='daily':
+        era5_folder = f'{era5_folder}daily/files/processed/'
+    elif freq=='3-hourly' or freq=='hourly':
+        era5_folder = f'{era5_folder}hourly/files/processed/'
 
-    # mask areas that are land:
-    #era5_mask = xr.open_dataset(land_mask).lsm.isel(valid_time=0)
-    #era5_mask['longitude'] = fix_lon_range(era5_mask['longitude'])
-    time_mean['longitude'] = fix_lon_range(time_mean['longitude'])
-    #time_mean = xr.where(era5_mask != 0, np.nan, time_mean)
+    if freq=='daily' or freq=='hourly':
+        if variable=='wind_speed':
+            era5_u  = xr.open_mfdataset(f'{era5_folder}u10_*')['u10'].sortby('latitude').sel(latitude=slice(-90,-50))
+            era5_v  = xr.open_mfdataset(f'{era5_folder}v10_*')['v10'].sortby('latitude').sel(latitude=slice(-90,-50))
+            era5_u  = era5_u.isel(time=((era5_u.time.dt.year <= year_end)*(era5_u.time.dt.year >= year_start)))
+            era5_v  = era5_v.isel(time=((era5_v.time.dt.year <= year_end)*(era5_v.time.dt.year >= year_start)))
+            era5_ds = np.sqrt(era5_u.u10**2 + era5_v.v10**2).rename(variable).mean(dim='time').to_dataset()
+        else:
+            era5_ds = xr.open_mfdataset(f'{era5_folder}{variable}_*.nc')[variable].sortby('latitude').sel(latitude=slice(-90,-50))
+            era5_ds = era5_ds.isel(time=((era5_ds.time.dt.year <= year_end)*(era5_ds.time.dt.year >= year_start)))
 
-    if out_file:
-        time_mean.to_netcdf(out_file)
-    return time_mean
+        time_mean = era5_ds.groupby('time.month').mean(dim='time')
+
+    elif freq=='3-hourly':
+        # slow due to resampling if you use the same approach as for daily, so do the below instead
+        for year in range(year_start, year_end+1):
+            print(year)
+            for month in range(1,13):
+                if variable=='wind_speed':
+                    era5_u = xr.open_dataset(f'{era5_folder}../u10_y{year}m{month:02}.nc')['u10'].sortby('latitude').sel(latitude=slice(-90,-50))
+                    era5_v = xr.open_dataset(f'{era5_folder}../v10_y{year}m{month:02}.nc')['v10'].sortby('latitude').sel(latitude=slice(-90,-50))
+                    era5_u = era5_u.resample(time='3h').mean()
+                    era5_v = era5_v.resample(time='3h').mean()               
+                    era5_ds = np.sqrt(era5_u.u10**2 + era5_v.v10**2).rename(variable).mean(dim='time').to_dataset()
+                else:
+                    era5_ds = xr.open_dataset(f'{era5_folder}../{variable}_y{year}m{month:02}.nc')[variable].sortby('latitude').sel(latitude=slice(-90,-50))
+                    era5_ds = era5_ds.resample(time='3h').mean()
+               
+                # assign timestamp to time variable
+                era5_ds['time'] = pd.DatetimeIndex(era5_ds['time'].values) 
+                era5_ds.to_netcdf(f'{era5_folder}{variable}_{freq}_monthly_mean_y{year}m{month:02}.nc')
+ 
+        time_mean = xr.open_mfdataset(f'{era5_folder}{variable}_{freq}_monthly_mean_y*')[variable].groupby('time.month').mean(dim='time')
+
+    time_mean.to_netcdf(f'{era5_forcing}{variable}_{freq}_{year_start}-{year_end}_mean_monthly.nc')
+
+    return 
 
 
 # Function calculates the time-mean over specified year range for mean of all CESM2 ensemble members in the specified experiment (for bias correction)
@@ -517,7 +542,7 @@ def cesm2_ensemble_time_mean_forcing(expt, variable, out_dir, year_start=1979, y
     ds_ens = ds_ens[variable].isel(time=(ds_ens.time.dt.year <= year_end)*(ds_ens.time.dt.year >= year_start))
     ds_ens.mean(dim='ens').to_netcdf(f'{out_dir}CESM2-LE2_{variable}_ensemble_{year_start}-{year_end}_mean_monthly.nc')            
 
-    return ds_ens
+    return
 
 # Function calculate the bias correction for the atmospheric variable from the specified source type based on 
 # the difference between its mean state and the ERA5 mean state.
