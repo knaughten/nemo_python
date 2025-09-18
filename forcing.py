@@ -404,12 +404,17 @@ def cesm2_expt_all_atm_forcing (expt, ens_strs=None, out_dir=None, start_year=18
     if out_dir is None:
         raise Exception('Please specify an output directory via optional argument out_dir')
 
-    var_names = ['wind','FSDS','FLDS','TREFHT','QREFHT','PRECT','PSL','PRECS'] 
+    var_names = ['UBOT','VBOT','FSDS','FLDS','TREFHT','QREFHT','PRECT','PSL','PRECS'] 
     for ens in ens_strs:
         print(f'Processing ensemble member {ens}')
         for var in var_names:
             print(f'Processing {var}')
-            cesm2_atm_forcing(expt, var, ens, out_dir, start_year=start_year, end_year=end_year, year_ens_start=year_ens_start, shift_wind=shift_wind)
+            # specify the forcing frequency to read in
+            if var in ['UBOT', 'VBOT']:
+                freq='3-hourly'
+            else:
+                freq='daily'
+            cesm2_atm_forcing(expt, var, ens, out_dir, start_year=start_year, end_year=end_year, freq=freq, year_ens_start=year_ens_start, shift_wind=shift_wind)
 
     return
 
@@ -465,48 +470,54 @@ def era5_time_mean_forcing(variable, year_start=1979, year_end=2015, out_file=No
 # Input:
 # - expt : string of CESM2 experiment name (e.g. 'LE2')
 # - variable : string of forcing variable name
+# - out_dir : directory to write ensemble mean files to
 # - (optional) year_start : start year for time averaging
 # - (optional) end_year   : end year for time averaging
-# - (optional) out_file   : path to file to write time mean to NetCDF in case you want to store it
 # - (optional) ensemble_members : list of strings of ensemble members to average (defaults to all the ones that have been downloaded)
-def cesm2_ensemble_time_mean_forcing(expt, variable, year_start=1979, year_end=2015, out_file=None, ensemble_members=cesm2_ensemble_members, monthly=False,
-                             land_mask='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/climate-forcing/CESM2/LE2/b.e21.BHISTsmbb.f09_g17.LE2-1011.001.cam.h0.LANDFRAC.185001-185912.nc'):
+def cesm2_ensemble_time_mean_forcing(expt, variable, out_dir, year_start=1979, year_end=2015, ensemble_members=cesm2_ensemble_members):
+
+    print(f'Calculating ensemble mean for variable {variable} from {year_start}-{year_end} for {expt} ensemble members:', ensemble_members)
 
     # calculate ensemble mean for each year
-    year_mean = xr.Dataset()
-    print('Ensemble members:', ensemble_members)
-    for year in range(year_start, year_end+1):
+    if variable == 'wind_speed':
+        freq='3-hourly'
+    else:
+        freq='daily'
+
+    # helper function to read in processed CESM2 file for all ensemble members, and subset domain
+    def load_cesm2_ensemble(variable, year, expt=expt, freq=freq, ensemble_members=ensemble_members):
+        
+        for e, ens in enumerate(ensemble_members):
+            cesm2_ds = find_processed_cesm2_file(expt, variable, ens, year, freq=freq)
+            if e==0:
+                cesm2_ds_ens = cesm2_ds.copy().expand_dims(dim='ens')
+            else:
+                cesm2_ds_ens = xr.concat([cesm2_ds_ens, cesm2_ds], dim='ens')
+
+        cesm2_ds_ens = cesm2_ds_ens.sortby('lat').sel(lat=slice(-90,-50))
+
+        return cesm2_ds_ens
+
+   # For each year within the specified range, calculate the monthly ensemble mean and write to file
+   for year in range(year_start, year_end+1):
         print(year)
-        files_to_open = []
-        for ens in ensemble_members:
-            file_path     = find_processed_cesm2_file(expt, variable, ens, year)
-            files_to_open += [file_path]
-        # calculate ensemble mean    
-        ens_files = xr.open_mfdataset(files_to_open, concat_dim='ens', combine='nested')
-        ens_year  = ens_files.isel(time=(ens_files.time.dt.year==year))
-        if monthly:
-            ens_mean = ens_year.groupby('time.month').mean(dim=['time','ens']) # dimensions should be x,y
+        
+        if variable=='wind_speed':
+            cesm2_u_ens = load_cesm2_ensemble('UBOT', year)
+            cesm2_v_ens = load_cesm2_ensemble('VBOT', year)
+            cesm2_ds_ens = (((cesm2_u_ens.UBOT**2) + (cesm2_v_ens.VBOT**2))**0.5).rename(variable)
         else:
-            ens_mean = ens_year.mean(dim=['time','ens'])
-        # save ensemble mean to xarray dataset
-        if year == year_start:
-            year_mean = ens_mean
-        else:
-            year_mean = xr.concat([year_mean, ens_mean], dim='year')
+            cesm2_ds_ens = load_cesm2_ensemble(variable, year)      
 
-            
-    # and then calculate time-mean of all ensemble means:
-    time_mean = year_mean.copy().mean(dim='year')
+        cesm2_ds_mean = cesm2_ds.mean(dim='ens').groupby("time.month").mean(dim="time")
+        cesm2_ds_mean.to_dataset().to_netcdf(f'{out_dir}CESM2-LE2_{variable}_{freq}_y{year}_ensemble_mean_monthly.nc')
 
-    # mask areas that are land:
-    #cesm2_mask = xr.open_dataset(land_mask).LANDFRAC
-    #cesm2_mask['lon'] = fix_lon_range(cesm2_mask['lon'])  
-    #time_mean  = xr.where(cesm2_mask.isel(time=0) != 0, np.nan, time_mean)
+    # Next, read in the above ensemble mean files for all years and calculate the mean over the full timeseries
+    ds_ens = xr.open_mfdataset(f'{out_dir}CESM2-LE2_{variable}_{freq}_y*_ensemble_mean_monthly.nc', concat_dim='ens', combine='nested')
+    ds_ens = ds_ens[variable].isel(time=(ds_ens.time.dt.year <= year_end)*(ds_ens.time.dt.year >= year_start))
+    ds_ens.mean(dim='ens').to_netcdf(f'{out_dir}CESM2-LE2_{variable}_ensemble_{year_start}-{year_end}_mean_monthly.nc')            
 
-    if out_file:
-        time_mean.to_netcdf(out_file)
-    
-    return time_mean
+    return ds_ens
 
 # Function calculate the bias correction for the atmospheric variable from the specified source type based on 
 # the difference between its mean state and the ERA5 mean state.
