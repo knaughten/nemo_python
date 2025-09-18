@@ -289,48 +289,53 @@ def TAU_to_U10xy(TAUX, TAUY, U10):
 
 # Process atmospheric forcing from CESM2 scenarios (LE2, etc.) for a single variable and single ensemble member.
 # expt='LE2', var='PRECT', ens='1011.001' etc.
-def cesm2_atm_forcing (expt, var, ens, out_dir, start_year=1850, end_year=2100, year_ens_start=1750, shift_wind=False):
+def cesm2_atm_forcing (expt, var, ens, out_dir, start_year=1850, end_year=2100, year_ens_start=1750, freq='daily', shift_wind=False):
 
     if expt not in ['LE2', 'piControl', 'SF-xAER', 'SF-AAER', 'SF-BMB', 'SF-GHG', 'SF-EE']:
         raise Exception('Invalid experiment {expt}')
 
-    freq     = 'daily'
-    for year in range(start_year, end_year+1):
-        # read in the data and subset to the specified year
+    # for each year, read in the data, process it, and save the processed forcing to a file
+    for year in range(start_year,  end_year+1):
+        
+        # helper function to load CESM2 file and select variable for the specified year
+        def load_cesm2_file(var, expt=expt, freq=freq, ens=ens, year=year):
+            file_path = find_cesm2_file(expt, var, 'atm', freq, ens, year)
+            ds_vel    = xr.open_dataset(file_path)
+            data_vel  = ds_vel[var].isel(time=(ds_vel.time.dt.year == year))
+            return
 
         # load cesm2 land-ocean mask
         land_mask  = find_cesm2_file(expt, 'LANDFRAC', 'atm', 'monthly', ens, year)
         cesm2_mask = xr.open_dataset(land_mask).LANDFRAC.isel(time=0)
+        # read in variables from forcing files
         if var=='PRECS': # snowfall
             if expt=='piControl': freq='monthly' # only monthly files available
-            file_pathc = find_cesm2_file(expt, 'PRECSC', 'atm', freq, ens, year)
-            file_pathl = find_cesm2_file(expt, 'PRECSL', 'atm', freq, ens, year)
-            ds_conv    = xr.open_dataset(file_pathc) # convective snow rate
-            ds_large   = xr.open_dataset(file_pathl) # large-scale snow rate
-            data_conv  = ds_conv['PRECSC'].isel(time=(ds_conv.time.dt.year == year))
-            data_large = ds_large['PRECSL'].isel(time=(ds_large.time.dt.year == year))
-        elif var=='wind':
+            data_conv  = load_cesm2_file('PRECSC') # convective snow rate
+            data_large = load_cesm2_file('PRECSL') # large-scale snow rate
+        elif var=='U10':
             if expt=='piControl': var_U = 'U'; var_V='V';
-            elif expt=='LE2': var_U='UBOT'; var_V='VBOT';
-            elif expt in ['SF-xAER', 'SF-AAER', 'SF-BMB', 'SF-GHG', 'SF-EE']: var_U='TAUX'; var_V='TAUY'; # single forcing expts don't have UBOT, VBOT so need to calc from stress
+            else: var_U='UBOT'; var_V='VBOT';
 
-            file_path_U10  = find_cesm2_file(expt, 'U10', 'atm', freq, ens, year)
-            file_path_UBOT = find_cesm2_file(expt, var_U, 'atm', freq, ens, year)
-            file_path_VBOT = find_cesm2_file(expt, var_V, 'atm', freq, ens, year)
-            ds_U10         = xr.open_dataset(file_path_U10)
-            ds_UBOT        = xr.open_dataset(file_path_UBOT)
-            ds_VBOT        = xr.open_dataset(file_path_VBOT)
-            data_U10       = ds_U10['U10'].isel(time=(ds_U10.time.dt.year == year))
-            data_UBOT      = ds_UBOT[var_U].isel(time=(ds_UBOT.time.dt.year == year))
-            data_VBOT      = ds_VBOT[var_V].isel(time=(ds_VBOT.time.dt.year == year))
-        else: 
-            file_path = find_cesm2_file(expt, var, 'atm', freq, ens, year)
-            ds        = xr.open_dataset(file_path)
-            data      = ds[var].isel(time=(ds.time.dt.year == year))
+            data_U10  = load_cesm2_file('U10')
+            data_UBOT = load_cesm2_file(var_U)
+            data_VBOT = load_cesm2_file(var_V)
+
+            # For the piControl experiment, only full column winds are available, so select the bottom wind
+            if expt=='piControl':
+                data_UBOT = data_UBOT.isel(lev=-1) # bottom wind is the last entry (992 hPa)
+                data_VBOT = data_VBOT.isel(lev=-1)
+
+            # Convert the wind to the 10 m wind (corrected height)
+            if shift_wind:
+                Ux, Uy    = UBOT_to_U10_wind(data_UBOT, data_VBOT, data_U10)
+                data_UBOT = Ux.rename('U10x')
+                data_VBOT = Uy.rename('U10y')
+        else:
+            data = load_cesm2_file(var)
  
         # Unit conversions #
         # notes: don't think I need to swap FSDS,FLDS signs like Kaitlin did for CESM1, qrefht is specific 
-        #        humidity so don't need to convert, but will need to change read in option in namelist_cfg
+        #        humidity so don't need to convert, but specify read in option in namelist_cfg
         if var=='PRECT': # total precipitation
             # Convert from m/s to kg/m2/s
             data *= rho_fw
@@ -339,31 +344,13 @@ def cesm2_atm_forcing (expt, var, ens, out_dir, start_year=1850, end_year=2100, 
             data  = (data_conv + data_large) * rho_fw        
             data  = data.rename('PRECS')
 
-        # Convert the wind to the 10 m wind
-        if var=='wind':
-            # For the piControl experiment, only full column winds are available, so select the bottom wind
-            if expt=='piControl':
-                data_UBOT = data_UBOT.isel(lev=-1) # bottom wind is the last entry (992 hPa)
-                data_VBOT = data_VBOT.isel(lev=-1)
-            elif expt in ['SF-xAER', 'SF-AAER', 'SF-BMB', 'SF-GHG', 'SF-EE']:
-                Ux, Uy    = TAU_to_U10xy(data_UBOT, data_VBOT, data_U10)
-                data_UBOT = Ux.rename('U10x')
-                data_VBOT = Uy.rename('U10y')
-                shift_wind=False # since wind speed vectors are already calculated from the U10 speed
-
-            # Convert the wind to the corrected height
-            if shift_wind:
-                Ux, Uy    = UBOT_to_U10_wind(data_UBOT, data_VBOT, data_U10)
-                data_UBOT = Ux.rename('U10x')
-                data_VBOT = Uy.rename('U10y')
-
-        if var=='wind':
+        if var=='U10':
             data_arrays = [data_UBOT, data_VBOT]
         else:
             data_arrays = [data]       
 
         for arr in data_arrays:
-            if var in ['QREFHT','TREFHT','FSDS','FLDS','PSL','PRECT','PRECS']: 
+            if var in ['QREFHT','TREFHT','FSDS','FLDS','PSL','PRECT','PRECS', 'UBOT', 'VBOT']: 
                 # Mask atmospheric forcing over land based on cesm2 land mask (since land values might not be representative for the ocean areas)
                 arr = xr.where(cesm2_mask.values != 0, -9999, arr)
                 # And then fill masked areas with nearest non-NaN latitude neighbour
@@ -379,7 +366,14 @@ def cesm2_atm_forcing (expt, var, ens, out_dir, start_year=1850, end_year=2100, 
             # CESM2 does not do leap years, but NEMO does, so fill 02-29 with 02-28        
             # Also convert calendar to Gregorian
             fill_value = arr.isel(time=((arr.time.dt.month==2)*(arr.time.dt.day==28)))
-            arr = arr.convert_calendar('gregorian', dim='time', missing=fill_value)
+            if freq=='daily':
+                arr = arr.convert_calendar('gregorian', dim='time', missing=fill_value)
+            elif freq=='3-hourly': # need to do something slightly different because you need to fill a slice of times
+                arr = arr.convert_calendar('gregorian', dim='time', missing=fill_value.isel(time=0))
+                #if leap year, properly replace the time slice:
+                if sum((arr.time.dt.month==2)*(arr.time.dt.day==29)) > 0:
+                    print('leap year')
+                    arr.loc[dict(time=(arr.time.dt.month==2)*(arr.time.dt.day==29))] = fill_value.data
 
             # Change variable names and units in the dataset:
             varname = arr.name 
@@ -395,12 +389,12 @@ def cesm2_atm_forcing (expt, var, ens, out_dir, start_year=1850, end_year=2100, 
                     arr.attrs['long_name'] = 'meridional wind at 10 m'
 
             # Write data
-            out_file_name = f'{out_dir}CESM2-{expt}_ens{ens}_{varname}_y{year}.nc'
+            out_file_name = f'{out_dir}CESM2-{expt}_ens{ens}_{freq}_{varname}_y{year}.nc'
             #if expt=='piControl': # split files into ensemble chunks
                 # for now just keep the smae:
                 #out_file_name = f'{out_dir}CESM2-{expt}_ens{ens}_{varname}_y{1850+(year-year_ens_start)}.nc'
             arr.to_netcdf(out_file_name, unlimited_dims='time')
-    return
+    return arr
 
 
 # Create CESM2 atmospheric forcing for the given scenario, for all variables and ensemble members.
