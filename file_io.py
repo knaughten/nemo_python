@@ -179,8 +179,8 @@ def find_cesm2_file(expt, var_name, domain, freq, ensemble_member, year,
 
     if expt not in ['LE2', 'piControl', 'SF-AAER', 'SF-BMB', 'SF-GHG', 'SF-EE', 'SF-xAER']:
         raise Exception(f'Invalid experiment {expt}')
-    if freq not in ['daily', 'monthly']:
-        raise Exception(f'Frequency can be either daily or monthly, but is specified as {freq}')
+    if freq not in ['daily', 'monthly', '3-hourly']:
+            raise Exception(f'Frequency can be either daily, monthly, or 3-hourly, but is specified as {freq}')
     if expt == 'LE2':
         if ensemble_member not in cesm2_ensemble_members:
             raise Exception(f'Ensemble member {ensemble_member} is not available')
@@ -206,6 +206,8 @@ def find_cesm2_file(expt, var_name, domain, freq, ensemble_member, year,
             domain_stub = '.cam.h0.'
         elif freq == 'daily':
             domain_stub = '.cam.h1.'
+        elif freq == '3-hourly':
+            domain_stub = '.cam.h3.'
     elif domain in ['oce', 'ocn']:
         domain_stub = '.pop.h.'
     elif domain == 'ice':
@@ -216,6 +218,8 @@ def find_cesm2_file(expt, var_name, domain, freq, ensemble_member, year,
         str_format = '%Y%m%d'
     elif freq == 'monthly':
         str_format = '%Y%m'
+    elif freq == '3-hourly':
+        str_format = '%Y%m%d%H'
  
     if expt=='LE2':
         file_list  = glob.glob(f'{base_dir}{expt}/raw/{start_stub}{expt}-{ensemble_member}{domain_stub}{var_name}*')
@@ -230,11 +234,16 @@ def find_cesm2_file(expt, var_name, domain, freq, ensemble_member, year,
     found_date = False
     for file in file_list:
         date_range = (file.split(f'.{var_name}.')[1]).split('.nc')[0]
-        start_year = datetime.strptime(date_range.split('-')[0], str_format).year
-        end_year   = datetime.strptime(date_range.split('-')[1], str_format).year
-        if (year <= end_year) and (year >= start_year): # found the file we're looking for
-            found_date = True
-            break
+        start_date = datetime.strptime(date_range.split('-')[0], str_format)
+        end_date   = datetime.strptime(date_range.split('-')[1], str_format)
+        if freq=='monthly':
+            if (year <= end_date.year) and (year >= start_date.year):
+                found_date=True
+                break
+        else:
+            if (datetime(year,12,31) <= end_date) and (datetime(year,1,1) >= start_date): # found the file we're looking for
+                found_date = True
+                break
 
     if not found_date:
         raise Exception(f'File for {var_name} requested year ({year}) not found, double-check that it exists?')
@@ -255,7 +264,7 @@ def find_cesm2_file(expt, var_name, domain, freq, ensemble_member, year,
 # for example, expt = 'LE2', ensemble_member='1011.001'
 # Inputs:
 # bias_corr (optional) : boolean indicating whether you are looking for the bias corrected files
-def find_processed_cesm2_file(expt, var_name, ensemble_member, year,
+def find_processed_cesm2_file(expt, var_name, ensemble_member, year, freq='daily',
                               base_dir='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/climate-forcing/CESM2/',
                               bias_corr=False):
 
@@ -277,11 +286,11 @@ def find_processed_cesm2_file(expt, var_name, ensemble_member, year,
     expt_dir = f'{base_dir}{expt}'
 
     if bias_corr:
-        file_list = glob.glob(f'{expt_dir}/bias-corrected/CESM2-{expt}_ens{ensemble_member}_{var_name}_bias_corr_y*')
-        file_path = f'{expt_dir}/bias-corrected/CESM2-{expt}_ens{ensemble_member}_{var_name}_bias_corr_y{year}.nc'
+        file_list = glob.glob(f'{expt_dir}/bias-corrected/CESM2-{expt}_ens{ensemble_member}_{freq}_{var_name}_bias_corr_y*')
+        file_path = f'{expt_dir}/bias-corrected/CESM2-{expt}_ens{ensemble_member}_{freq}_{var_name}_bias_corr_y{year}.nc'
     else:
-        file_list = glob.glob(f'{expt_dir}/processed/CESM2-{expt}_ens{ensemble_member}_{var_name}_y*')
-        file_path = f'{expt_dir}/processed/CESM2-{expt}_ens{ensemble_member}_{var_name}_y{year}.nc'
+        file_list = glob.glob(f'{expt_dir}/processed/CESM2-{expt}_ens{ensemble_member}_{freq}_{var_name}_y*')
+        file_path = f'{expt_dir}/processed/CESM2-{expt}_ens{ensemble_member}_{freq}_{var_name}_y{year}.nc'
 
     found_date = False
     for file in file_list:
