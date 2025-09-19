@@ -383,7 +383,8 @@ def plot_hovmoeller(datarray, varname='', title=None, fig_size=(8,5), return_fig
                     cmap='viridis', dpi=None, vlim=(-1.5,0.8)):
 
     fig, ax = plt.subplots(1,1, figsize=fig_size)
-    cm1 = ax.pcolormesh(datarray.time_centered.values, datarray.deptht.values, datarray.values,
+    cm1 = ax.pcolormesh([np.datetime64(date) for date in datarray.time_centered.values],
+                        datarray.deptht.values, datarray.values,
                         rasterized=True, cmap=cmap, vmin=vlim[0], vmax=vlim[1])
     fig.colorbar(cm1, ax=ax, label=varname, extend='both')
     ax.invert_yaxis()
