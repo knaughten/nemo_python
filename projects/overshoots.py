@@ -1318,6 +1318,7 @@ def plot_bwtemp_massloss_by_gw_panels (base_dir='./', static_ice=False):
             ax.set_xlim([temp_correction,temp_correction+8])
             if v == 0:
                 ax.axhline(-1.9, color='black', linestyle='dashed', linewidth=0.75)
+                ax.set_ylim([-2.5, 3.7])
             '''if v==0:
                 # Inset panel in top left showing region
                 mask = region_mask(regions[n], ds, option='all')[0]
@@ -2986,7 +2987,7 @@ def plot_SLR_timeseries (base_dir='./', draft=False):
 
     vaf_dir = '/gws/nopw/j04/terrafirma/tm17544/TerraFIRMA_overshoots/processed_data/netcdf_files/'
     file_head = 'vaf_'
-    file_tail = '_timeseries.nc'
+    file_tail = '_timeseries_newmask_1km.nc'
     timeseries_file = 'timeseries.nc'
     pi_suite = 'cs568'  # Evolving ice
     baseline_suite = 'cx209'  # First member ramp-up
@@ -3014,7 +3015,7 @@ def plot_SLR_timeseries (base_dir='./', draft=False):
         if not draft:
             # Get baseline initial VAF from first member ramp-up (should be consistent between members as evolving ice has just been switched on)
             ds = xr.open_dataset(vaf_dir+'/'+file_head+baseline_suite+file_tail)
-            vaf0 = ds[regions[n]+'_vaf'].isel(time=0)
+            vaf0 = ds[regions[n]+'_wais_vaf'].isel(time=0) + ds[regions[n]+'_eais_vaf'].isel(time=0)
             year0 = ds['time'].isel(time=0)
             ds.close()
         num_tip = 0
