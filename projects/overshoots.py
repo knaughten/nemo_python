@@ -2729,7 +2729,8 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
         nemo_var = 'tob'
         vmin = -2
         vmax = 3.5
-        ctype = 'RdBu_r'
+        ctype = 'plusminus'
+        val0 = -1.9
         colour_GL = 'yellow'
     elif var_name == 'bwsalt':
         var_title = 'Salinity at seafloor'
@@ -2739,6 +2740,7 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
         vmax = 34.9
         ctype = 'viridis'
         colour_GL = 'white'
+        val0 = 0
     elif var_name == 'ismr':
         var_title = 'Ice shelf melt rate'
         units = 'm/y'
@@ -2747,6 +2749,7 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
         vmax = 20
         ctype = 'ismr'
         colour_GL = 'blue'
+        val0 = 0
     else:
         raise Exception('Invalid variable '+var_name)
 
@@ -2917,7 +2920,7 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
     y_ice = y_ice - y_c
 
     # Plot
-    cmap = set_colours(data_plot[0][0], ctype=ctype, vmin=vmin, vmax=vmax)[0]
+    cmap = set_colours(data_plot[0][0], ctype=ctype, vmin=vmin, vmax=vmax, val0=val0)[0]
     fig = plt.figure(figsize=(7,6))
     gs = plt.GridSpec(num_regions, num_snapshots)
     gs.update(left=0.02, right=0.98, bottom=0.23, top=0.89, wspace=0.1, hspace=0.5)
