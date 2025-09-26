@@ -2983,7 +2983,7 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
             ypos = (ymin+3*ymax)/4
             label = 'b'
         plt.text(xpos, ypos, label, ha='center', va='center', fontsize=10)
-    finished_plot(fig, fig_name='figures/map_snapshots_'+var_name+'.png', dpi=300)
+    finished_plot(fig) #, fig_name='figures/map_snapshots_'+var_name+'.png', dpi=300)
 
 
 def plot_SLR_timeseries (base_dir='./', draft=False):

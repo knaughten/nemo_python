@@ -112,9 +112,9 @@ def set_colours (data, ctype='viridis', vmin=None, vmax=None, change_points=None
     vmax = float(vmax)
 
     if ctype == 'plusminus':
-        return plusminus_cmap(vmin, vmax, 0, val0=val0), vmin, vmax
+        return plusminus_cmap(vmin, vmax, val0=val0), vmin, vmax
     elif ctype == 'plusminus_r':
-        return plusminus_cmap(vmin, vmax, 0, reverse=True), vmin, vmax
+        return plusminus_cmap(vmin, vmax, val0=val0, reverse=True), vmin, vmax
     elif ctype == 'ismr':
         return ismr_cmap(vmin, vmax, change_points=change_points), vmin, vmax
     else:
