@@ -3047,7 +3047,7 @@ def plot_SLR_timeseries (base_dir='./', draft=False):
                     ds = xr.open_dataset(file_path)
                     # Offset of 1 year as per Tom's email (BISICLES output is snapshot at beginning of next year)
                     time = ds['time'] - 1
-                    vaf = ds[regions[n]+'_vaf']
+                    vaf = ds[regions[n]+'_wais_vaf'] + ds[regions[n]+'_eais_vaf']
                     # Convert from VAF to sea level rise in cm
                     if suite == pi_suite:
                         # Different initial state to the rest
