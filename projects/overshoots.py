@@ -2716,11 +2716,18 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
     lont = [-157, -22]
     latt = [-74, -77]
     depth0 = 1500
+    catchment_file = '/gws/nopw/j04/terrafirma/tm17544/TerraFIRMA_overshoots/aux_data/antarctica_IMBIE_basins_extended_250916_TMM_BISICLES_extent_1km.nc'
+    catchment_id = [[8, 9], [16, 17]]  # Ross EAIS and WAIS, FRIS WAIS and EAIS
+    catchment_colours = ['#E6FFE6', 'Lavender']
 
     ds_grid = xr.open_dataset(sample_file, decode_times=time_coder).squeeze()
     bathy0, draft0, ocean_mask0, ice_mask0 = calc_geometry(ds_grid)
     # Mask cavities out of bathymetry for shelf break contour
     bathy0 = bathy0.where(np.invert(ice_mask0))
+
+    # Build catchment masks
+    ds_cat = xr.open_dataset(catchment_file)
+    catchment_masks = [xr.where((ds_cat['Band1']>=cid[0])*(ds_cat['Band1']<=cid[1]), 1, 0) for cid in catchment_id]
 
     # Set variable title, NEMO name, units
     if var_name == 'bwtemp':
@@ -2729,8 +2736,7 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
         nemo_var = 'tob'
         vmin = -2
         vmax = 3.5
-        ctype = 'plusminus'
-        val0 = -1.9
+        ctype = 'RdBu_r'
         colour_GL = 'yellow'
     elif var_name == 'bwsalt':
         var_title = 'Salinity at seafloor'
@@ -2740,7 +2746,6 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
         vmax = 34.9
         ctype = 'viridis'
         colour_GL = 'white'
-        val0 = 0
     elif var_name == 'ismr':
         var_title = 'Ice shelf melt rate'
         units = 'm/y'
@@ -2749,7 +2754,6 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
         vmax = 20
         ctype = 'ismr'
         colour_GL = 'blue'
-        val0 = 0
     else:
         raise Exception('Invalid variable '+var_name)
 
@@ -2920,7 +2924,7 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
     y_ice = y_ice - y_c
 
     # Plot
-    cmap = set_colours(data_plot[0][0], ctype=ctype, vmin=vmin, vmax=vmax, val0=val0)[0]
+    cmap = set_colours(data_plot[0][0], ctype=ctype, vmin=vmin, vmax=vmax)[0]
     fig = plt.figure(figsize=(7,6))
     gs = plt.GridSpec(num_regions, num_snapshots)
     gs.update(left=0.02, right=0.98, bottom=0.23, top=0.89, wspace=0.1, hspace=0.5)
@@ -2962,7 +2966,11 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
     # Inset map showing regions
     ax2 = fig.add_axes([0.16, 0.01, 0.2, 0.2])
     ax2.axis('equal')
-    # Shade open ocean in light blue, cavities in grey
+    # First shade catchments
+    for mask, colour in zip(catchment_masks, catchment_colours):
+        cmap = set_colours(mask, ctype=colour)[0]
+        ax2.pcolormesh(ds_cat['x'], ds_cat['y'], mask.where(mask==1), cmap=cmap)
+    # Overlay with open ocean in light blue, cavities in grey
     circumpolar_plot(ocean_mask0.where(ocean_mask0), ds_grid, ax=ax2, make_cbar=False, ctype='LightSkyBlue', lat_max=-66, shade_land=False)
     circumpolar_plot(ice_mask0.where(ice_mask0), ds_grid, ax=ax2, make_cbar=False, ctype='DarkGrey', lat_max=-66, shade_land=False)
     ax2.set_title('')
@@ -2983,7 +2991,7 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
             ypos = (ymin+3*ymax)/4
             label = 'b'
         plt.text(xpos, ypos, label, ha='center', va='center', fontsize=10)
-    finished_plot(fig) #, fig_name='figures/map_snapshots_'+var_name+'.png', dpi=300)
+    finished_plot(fig, fig_name='figures/map_snapshots_'+var_name+'.png', dpi=300)
 
 
 def plot_SLR_timeseries (base_dir='./', draft=False):
