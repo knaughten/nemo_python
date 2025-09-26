@@ -3956,7 +3956,7 @@ def temp_correction_uncertainty (base_dir='./', bias_file='bwsalt_bias.nc', slop
 def merge_rerun_suite (suite_old, suite_new, base_dir='./', vaf=False):
 
     if vaf:
-        timeseries_files = ['_timeseries.nc']
+        timeseries_files = ['_timeseries_newmask_1km.nc']
         vaf_dir = '/gws/nopw/j04/terrafirma/tm17544/TerraFIRMA_overshoots/processed_data/netcdf_files/'
         time_coord = 'time'
     else:
