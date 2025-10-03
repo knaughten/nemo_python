@@ -1585,7 +1585,7 @@ def plot_ross_fris_by_bwsalt (base_dir='./', compare_jacobs=False):
     timeseries_file_um = 'timeseries_um.nc'
     smooth = 5*months_per_year
     pi_suite = 'cs495'
-    cmap = ['YlOrRd', 'YlGnBu'] #['Reds', 'Blues']
+    cmap = ['YlOrRd', 'BuPu'] #['Reds', 'Blues']
     p0 = 0.05
     tipping_temp = -1.9
 
@@ -1713,7 +1713,16 @@ def plot_ross_fris_by_bwsalt (base_dir='./', compare_jacobs=False):
         if n==0:
             ax.set_xlabel('Bottom salinity on continental shelf (psu)', fontsize=12)
             ax.set_ylabel('Temperature in ice shelf cavity ('+deg_string+'C)', fontsize=12)
-    # Two colour bars: yellow/orange/red on the way up, yellow/green/blue on the way down
+            # Add arrows to show direction of travel
+            arrow_x = [34.6, 34.31, 34.33, 34.52, 34.3, 34.18, 34.02, 34.25]
+            arrow_y = [-1.75, -1.5, -0.25, 1.8, 2.7, 1.5, 0, -2.15]
+            arrow_dx = [-0.13, -0.05, 0.025, 0, -0.05, -0.05, -0.05, 0.13]
+            arrow_dy = [0, 0.5, 0.5, 0.6, -0.5, -0.5, -0.5, 0]
+            arrow_cmap = [0, 0, 0, 0, 1, 1, 1, 1]
+            arrow_colours = [0.2, 0.5, 0.6, 0.8, 0.8, 0.5, 0.4, 0.25]
+            for x, y, dx, dy, cm, colour in zip(arrow_x, arrow_y, arrow_dx, arrow_dy, arrow_cmap, arrow_colours):
+                ax.annotate("", xytext=(x,y), xy=(x+dx,y+dy), arrowprops=dict(arrowstyle='simple', mutation_scale=10, color=plt.get_cmap(cmap[cm])(colour)))
+    # Two colour bars: yellow/orange/red on the way up, purple/blue on the way down
     cbar = plt.colorbar(img_up, cax=cax1, orientation='horizontal')
     cbar.set_ticklabels([])
     plt.colorbar(img_down, cax=cax2, orientation='horizontal')
