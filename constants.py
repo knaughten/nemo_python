@@ -163,7 +163,7 @@ iceshelf_colour = '#d4d5da'
 
 # Keep track of ensemble members downloaded for all variables:
 cesm2_ensemble_members = ['1011.001','1031.002','1051.003','1071.004','1091.005','1111.006','1131.007','1151.008','1171.009','1191.010'] + \
-                         [f'1231.0{i:02}' for i in range(11,15)] + [f'1251.0{i:02}' for i in range(11,15)] + [f'1281.0{i:02}' for i in range(11,15)] + \
-                         [f'1301.0{i:02}' for i in range(11,15)]
+                         [f'1231.0{i:02}' for i in range(11,16)] + [f'1251.0{i:02}' for i in range(11,16)] + [f'1281.0{i:02}' for i in range(11,16)] + \
+                         [f'1301.0{i:02}' for i in range(11,16)]
 
 
