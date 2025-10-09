@@ -94,7 +94,7 @@ def ismr_cmap (vmin, vmax, change_points=None):
 # Keyword arguments:
 # vmin, vmax: min and max values to enforce for the colourmap. They may be modified eg to make sure ismr includes 0. If you don't specify them, they will be determined based on the entire array of data.
 # change_points: only matters for 'ismr'. List of size 3 containing values where the colourmap should hit the colours yellow, orange, and red. It should not include the minimum value, 0, or the maximum value. Setting these parameters allows for a nonlinear transition between colours, and enhanced visibility of the melt rate. If it is not defined, the change points will be determined linearly.
-def set_colours (data, ctype='viridis', vmin=None, vmax=None, change_points=None):
+def set_colours (data, ctype='viridis', vmin=None, vmax=None, change_points=None, val0=0):
 
     # Work out bounds
     if vmin is None or vmax is None:
@@ -112,9 +112,9 @@ def set_colours (data, ctype='viridis', vmin=None, vmax=None, change_points=None
     vmax = float(vmax)
 
     if ctype == 'plusminus':
-        return plusminus_cmap(vmin, vmax, 0), vmin, vmax
+        return plusminus_cmap(vmin, vmax, val0=val0), vmin, vmax
     elif ctype == 'plusminus_r':
-        return plusminus_cmap(vmin, vmax, 0, reverse=True), vmin, vmax
+        return plusminus_cmap(vmin, vmax, val0=val0, reverse=True), vmin, vmax
     elif ctype == 'ismr':
         return ismr_cmap(vmin, vmax, change_points=change_points), vmin, vmax
     else:

@@ -1318,6 +1318,7 @@ def plot_bwtemp_massloss_by_gw_panels (base_dir='./', static_ice=False):
             ax.set_xlim([temp_correction,temp_correction+8])
             if v == 0:
                 ax.axhline(-1.9, color='black', linestyle='dashed', linewidth=0.75)
+                ax.set_ylim([-2.5, 3.7])
             '''if v==0:
                 # Inset panel in top left showing region
                 mask = region_mask(regions[n], ds, option='all')[0]
@@ -1584,7 +1585,7 @@ def plot_ross_fris_by_bwsalt (base_dir='./', compare_jacobs=False):
     timeseries_file_um = 'timeseries_um.nc'
     smooth = 5*months_per_year
     pi_suite = 'cs495'
-    cmap = ['YlOrRd', 'YlGnBu'] #['Reds', 'Blues']
+    cmap = ['YlOrRd', 'BuPu'] #['Reds', 'Blues']
     p0 = 0.05
     tipping_temp = -1.9
 
@@ -1712,7 +1713,16 @@ def plot_ross_fris_by_bwsalt (base_dir='./', compare_jacobs=False):
         if n==0:
             ax.set_xlabel('Bottom salinity on continental shelf (psu)', fontsize=12)
             ax.set_ylabel('Temperature in ice shelf cavity ('+deg_string+'C)', fontsize=12)
-    # Two colour bars: yellow/orange/red on the way up, yellow/green/blue on the way down
+            # Add arrows to show direction of travel
+            arrow_x = [34.6, 34.31, 34.33, 34.52, 34.3, 34.18, 34.02, 34.25]
+            arrow_y = [-1.75, -1.5, -0.25, 1.8, 2.7, 1.5, 0, -2.15]
+            arrow_dx = [-0.13, -0.05, 0.025, 0, -0.05, -0.05, -0.05, 0.13]
+            arrow_dy = [0, 0.5, 0.5, 0.6, -0.5, -0.5, -0.5, 0]
+            arrow_cmap = [0, 0, 0, 0, 1, 1, 1, 1]
+            arrow_colours = [0.2, 0.5, 0.6, 0.8, 0.8, 0.5, 0.4, 0.25]
+            for x, y, dx, dy, cm, colour in zip(arrow_x, arrow_y, arrow_dx, arrow_dy, arrow_cmap, arrow_colours):
+                ax.annotate("", xytext=(x,y), xy=(x+dx,y+dy), arrowprops=dict(arrowstyle='simple', mutation_scale=10, color=plt.get_cmap(cmap[cm])(colour)))
+    # Two colour bars: yellow/orange/red on the way up, purple/blue on the way down
     cbar = plt.colorbar(img_up, cax=cax1, orientation='horizontal')
     cbar.set_ticklabels([])
     plt.colorbar(img_down, cax=cax2, orientation='horizontal')
@@ -2715,11 +2725,18 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
     lont = [-157, -22]
     latt = [-74, -77]
     depth0 = 1500
+    catchment_file = '/gws/nopw/j04/terrafirma/tm17544/TerraFIRMA_overshoots/aux_data/antarctica_IMBIE_basins_extended_250916_TMM_BISICLES_extent_1km.nc'
+    catchment_id = [[8, 9], [16, 17]]  # Ross EAIS and WAIS, FRIS WAIS and EAIS
+    catchment_colours = ['#E6FFE6', 'Lavender']
 
     ds_grid = xr.open_dataset(sample_file, decode_times=time_coder).squeeze()
     bathy0, draft0, ocean_mask0, ice_mask0 = calc_geometry(ds_grid)
     # Mask cavities out of bathymetry for shelf break contour
     bathy0 = bathy0.where(np.invert(ice_mask0))
+
+    # Build catchment masks
+    ds_cat = xr.open_dataset(catchment_file)
+    catchment_masks = [xr.where((ds_cat['Band1']>=cid[0])*(ds_cat['Band1']<=cid[1]), 1, 0) for cid in catchment_id]
 
     # Set variable title, NEMO name, units
     if var_name == 'bwtemp':
@@ -2958,7 +2975,11 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
     # Inset map showing regions
     ax2 = fig.add_axes([0.16, 0.01, 0.2, 0.2])
     ax2.axis('equal')
-    # Shade open ocean in light blue, cavities in grey
+    # First shade catchments
+    for mask, colour in zip(catchment_masks, catchment_colours):
+        cmap = set_colours(mask, ctype=colour)[0]
+        ax2.pcolormesh(ds_cat['x'], ds_cat['y'], mask.where(mask==1), cmap=cmap)
+    # Overlay with open ocean in light blue, cavities in grey
     circumpolar_plot(ocean_mask0.where(ocean_mask0), ds_grid, ax=ax2, make_cbar=False, ctype='LightSkyBlue', lat_max=-66, shade_land=False)
     circumpolar_plot(ice_mask0.where(ice_mask0), ds_grid, ax=ax2, make_cbar=False, ctype='DarkGrey', lat_max=-66, shade_land=False)
     ax2.set_title('')
@@ -2986,7 +3007,7 @@ def plot_SLR_timeseries (base_dir='./', draft=False):
 
     vaf_dir = '/gws/nopw/j04/terrafirma/tm17544/TerraFIRMA_overshoots/processed_data/netcdf_files/'
     file_head = 'vaf_'
-    file_tail = '_timeseries.nc'
+    file_tail = '_timeseries_newmask_1km.nc'
     timeseries_file = 'timeseries.nc'
     pi_suite = 'cs568'  # Evolving ice
     baseline_suite = 'cx209'  # First member ramp-up
@@ -3014,7 +3035,7 @@ def plot_SLR_timeseries (base_dir='./', draft=False):
         if not draft:
             # Get baseline initial VAF from first member ramp-up (should be consistent between members as evolving ice has just been switched on)
             ds = xr.open_dataset(vaf_dir+'/'+file_head+baseline_suite+file_tail)
-            vaf0 = ds[regions[n]+'_vaf'].isel(time=0)
+            vaf0 = ds[regions[n]+'_wais_vaf'].isel(time=0) + ds[regions[n]+'_eais_vaf'].isel(time=0)
             year0 = ds['time'].isel(time=0)
             ds.close()
         num_tip = 0
@@ -3046,7 +3067,7 @@ def plot_SLR_timeseries (base_dir='./', draft=False):
                     ds = xr.open_dataset(file_path)
                     # Offset of 1 year as per Tom's email (BISICLES output is snapshot at beginning of next year)
                     time = ds['time'] - 1
-                    vaf = ds[regions[n]+'_vaf']
+                    vaf = ds[regions[n]+'_wais_vaf'] + ds[regions[n]+'_eais_vaf']
                     # Convert from VAF to sea level rise in cm
                     if suite == pi_suite:
                         # Different initial state to the rest
@@ -3955,7 +3976,7 @@ def temp_correction_uncertainty (base_dir='./', bias_file='bwsalt_bias.nc', slop
 def merge_rerun_suite (suite_old, suite_new, base_dir='./', vaf=False):
 
     if vaf:
-        timeseries_files = ['_timeseries.nc']
+        timeseries_files = ['_timeseries_newmask_1km.nc']
         vaf_dir = '/gws/nopw/j04/terrafirma/tm17544/TerraFIRMA_overshoots/processed_data/netcdf_files/'
         time_coord = 'time'
     else:
