@@ -246,7 +246,7 @@ def find_cesm2_file(expt, var_name, domain, freq, ensemble_member, year,
                 break
 
     if not found_date:
-        raise Exception(f'File for {var_name} requested year ({year}) not found, double-check that it exists?')
+        raise Exception(f'File for {var_name}, {ensemble_member} requested year ({year}) not found, double-check that it exists?')
 
     if expt=='LE2':
         file_path = f'{base_dir}{expt}/raw/{start_stub}{expt}-{ensemble_member}{domain_stub}{var_name}.{date_range}.nc'
@@ -303,6 +303,6 @@ def find_processed_cesm2_file(expt, var_name, ensemble_member, year, freq='daily
             break
 
     if not found_date:
-        raise Exception(f'File for {var_name} requested year ({year}) not found, double-check that it exists?')
+        raise Exception(f'File for {var_name}, {ensemble_member} requested year ({year}) not found, double-check that it exists?')
     
     return file_path
