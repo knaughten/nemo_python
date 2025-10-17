@@ -4,14 +4,30 @@ from .utils import closest_point, remove_disconnected, rotate_vector
 from .constants import ross_gyre_point0, region_bounds
 from .interpolation import interp_grid
 
+# Choose variable to represent dz; 3 choices depending on grid type
+def choose_dz (ds, gtype):
+    if gtype not in ['U', 'V']:
+        raise Exception('Invalid gtype')
+    if 'thkcello' in ds:
+        dz = ds['thkcello']
+    elif 'e3u' in ds and gtype=='U':
+        dz = ds['e3u']
+    elif 'e3v' in ds and gtype=='V':
+        dz = ds['e3v']
+    else:
+        raise Exception('No option for dz')
+    return dz
+        
+
 # Calculate zonal or meridional transport across the given section. The code will choose a constant slice in x or y corresponding to a constant value of latitude or longitude - so maybe not appropriate in highly rotated regions.
-# For zonal transport, set lon0 and lat_bounds, and make sure the dataset includes uo, thkcello, and e2u (can get from domain_cfg).
-# For meridional transport, set lat0 and lon_bounds, and make sure the dataset includes vo, thkcello, and e1v.
+# For zonal transport, set lon0 and lat_bounds, and make sure the dataset includes uo, thkcello/e3u, and e2u (can get from domain_cfg).
+# For meridional transport, set lat0 and lon_bounds, and make sure the dataset includes vo, thkcello/e3v, and e1v.
 # Returns value in Sv.
 def transport (ds, lon0=None, lat0=None, lon_bounds=None, lat_bounds=None):
 
     if lon0 is not None and lat_bounds is not None and lat0 is None and lon_bounds is None:
         # Zonal transport across line of constant longitude
+        dz = choose_dz(ds, 'U')
         [j_start, i_start] = closest_point(ds, [lon0, lat_bounds[0]])
         [j_end, i_end] = closest_point(ds, [lon0, lat_bounds[1]])
         # Want a single value for i
@@ -23,10 +39,11 @@ def transport (ds, lon0=None, lat0=None, lon_bounds=None, lat_bounds=None):
             print('Warning (transport): grid is rotated; compromising on constant x-coordinate')
             i0 = int(round(0.5*(i_start+i_end)))
         # Assume velocity is already masked to 0 in land mask
-        integrand = (ds['uo']*ds['thkcello']*ds['e2u']).isel(x=i0, y=slice(j_start, j_end+1))
+        integrand = (ds['uo']*dz*ds['e2u']).isel(x=i0, y=slice(j_start, j_end+1))
         return integrand.sum(dim={'depthu', 'y'})*1e-6
     elif lat0 is not None and lon_bounds is not None and lon0 is None and lat_bounds is None:
         # Meridional transport across line of constant latitude
+        dz = choose_dz(ds, 'V')
         [j_start, i_start] = closest_point(ds, [lon_bounds[0], lat0])
         [j_end, i_end] = closest_point(ds, [lon_bounds[1], lat0])
         if j_start == j_end:
@@ -34,16 +51,16 @@ def transport (ds, lon0=None, lat0=None, lon_bounds=None, lat_bounds=None):
         else:
             print('Warning (transport): grid is rotated; compromising on constant y-coordinate')
             j0 = int(round(0.5*(j_start+j_end)))
-        integrand = (ds['vo']*ds['thkcello']*ds['e1v']).isel(x=slice(i_start, i_end+1), y=j0)
+        integrand = (ds['vo']*dz*ds['e1v']).isel(x=slice(i_start, i_end+1), y=j0)
         return integrand.sum(dim={'depthv', 'x'})*1e-6
 
 
 # Calculate the barotropic streamfunction. 
 def barotropic_streamfunction (ds_u, ds_v, ds_domcfg, periodic=True, halo=True):
 
-    # Definite integral over depth (thkcello is dz)
-    udz = (ds_u['uo']*ds_u['thkcello']).sum(dim='depthu')
-    vdz = (ds_v['vo']*ds_v['thkcello']).sum(dim='depthv')
+    # Definite integral over depth
+    udz = (ds_u['uo']*choose_dz(ds_u, 'U')).sum(dim='depthu')
+    vdz = (ds_v['vo']*choose_dz(ds_v, 'V')).sum(dim='depthv')
     # Interpolate to t-grid
     udz_t = interp_grid(udz, 'u', 't', periodic=periodic, halo=halo)
     vdz_t = interp_grid(vdz, 'v', 't', periodic=periodic, halo=halo)
@@ -56,7 +73,7 @@ def barotropic_streamfunction (ds_u, ds_v, ds_domcfg, periodic=True, halo=True):
 
 
 # Calculate the easternmost extent of the Ross Gyre: first find the 0 Sv contour of barotropic streamfunction which contains the point (160E, 70S), and then find the easternmost point within this contour.
-# The dataset ds must include the variables uo, thkcello, e2u, nav_lon, nav_lat.
+# The dataset ds must include the variables uo, thkcello/e3u+e3v, e2u, nav_lon, nav_lat.
 def ross_gyre_eastern_extent (ds_u, ds_v, ds_domcfg, periodic=True, halo=True):
 
     # Find all points where the barotropic streamfunction is negative
@@ -72,14 +89,20 @@ def ross_gyre_eastern_extent (ds_u, ds_v, ds_domcfg, periodic=True, halo=True):
     # Return the easternmost point
     return gyre_lon.max(dim={'x','y'})
 
-# Calculate the Weddell Gyre transport: absolute value of the most negative streamfunction within the Weddell Gyre bounds.
-def weddell_gyre_transport(ds_u, ds_v, ds_domcfg, periodic=True, halo=True):
+# Calculate the transport within the given gyre: absolute value of the most negative streamfunction within the gyre bounds.
+# Pass region = 'weddell' or 'ross'.
+def gyre_transport (region, ds_u, ds_v, ds_domcfg, periodic=True, halo=True):
 
     strf = barotropic_streamfunction(ds_u, ds_v, ds_domcfg, periodic=periodic, halo=halo)
     # Identify Weddell Gyre region:
-    [xmin, xmax, ymin, ymax] = region_bounds['weddell_gyre']
-    region_mask = (ds_domcfg.nav_lon < xmax) & (ds_domcfg.nav_lon > xmin) & (ds_domcfg.nav_lat < ymax) & (ds_domcfg.nav_lat > ymin)
-    # Find the most negative streamfunction within the Weddell Gyre bounds
+    [xW, xE, yS, yN] = region_bounds[region+'_gyre']
+    if xW > xE:
+        # Crosses 180 degrees longitude
+        region_mask_lon = (ds_domcfg.nav_lon > xW) or (ds_domcfg.nav_lon < xE)
+    else:
+        region_mask_lon = (ds_domcfg.nav_lon > xW) and (ds_domcfg.nav_lat < xE)
+    region_mask = region_mask_lon and (ds_domcfg.nav_lat > yS) and (ds_domcfg.nav_lat < yN)
+    # Find the most negative streamfunction within the gyre bounds
     vmin = strf.where(region_mask).min(dim=['x','y'])
 
     return -1*vmin

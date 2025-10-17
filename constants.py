@@ -45,6 +45,7 @@ region_bounds = {
     'dotson_bay': [-114, -110.5, -74.3, -73.5],
     'amundsen_west_shelf_break': [-115, -112, -72, -71],
     'weddell_gyre': [-60., 30., -90., -50.],
+    'ross_gyre': [150, -140, -90, -60],
     'filchner_trough': [-45, -30, -79, -75],
     'ronne_depression': [-70, -55, -76, -73],
     'LAB_trough': [-166, -157, -80, -75],

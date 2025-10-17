@@ -574,5 +574,57 @@ def transects_Amundsen(run_folder, transect_locations=['Getz_left','Getz_right',
 
     return
 
+
+# Set up list of timeseries for evaluation deck
+def timeseries_types_evaluation ():
+
+    regions = ['all', 'larsen', 'filchner_ronne', 'east_antarctica', 'amery', 'ross', 'west_antarctica', 'dotson_cosgrove']    
+    var_names = ['massloss', 'shelf_bwtemp', 'shelf_bwsalt']
+    var_names_ASE = ['massloss', 'shelf_temp_btw_200_700m', 'shelf_salt_btw_200_700m']
+    timeseries_types = []
+    for region in regions:
+        if region == 'dotson_cosgrove':
+            var_names_use = var_names_ASE
+        else:
+            var_names_use = var_names
+        for var in var_names_use:
+            timeseries_types.append(region+'_'+var)
+    timeseries_types += ['drake_passage_transport', 'weddell_gyre_transport', 'ross_gyre_transport']
+    return timeseries_types
+
+
+# Precompute timeseries for evaluation deck from Birgit's NEMO config
+# eg for latest 'best' ERA5 case: in_dir='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/output/ERA5_1h_tune0_efr020/files1/'
+def update_timeseries_evaluation_NEMO_AIS (in_dir, out_dir='./', compressed=True):
+
+    domain_cfg = '/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20250715.nc'
+    timeseries_types = timeseries_types_evaluation()
+    # Split into 3 gtypes - simplest to compute timeseries separately based on input file structure
+    timeseries_gtypes = {'T':[], 'SBC':[], 'U':[]}
+    for var in timeseries_types:
+        if 'massloss' in var:
+            timeseries_gtypes['T'].append(var)
+        elif 'transport' in var:
+            timeseries_gtypes['U'].append(var)
+        else:
+            timeseries_gtypes['T'].append(var)
+
+    for gtype in timeseries_gtypes:
+        update_simulation_timeseries('eANT025.L121', timeseries_gtypes[gtype], timeseries_file='timeseries_'+gtype+'.nc', timeseries_dir=out_dir, config='eANT025', sim_dir=in_dir, halo=False, gtype=gtype, domain_cfg=domain_cfg, compressed=compressed)
+
+    # Now merge the three files
+    ds = None
+    for gtype in timeseries_gtypes:
+        ds_new = xr.open_dataset(out_dir+'/timeseries_'+gtype+'.nc')
+        if ds is None:
+            ds = ds_new
+        else:
+            ds = ds.merge(ds_new)
+    ds.to_netcdf(out_dir+'/timeseries.nc')
+
+    
+
+    
+
     
     
