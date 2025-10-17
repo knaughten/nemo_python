@@ -9,7 +9,7 @@ from .interpolation import neighbours
 from .constants import region_edges, region_edges_flag, region_names, region_points, shelf_lat, shelf_depth, shelf_point0, region_bounds, region_bathy_bounds
 from .utils import remove_disconnected, closest_point
 
-# Helper function to calculate a bunch of grid variables (bathymetry, draft, ocean mask, ice shelf mask) from a NEMO output file, only using thkcello and the mask on a 3D data variable (current options are to look for thetao and so).
+# Helper function to calculate a bunch of grid variables (bathymetry, draft, ocean mask, ice shelf mask) from a NEMO output file, only using thkcello/e3t and the mask on a 3D data variable (current options are to look for thetao and so).
 # This varies a little if the sea surface height changes, so not perfect, but it does take partial cells into account.
 # If keep_time_dim, will preserve any time dimension even if it's of size 1 (useful for timeseries)
 def calc_geometry (ds, keep_time_dim=False):
@@ -25,12 +25,18 @@ def calc_geometry (ds, keep_time_dim=False):
     ocean_mask = mask_3d.sum(dim='deptht')>0
     # 2D ice shelf cells are ocean cells which are masked at the surface
     ice_mask = ocean_mask*(mask_3d.isel(deptht=0)==0)
-    # Water column thickness is sum of thkcello in unmasked cells
-    wct = (ds['thkcello']*mask_3d).sum(dim='deptht')
+    # Water column thickness is sum of dz in unmasked cells
+    if 'thkcello' in ds:
+        dz = ds['thkcello']
+    elif 'e3t' in ds:
+        dz = ds['e3t']
+    else:
+        raise Exception('Missing thkcello and e3t')
+    wct = (dz*mask_3d).sum(dim='deptht')
     # Now identify the 3D ice shelf cells using cumulative sum of mask
     ice_mask_3d = (mask_3d.cumsum(dim='deptht')==0)*ocean_mask
-    # Ice draft is sum of thkcello in ice shelf cells
-    draft = (ds['thkcello']*ice_mask_3d).sum(dim='deptht')
+    # Ice draft is sum of dz in ice shelf cells
+    draft = (dz*ice_mask_3d).sum(dim='deptht')
     # Bathymetry is ice draft plus water column thickness
     bathy = draft + wct
     if not keep_time_dim:
@@ -38,7 +44,7 @@ def calc_geometry (ds, keep_time_dim=False):
         draft = draft.squeeze()
     return bathy, draft, ocean_mask, ice_mask
 
-# Select ice shelf cavities. Pass it the path to an xarray Dataset which contains either 'maskisf' (NEMO3.6 mesh_mask), 'top_level' (NEMO4.2 domain_cfg), or 'thkcello' plus a 3D data variable with a zero-mask applied (NEMO output file - see calc_geometry)
+# Select ice shelf cavities. Pass it the path to an xarray Dataset which contains either 'maskisf' (NEMO3.6 mesh_mask), 'top_level' (NEMO4.2 domain_cfg), or 'thkcello'/'e3t' plus a 3D data variable with a zero-mask applied (NEMO output file - see calc_geometry)
 def build_ice_mask (ds):
 
     if 'ice_mask' in ds:
@@ -72,7 +78,7 @@ def build_ocean_mask (ds):
 # Select the continental shelf and ice shelf cavities. Pass it the path to an xarray Dataset which contains one of the following combinations:
 # 1. nav_lon, nav_lat, bathy, tmaskutil (NEMO3.6 mesh_mask)
 # 2. nav_lon, nav_lat, bathy_metry, bottom_level (NEMO4.2 domain_cfg)
-# 3. nav_lon, nav_lat, thkcello, a 3D data variable with a zero-mask applied (current options are thetao or so) (NEMO output file) 
+# 3. nav_lon, nav_lat, thkcello/e3t, a 3D data variable with a zero-mask applied (current options are thetao or so) (NEMO output file) 
 def build_shelf_mask (ds):
 
     if 'shelf_mask' in ds:
@@ -85,7 +91,7 @@ def build_shelf_mask (ds):
     elif 'bathy_metry' in ds and 'bottom_level' in ds:
         bathy = ds['bathy_metry'].squeeze()
         ocean_mask = xr.where(ds['bottom_level']>0, 1, 0).squeeze()
-    elif 'thkcello' in ds:
+    elif 'thkcello' in ds or 'e3t' in ds:
         bathy, draft, ocean_mask, ice_mask = calc_geometry(ds)
         # Make sure ice shelves are included in the final mask, by setting bathy to 0 here
         bathy = xr.where(ice_mask, 0, bathy)

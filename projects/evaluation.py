@@ -603,14 +603,14 @@ def update_timeseries_evaluation_NEMO_AIS (in_dir, out_dir='./', compressed=True
     timeseries_gtypes = {'T':[], 'SBC':[], 'U':[]}
     for var in timeseries_types:
         if 'massloss' in var:
-            timeseries_gtypes['T'].append(var)
+            timeseries_gtypes['SBC'].append(var)
         elif 'transport' in var:
             timeseries_gtypes['U'].append(var)
         else:
             timeseries_gtypes['T'].append(var)
 
     for gtype in timeseries_gtypes:
-        update_simulation_timeseries('eANT025.L121', timeseries_gtypes[gtype], timeseries_file='timeseries_'+gtype+'.nc', timeseries_dir=out_dir, config='eANT025', sim_dir=in_dir, halo=False, gtype=gtype, domain_cfg=domain_cfg, compressed=compressed)
+        update_simulation_timeseries('L121', timeseries_gtypes[gtype], timeseries_file='timeseries_'+gtype+'.nc', timeseries_dir=out_dir, config='eANT025', sim_dir=in_dir, halo=False, gtype=gtype, domain_cfg=domain_cfg, compressed=compressed)
 
     # Now merge the three files
     ds = None
