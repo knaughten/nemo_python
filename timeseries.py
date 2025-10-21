@@ -5,7 +5,7 @@ import glob
 from .constants import region_points, region_names, rho_fw, rho_ice, sec_per_year, deg_string, gkg_string, drake_passage_lon0, drake_passage_lat_bounds
 from .utils import add_months, closest_point, month_convert, bwsalt_abs
 from .grid import single_cavity_mask, region_mask, calc_geometry
-from .diagnostics import transport, weddell_gyre_transport
+from .diagnostics import transport, gyre_transport
 time_coder = xr.coders.CFDatetimeCoder(use_cftime=True)
 
 # Calculate a timeseries of the given preset variable from an xarray Dataset of NEMO output (must have halo removed). Returns DataArrays of the timeseries data, the associated time values, and the variable title. Specify whether there is a halo (true for periodic boundaries in NEMO 3.6).
@@ -117,9 +117,15 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         units = 'Sv'
         title = 'Drake Passage Transport'
     elif var == 'weddell_gyre_transport':
-        option = 'weddell_transport'
+        region = 'weddell'
+        option = 'gyre_transport'
         units = 'Sv'
         title = 'Weddell Gyre Transport'
+    elif var == 'ross_gyre_transport':
+        region = 'ross'
+        option = 'gyre_transport'
+        units = 'Sv'
+        title = 'Ross Gyre Transport'
     elif var.endswith('_iceberg_melt'):
         option = 'area_int'
         region = var[:var.index('_iceberg_melt')]
@@ -163,6 +169,23 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         if halo:
             ds_domcfg = ds_domcfg.isel(x=slice(1,-1))
         ds_nemo = ds_nemo.assign({'e2u':ds_domcfg['e2u']})
+
+    # Some variables have two equivalent options - allow for either
+    if nemo_var == 'sowflisf' and nemo_var not in ds_nemo:
+        if 'fwfisf' in ds_nemo:
+            nemo_var = 'fwfisf'
+        else:
+            raise Exception('Missing variable '+nemo_var+' or fwfisf')
+    if nemo_var == 'tob' and nemo_var not in ds_nemo:
+        if 'sbt' in ds_nemo:
+            nemo_var = 'sbt'
+        else:
+            raise Exception('Missing variable '+nemo_var+' or sbt')
+    if nemo_var == 'sob' and nemo_var not in ds_nemo:
+        if 'sbs' in ds_nemo:
+            nemo_var = 'sbs'
+        else:
+            raise Exception('Missing variable '+nemo_var+' or sbs')
 
     # Select region
     if region is not None:
@@ -228,7 +251,7 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
     elif option == 'transport':
         # Calculate zonal or meridional transport
         data = transport(ds_nemo, lon0=lon0, lat0=lat0, lon_bounds=lon_bounds, lat_bounds=lat_bounds)
-    elif option == 'weddell_transport':
+    elif option == 'gyre_transport':
         ds_domcfg = xr.open_dataset(domain_cfg, decode_times=time_coder).squeeze()
         if ds_nemo.sizes['y'] < ds_domcfg.sizes['y']:
             # The NEMO dataset was trimmed (eg by MOOSE for UKESM) to the southernmost latitudes. Do the same for domain_cfg.
@@ -236,11 +259,12 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         if halo:
             ds_domcfg = ds_domcfg.isel(x=slice(1,-1))
 
-        if 'thkcello' in ds_nemo:
+        # No longer needed because gyre_transport allows for any choice of thkcello, e3u, e3v
+        '''if 'thkcello' in ds_nemo:
             # dataset already contains thkcello (cell thickness) so don't need to rename e3u/v to thkcello
-            data = weddell_gyre_transport(ds_nemo, ds_nemo, ds_domcfg, periodic=periodic, halo=halo)
+            data = gyre_transport(region, ds_nemo, ds_nemo, ds_domcfg, periodic=periodic, halo=halo)
         else:
-            data = weddell_gyre_transport(ds_nemo.rename({'e3u':name_remapping['e3u']}), ds_nemo.rename({'e3v':name_remapping['e3v']}), ds_domcfg, periodic=periodic, halo=halo)
+            data = gyre_transport(region, ds_nemo.rename({'e3u':name_remapping['e3u']}), ds_nemo.rename({'e3v':name_remapping['e3v']}), ds_domcfg, periodic=periodic, halo=halo)'''
        
     data *= factor
     data = data.assign_attrs(long_name=title, units=units)
@@ -314,6 +338,7 @@ def precompute_timeseries (ds_nemo, timeseries_types, timeseries_file, halo=True
                                             name_remapping=name_remapping, nemo_mesh=nemo_mesh)
             except(KeyError):
                 # Incomplete dataset missing some crucial variables. This can happen when grid-T is present but isf-T is missing, or vice versa. Return a masked value.
+                print('Warning: missing variables')
                 data = ds_nemo['time_counter'].where(False)
         if ds_new is None:            
             ds_new = xr.Dataset({var:data})
@@ -339,18 +364,20 @@ def precompute_timeseries (ds_nemo, timeseries_types, timeseries_file, halo=True
     overwrite_file(ds_new, timeseries_file)
 
 
-# Precompute timeseries from the given simulation, either from the beginning (timeseries_file does not exist) or picking up where it left off (timeseries_file does exist). Considers all NEMO output files stamped with suite_id in the given directory sim_dir on the given grid (gtype='T', 'U', etc), and assumes the timeseries file is in that directory too.
-def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='timeseries.nc', config='', 
+# Precompute timeseries from the given simulation, either from the beginning (timeseries_file does not exist) or picking up where it left off (timeseries_file does exist). Considers all NEMO output files stamped with suite_id in the given directory sim_dir on the given grid (gtype='T', 'U', etc), and assumes the timeseries file is in that directory too (unless timeseries_dir is set).
+def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='timeseries.nc', timeseries_dir=None, config='', 
                                   sim_dir='./', freq='m', halo=True, periodic=True, gtype='T', name_remapping='', nemo_mesh='',
-                                  domain_cfg='/gws/nopw/j04/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc'):
+                                  domain_cfg='/gws/nopw/j04/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc', compressed=False):
     import re
     from datetime import datetime
 
-    update = os.path.isfile(sim_dir+timeseries_file)
+    if timeseries_dir is None:
+        timeseries_dir = sim_dir
+    update = os.path.isfile(timeseries_dir+timeseries_file)
     if update:
         # Timeseries file already exists
         # Get last time index
-        ds_ts = xr.open_dataset(sim_dir+timeseries_file, decode_times=time_coder)
+        ds_ts = xr.open_dataset(timeseries_dir+timeseries_file, decode_times=time_coder)
         time_last  = ds_ts['time_centered'][-1].dt
         year_last  = time_last.year
         month_last = time_last.month
@@ -359,7 +386,10 @@ def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='t
     # Identify NEMO output files in the given directory, constructed as wildcard strings for each date code
     nemo_files = []
     if config=='eANT025':
-        file_tail = f'_{gtype}.nc'
+        if compressed:
+            file_tail = f'_{gtype}_compressed.nc'
+        else:
+            file_tail = f'_{gtype}.nc'
     else:
         file_tail = f'-{gtype}.nc'
         
@@ -407,7 +437,8 @@ def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='t
     # Loop through each date code and process
     for file_pattern in nemo_files:
         print('Processing '+file_pattern)
-        has_isfT = os.path.isfile(f"{sim_dir}/{file_pattern.replace('*','_isf')}")
+        # The following block doesn't work - maybe a regex problem? Was just checking for warnings anyway
+        '''has_isfT = os.path.isfile(f"{sim_dir}/{file_pattern.replace('*','_isf')}")
         has_gridT = os.path.isfile(f"{sim_dir}/{file_pattern.replace('*','_grid')}")
         if sum([has_isfT, has_gridT]) == 1:
             if has_isfT and not has_gridT:
@@ -418,18 +449,18 @@ def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='t
                 print('This is the last file, so it will probably be pulled from MASS later. Stopping.')
                 break
             else:
-                print('Timeseries file will have some NaNs at this index.')
+                print('Timeseries file will have some NaNs at this index.')'''
 
-        if 'weddell_gyre_transport' in timeseries_types: # need to load both gridU and grid V files to be able to calculate this; not currently the neatest approach
+        if 'weddell_gyre_transport' in timeseries_types or 'ross_gyre_transport' in timeseries_types: # need to load both gridU and grid V files to be able to calculate this; not currently the neatest approach
             if gtype not in ['U', 'V']:
-                raise Exception('Grid type must be specified as either U or V when calculating Weddell Gyre Transport') # should be U and V:
+                raise Exception('Grid type must be specified as either U or V when calculating gyre transport') # should be U and V:
             dsU = xr.open_dataset(glob.glob(f'{sim_dir}/{file_pattern}'.replace('V.nc', 'U.nc'))[0], decode_times=time_coder)[['e3u','uo']].rename({'nav_lon':'nav_lon_grid_U','nav_lat':'nav_lat_grid_U'})
             dsV = xr.open_dataset(glob.glob(f'{sim_dir}/{file_pattern}'.replace('U.nc', 'V.nc'))[0], decode_times=time_coder)[['e3v','vo']].rename({'nav_lon':'nav_lon_grid_V','nav_lat':'nav_lat_grid_V'})
             ds_nemo = dsU.merge(dsV)
         else:
             ds_nemo = xr.open_mfdataset(f'{sim_dir}/{file_pattern}', decode_times=time_coder)
         ds_nemo.load()
-        precompute_timeseries(ds_nemo, timeseries_types, f'{sim_dir}/{timeseries_file}', halo=halo, periodic=periodic, domain_cfg=domain_cfg,
+        precompute_timeseries(ds_nemo, timeseries_types, f'{timeseries_dir}/{timeseries_file}', halo=halo, periodic=periodic, domain_cfg=domain_cfg,
                               name_remapping=name_remapping, nemo_mesh=nemo_mesh)
         ds_nemo.close()
 

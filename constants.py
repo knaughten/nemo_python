@@ -45,6 +45,7 @@ region_bounds = {
     'dotson_bay': [-114, -110.5, -74.3, -73.5],
     'amundsen_west_shelf_break': [-115, -112, -72, -71],
     'weddell_gyre': [-60., 30., -90., -50.],
+    'ross_gyre': [150, -140, -90, -60],
     'filchner_trough': [-45, -30, -79, -75],
     'ronne_depression': [-70, -55, -76, -73],
     'LAB_trough': [-166, -157, -80, -75],
@@ -98,6 +99,7 @@ region_edges = {
     'dotson_front'      : [[-112.5, -74.4] , [-110.5, -73.85]], # just shelf
     'pine_island'       : [[-102.6, -75.1] , [-101.5, -74.2]],
     'pine_island_bay'   : [[-104.0, -74.8] , [-103, -74.2]], # just shelf
+    'dotson_cosgrove'   : [[-114.7, -73.8] , [-102.91, -73.2]],
     'east_antarctica'   : [[-26, -75.5]    , [169.5 , -71]], # includes Amery
     'filchner_ronne'    : [[-57, -71.5]    , [-26.0 , -75.5]],
     'getz'              : [[-135, -74.5]   , [-114.7, -73.8]],
@@ -114,6 +116,7 @@ region_edges_flag = {
     'cosgrove'          : ['EW', 'EW'],
     'dotson_crosson'    : ['NS', 'NS'],
     'dotson_front'      : ['EW', 'EW'],
+    'dotson_cosgrove'   : ['NS', 'EW'],
     'east_antarctica'   : ['NS', 'NS'],
     'filchner_ronne'    : ['EW', 'NS'],
     'getz'              : ['NS', 'NS'],
@@ -165,5 +168,36 @@ iceshelf_colour = '#d4d5da'
 cesm2_ensemble_members = ['1011.001','1031.002','1051.003','1071.004','1091.005','1111.006','1131.007','1151.008','1171.009','1191.010'] + \
                          [f'1231.0{i:02}' for i in range(11,16)] + [f'1251.0{i:02}' for i in range(11,16)] + [f'1281.0{i:02}' for i in range(11,16)] + \
                          [f'1301.0{i:02}' for i in range(11,16)]
+
+# Dictionary of Adusumilli 2020 satellite estimates of melt rates for specific ice shelves and regions, over 1994-2018.
+adusumilli_melt = {
+    'all' : 1264.3,
+    'larsen': 112.7,
+    'filchner_ronne': 81.4,
+    'east_antarctica': 407.7,  # Wilkes + Amery + Queen Maud
+    'amery': 45.6,
+    'ross': 123.3,
+    'west_antarctica': 539.3,  # Amundsen + Bellingshausen
+    'dotson_cosgrove': 210.3,  # Cosgrove + Pine Island + Thwaites + Crosson + Dotson
+}
+adusumilli_std = {
+    'all' : 147.4,
+    'larsen' : 103.6,
+    'filchner_ronne': 122.9,
+    'east_antarctica': 156.9,
+    'amery': 40.0,
+    'ross': 83.5,
+    'west_antarctica': 113.4,
+    'dotson_cosgrove': 33.5,
+}
+# Observations of Drake Passage Transport, Donohue et al. 2016
+dp_trans_obs = 173.3
+dp_trans_std = 10.7
+# Weddell Gyre transport, Klatt et al. 2005
+wg_trans_obs = 56
+wg_trans_std = 8
+# Ross Gyre transport including ASC, Dotto et al. 2018
+rg_trans_obs = 29
+rg_trans_std = 8
 
 
