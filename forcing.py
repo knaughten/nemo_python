@@ -440,7 +440,7 @@ def cesm2_expt_all_ocn_forcing(expt, ens_strs=None, out_dir=None, start_year=185
 
 
 # Helper function calculates the monthly time-mean over specified year range for ERA5 output (for bias correction)
-# Note that we exclude the year 1996 due to an issue with a cyclone in the Amundsen Sea
+# Note that the year 1996 is excluded from climatology due to an issue with a cyclone in the Amundsen Sea in ERA5
 # Input: 
 # - variable : string of forcing variable name (in ERA5 naming convention)
 # - (optional) year_start : start year for time averaging
@@ -449,7 +449,7 @@ def era5_time_mean_forcing(variable, year_start=1979, year_end=2022, freq='daily
                            era5_folder='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/ERA5-forcing/'):
 
     if freq=='3-hourly':
-        era5_folder_in = f'{era5_folder}hourly_to_keep/processed/'
+        era5_folder_in = f'{era5_folder}hourly/processed/'
     else:
         era5_folder_in = f'{era5_folder}{freq}/processed/'
         
