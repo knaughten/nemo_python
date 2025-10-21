@@ -158,7 +158,7 @@ def calculate_regional_melt_rate(region_name, nemo_ds, return_name=False, return
                                   np.nan)
 
     # annual regional melt rate: in the form of (y, x, year), units of gT/year
-    annual_regional_melt_rate = regional_melt_rate.resample(time_counter='Y').sum()*1e-12
+    annual_regional_melt_rate = regional_melt_rate.resample(time_counter='YE').sum()*1e-12
 
     if return_name and return_mask:
         return regional_melt_rate, annual_regional_melt_rate, region_full_name, mask
@@ -176,7 +176,7 @@ def calculate_regional_melt_rate(region_name, nemo_ds, return_name=False, return
 # mesh_mask  (optional) : string of path to NEMO mesh mask file
 # fig_name   (optional) : string of path to save figure to 
 # return_fig (optional) : boolean specifying whether to return the figure and axes
-def plot_annual_melt_overview(SBC_files, ylim=None,
+def plot_annual_melt_overview(SBC_files, ylim1=(None,None), ylim2=(None,None),
                               domain_cfg='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20250715.nc',
                               mesh_mask ='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20250715.nc',
                               fig_name=None, return_fig=False):
@@ -207,18 +207,13 @@ def plot_annual_melt_overview(SBC_files, ylim=None,
             if i==0: zoom_amundsen=False
             else: zoom_amundsen=True # add zoom into the amundsen sea region for panel 2
             if r==0:
-                img1 = circumpolar_plot(mask, nemo_meshmask, ax=ax[i,1], ctype=colors[r], shade_land=True, 
-                                        zoom_amundsen=zoom_amundsen, **kwags)  
+                img1 = circumpolar_plot(mask, nemo_meshmask, ax=ax[i,1], ctype=colors[r], zoom_amundsen=zoom_amundsen, shade_land=True, **kwags)  
             else:
-                img1 = circumpolar_plot(mask, nemo_meshmask, ax=ax[i,1], ctype=colors[r], shade_land=False, 
-                                        zoom_amundsen=zoom_amundsen, **kwags)
+                img1 = circumpolar_plot(mask, nemo_meshmask, ax=ax[i,1], ctype=colors[r], zoom_amundsen=zoom_amundsen, shade_land=False, **kwags)
             r+=1
         ax[i,0].legend(loc=(1.85, 0.52), frameon=False)
-        if ylim:
-            ax[i,0].set_ylim(ylim[0], ylim[1])
-        else:
-            _, axup = ax[i,0].get_ylim()
-            ax[i,0].set_ylim(0, axup*1.1)
+        ax[0,0].set_ylim(ylim1[0], ylim1[1])
+        ax[1,0].set_ylim(ylim2[0], ylim2[1])
         ax[i,0].set_ylabel('Ice shelf freshwater flux (Gt/year)')
         i+=1
         

@@ -789,7 +789,27 @@ def regrid_era5_to_cesm2(cesm2_ds, era5_ds, variable):
 
     return era5_regridded
             
-            
+def regrid_to_NEMO(ds, varname, nemo_coord=f'/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20250715.nc', method='conservative'):
+    
+    nemo_coord_file = xr.open_dataset(nemo_coord).squeeze()
+    name_remapping  = {'longitude':'lon', 'latitude':'lat'}
+
+    try:
+        source_var = ds.rename(name_remapping).sortby('lat').sel(lat=slice(-90, -50))
+    except:
+        source_var = ds.sortby('lat').sel(lat=slice(-90, -50))
+        
+    if source_var.lon.max() > 180: # Convert longitudes from 0-360 to -180 to 180 
+        source_var['lon'] = fix_lon_range(source_var.lon)
+    source_var = source_var.sortby('lon')[varname]
+    source_var = xr.where(source_var==0, np.nan, source_var)
+
+    # Now wrap up into a new dataset and interpolate
+    ds_source = xr.Dataset({'lon':source_var['lon'], 'lat':source_var['lat'], varname:source_var})
+    print('Interpolating')
+    interp_src = interp_latlon_cf(ds_source, nemo_coord_file, pster_src=False, periodic_src=True, periodic_nemo=True, method=method)
+
+    return interp_src     
             
             
             

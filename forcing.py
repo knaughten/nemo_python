@@ -3,6 +3,7 @@
 ###########################################################
 import xarray as xr
 import numpy as np
+import pandas as pd
 import glob
 from .utils import distance_btw_points, closest_point, convert_to_teos10, fix_lon_range, dewpoint_to_specific_humidity
 from .grid import get_coast_mask, get_icefront_mask
@@ -439,55 +440,56 @@ def cesm2_expt_all_ocn_forcing(expt, ens_strs=None, out_dir=None, start_year=185
 
 
 # Helper function calculates the monthly time-mean over specified year range for ERA5 output (for bias correction)
+# Note that we exclude the year 1996 due to an issue with a cyclone in the Amundsen Sea
 # Input: 
 # - variable : string of forcing variable name (in ERA5 naming convention)
 # - (optional) year_start : start year for time averaging
 # - (optional) end_year   : end year for time averaging
 def era5_time_mean_forcing(variable, year_start=1979, year_end=2022, freq='daily', lat_slice=slice(-90,-50),
-                           era5_folder='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/ERA5-forcing/',
-                           land_mask='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/ERA5-forcing/daily/files/land_sea_mask.nc'):
+                           era5_folder='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/ERA5-forcing/'):
 
-    if freq=='daily':
-        era5_folder_in  = f'{era5_folder}daily/files/processed/'
-        era5_folder_out = f'{era5_folder}daily/files/processed/'
-    elif freq=='3-hourly' or freq=='hourly':
-        era5_folder_in  = f'{era5_folder}hourly/files/'
-        era5_folder_out = f'{era5_folder}hourly/files/processed/' 
+    if freq=='3-hourly':
+        era5_folder_in = f'{era5_folder}hourly_to_keep/processed/'
+    else:
+        era5_folder_in = f'{era5_folder}{freq}/processed/'
+        
+    era5_folder_out = f'{era5_folder}climatology/' 
 
     if freq=='daily' or freq=='hourly':
         if variable=='wind_speed':
-            era5_u  = xr.open_mfdataset(f'{era5_folder_in}u10_*')['u10'].sortby('latitude').sel(latitude=lat_slice)
-            era5_v  = xr.open_mfdataset(f'{era5_folder_in}v10_*')['v10'].sortby('latitude').sel(latitude=lat_slice)
-            era5_u  = era5_u.isel(time=((era5_u.time.dt.year <= year_end)*(era5_u.time.dt.year >= year_start)))
-            era5_v  = era5_v.isel(time=((era5_v.time.dt.year <= year_end)*(era5_v.time.dt.year >= year_start)))
-            era5_ds = np.sqrt(era5_u.u10**2 + era5_v.v10**2).rename(variable).mean(dim='time').to_dataset()
+            era5_u  = xr.open_mfdataset(f'{era5_folder_in}u10_*')['u10'].sortby('lat').sel(lat=lat_slice)
+            era5_v  = xr.open_mfdataset(f'{era5_folder_in}v10_*')['v10'].sortby('lat').sel(lat=lat_slice)
+            era5_u  = era5_u.isel(time=((era5_u.time.dt.year <= year_end)*(era5_u.time.dt.year >= year_start)*(era5_u.time.dt.year != 1996)))
+            era5_v  = era5_v.isel(time=((era5_v.time.dt.year <= year_end)*(era5_v.time.dt.year >= year_start)*(era5_v.time.dt.year != 1996)))
+            era5_ds = np.sqrt(era5_u**2 + era5_v**2).rename(variable).to_dataset()
         else:
-            era5_ds = xr.open_mfdataset(f'{era5_folder_in}{variable}_*.nc')[variable].sortby('latitude').sel(latitude=lat_slice)
-            era5_ds = era5_ds.isel(time=((era5_ds.time.dt.year <= year_end)*(era5_ds.time.dt.year >= year_start)))
+            era5_ds = xr.open_mfdataset(f'{era5_folder_in}{variable}_*.nc')[variable].sortby('lat').sel(lat=lat_slice)
+            era5_ds = era5_ds.isel(time=((era5_ds.time.dt.year <= year_end)*(era5_ds.time.dt.year >= year_start)*(era5_ds.time.dt.year != 1996)))
 
         time_mean = era5_ds.groupby('time.month').mean(dim='time')
 
     elif freq=='3-hourly':
         # slow due to resampling if you use the same approach as for daily, so do the below instead
         for year in range(year_start, year_end+1):
-            print(year)
-            for month in range(1,13):
+            if year == 1996:
+                print('skipping year 1996')
+            else:
+                print(year)
                 if variable=='wind_speed':
-                    era5_u = xr.open_dataset(f'{era5_folder_in}u10_y{year}m{month:02}.nc')['u10'].sortby('latitude').sel(latitude=lat_slice)
-                    era5_v = xr.open_dataset(f'{era5_folder_in}v10_y{year}m{month:02}.nc')['v10'].sortby('latitude').sel(latitude=lat_slice)
+                    era5_u = xr.open_dataset(f'{era5_folder_in}u10_y{year}.nc')['u10'].sortby('lat').sel(lat=lat_slice)
+                    era5_v = xr.open_dataset(f'{era5_folder_in}v10_y{year}.nc')['v10'].sortby('lat').sel(lat=lat_slice)
                     era5_u = era5_u.resample(time='3h').mean()
                     era5_v = era5_v.resample(time='3h').mean()               
-                    era5_ds = np.sqrt(era5_u.u10**2 + era5_v.v10**2).rename(variable).mean(dim='time').to_dataset()
+                    era5_ds = np.sqrt(era5_u**2 + era5_v**2).rename(variable).groupby('time.month').mean(dim='time').to_dataset()
                 else:
-                    era5_ds = xr.open_dataset(f'{era5_folder_in}{variable}_y{year}m{month:02}.nc')[variable].sortby('latitude').sel(latitude=lat_slice)
-                    era5_ds = era5_ds.resample(time='3h').mean().to_dataset()
+                    era5_ds = xr.open_dataset(f'{era5_folder_in}{variable}_y{year}.nc')[variable].sortby('lat').sel(lat=lat_slice)
+                    era5_ds = era5_ds.resample(time='3h').mean().groupby('time.month').to_dataset()
                
                 # assign timestamp to time variable
-                era5_ds['time'] = pd.DatetimeIndex(era5_ds['time'].values) 
-                era5_ds.to_netcdf(f'{era5_folder_out}{variable}_{freq}_monthly_mean_y{year}m{month:02}.nc')
+                era5_ds.to_netcdf(f'{era5_folder_out}{variable}_{freq}_monthly_mean_y{year}.nc')
  
         time_mean = xr.open_mfdataset(f'{era5_folder_out}{variable}_{freq}_monthly_mean_y*')[variable].groupby('time.month').mean(dim='time')
-
+    
     time_mean.to_netcdf(f'{era5_folder_out}{variable}_{freq}_{year_start}-{year_end}_mean_monthly.nc')
 
     return 
@@ -501,7 +503,7 @@ def era5_time_mean_forcing(variable, year_start=1979, year_end=2022, freq='daily
 # - (optional) year_start : start year for time averaging
 # - (optional) end_year   : end year for time averaging
 # - (optional) ensemble_members : list of strings of ensemble members to average (defaults to all the ones that have been downloaded)
-def cesm2_ensemble_time_mean_forcing(expt, variable, out_dir, year_start=1979, year_end=2022, ensemble_members=cesm2_ensemble_members, freq='daily', lat_slice=slice(-90,-50)):
+def cesm2_ensemble_time_mean_forcing(expt, variable, out_dir, year_start=1979, year_end=2024, ensemble_members=cesm2_ensemble_members, freq='daily', lat_slice=slice(-90,-50)):
 
     print(f'Calculating ensemble mean for variable {variable} at frequency {freq} from {year_start}-{year_end} for {expt} ensemble members:', ensemble_members)
 
@@ -537,14 +539,14 @@ def cesm2_ensemble_time_mean_forcing(expt, variable, out_dir, year_start=1979, y
     # Next, read in the above ensemble mean files for all years and calculate the mean over the full timeseries
     file_list = [f'{out_dir}CESM2-LE2_{variable}_{freq}_y{year}_ensemble_mean_monthly.nc' for year in range(year_start, year_end+1)]
     ds_ens = xr.open_mfdataset(file_list, concat_dim='year', combine='nested')[variable]
-    ds_ens.mean(dim='year').to_netcdf(f'{out_dir}CESM2-LE2_{variable}_ensemble_{year_start}-{year_end}_mean_monthly.nc')            
+    ds_ens.mean(dim='year').to_netcdf(f'{out_dir}CESM2-LE2_{variable}_{freq}_ensemble_{year_start}-{year_end}_mean_monthly.nc')            
 
     return
 
 # wrapper function to calculate ensemble mean for each of the atmospheric variables we're interested in:
-def cesm2_all_variables_ensemble_mean(expt, out_dir, year_start=1979, year_end=2022, ensemble_members=cesm2_ensemble_members):
+def cesm2_all_variables_ensemble_mean(expt, out_dir, year_start=1979, year_end=2024, ensemble_members=cesm2_ensemble_members):
 
-    for variable in ['TREFHT','QREFHT','FSDS','FLDS','PRECT','PRECS', 'PSL', 'wind_speed']:
+    for variable in ['TREFHT','QREFHT','FSDS','FLDS','PRECT','PRECS', 'PSL', 'wind_speed']: #wind_speed
         if variable == 'wind_speed':
             freq='3-hourly'
         else:
@@ -567,15 +569,15 @@ def cesm2_all_variables_ensemble_mean(expt, out_dir, year_start=1979, year_end=2
 # - (optional) nemo_grid, nemo_mask : string of path to NEMO domain_cfg and mesh_mask files
 # - (optional) out_folder : string to location to save the bias correction file
 def atm_bias_correction(source, variable, expt='LE2', year_start=1979, year_end=2022, freq='daily',
-                        fill_land=False, monthly=False, method='conservative',
+                        fill_land=False, monthly=False, method='bilinear',
                         era5_folder='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/ERA5-forcing/',
                         source_folder='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/climate-forcing/CESM2/LE2/',
                         out_folder='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/climate-forcing/CESM2/LE2/processed/'):
 
-    def regrid_monthly_to_NEMO(ds, variable, ro_filename, method=method):
+    def regrid_monthly_to_NEMO(ds, variable, method=method):
         
         for m in ds.month:
-            ds_month_regridded = regrid_to_NEMO(ds.sel(month=m), variable, calc_regrid_operator=False, method=method, ro_filename= ro_filename)
+            ds_month_regridded = regrid_to_NEMO(ds.sel(month=m), variable, method=method)
             if m > 1:
                 ds_regridded = xr.concat([ds_regridded, ds_month_regridded], dim='month')
             else:
@@ -586,30 +588,28 @@ def atm_bias_correction(source, variable, expt='LE2', year_start=1979, year_end=
     if source=='CESM2':
         
         # Load and regrid CESM2 ensemble mean to the NEMO grid
-        CESM2_time_mean = xr.open_dataset(f'{source_folder}ensemble_mean/CESM2-LE2_{variable}_ensemble_{year_start}-{year_end}_mean_monthly.nc')
+        CESM2_time_mean = xr.open_dataset(f'{source_folder}ensemble_mean/CESM2-LE2_{variable}_{freq}_ensemble_{year_start}-{year_end}_mean_monthly.nc')
         print('Regridding CESM2 to NEMO')
         if monthly:
-            CESM2_regridded = regrid_monthly_to_NEMO(CESM2_time_mean, variable, f'/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/cf-regridding/CESM2-to-NEMO-{method}.pickle')
+            CESM2_regridded = regrid_monthly_to_NEMO(CESM2_time_mean, variable)
         else:
-            CESM2_regridded = regrid_to_NEMO(CESM2_time_mean.mean(dim='month'), variable, calc_regrid_operator=True, method=method,
-                                             ro_filename=f'/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/cf-regridding/CESM2-to-NEMO-{method}.pickle')
+            CESM2_regridded = regrid_to_NEMO(CESM2_time_mean.mean(dim='month'), variable, method=method)
 
         # Load and regrid the time mean of ERA5 files 
         CESM2_to_ERA5_varnames = {'TREFHT':'t2m','FSDS':'msdwswrf','FLDS':'msdwlwrf','QREFHT':'sph2m', 'PRECS':'msr', 'PRECT':'mtpr', 'PSL':'msl'}
         varname = CESM2_to_ERA5_varnames[variable]
-        ERA5_time_mean = xr.open_dataset(f'{era5_folder}time_mean/{varname}_{freq}_{year_start}-{year_end}_mean_monthly.nc')
+        ERA5_time_mean = xr.open_dataset(f'{era5_folder}climatology/{varname}_{freq}_{year_start}-{year_end}_mean_monthly.nc')
         
         if variable=='QREFHT':
            varname='specific_humidity' # file with dewpoint temperature converted to specific humidity
-        ERA5_time_mean = ERA5_time_mean.rename({varname:variable, 'longitude':'lon', 'latitude':'lat'})
+        ERA5_time_mean = ERA5_time_mean.rename({varname:variable})
         
         # Adjust the longitude and regrid time means to NEMO configuration grid, so that they can be used to bias correct
         print('Regridding ERA5 to NEMO')
-        ERA5_pickle = f'/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/cf-regridding/ERA5-to-NEMO-{method}.pickle'
         if monthly:
-            ERA5_regridded = regrid_monthly_to_NEMO(ERA5_time_mean, variable, ERA5_pickle)
+            ERA5_regridded = regrid_monthly_to_NEMO(ERA5_time_mean, variable)
         else:
-            ERA5_regridded = regrid_to_NEMO(ERA5_time_mean.mean(dim='month'), variable, calc_regrid_operator=True, method=method, ro_filename=ERA5_pickle)
+            ERA5_regridded = regrid_to_NEMO(ERA5_time_mean.mean(dim='month'), variable, method=method)
  
         # thermodynamic correction
         if variable in ['TREFHT','QREFHT','FLDS','FSDS','PRECS','PRECT']:
@@ -657,7 +657,7 @@ def thermo_correction(source_mean, ERA5_mean, variable, out_file, fill_land=True
     return
 
 
-def process_era5_forcing(variable, year_start=1979, year_end=2023, era5_folder='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/ERA5-forcing/daily/files/'):
+def process_era5_forcing(variable, year_start=1979, year_end=2023, era5_folder='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/ERA5-forcing/daily/'):
 
     for year in range(year_start,year_end+1):
         if variable=='d2m':
@@ -665,21 +665,34 @@ def process_era5_forcing(variable, year_start=1979, year_end=2023, era5_folder='
             # convert dewpoint temperature to specific humidity and write to file (for bias correction calc)
             dewpoint_to_specific_humidity(file_dew=f'd2m_y{year}.nc', variable_dew='d2m',
                                           file_slp=f'msl_y{year}.nc', variable_slp='msl',
-                                          dataset='ERA5', folder=era5_folder)
+                                          dataset='ERA5', folder=f'{era5_folder}raw/')
 
-        # fill land with nearest connected point and
-        landmask = xr.open_dataset(f'{era5_folder}land_sea_mask.nc').isel(valid_time=0).lsm
+        # fill land with nearest connected point (assume land mask is more or less constant over the reanalysis period)
+        landmask = xr.open_dataset(f'{era5_folder}../climatology/land_sea_mask.nc').isel(time=0).lsm.rename({'longitude':'lon','latitude':'lat'})
+        landmask['lon'] = fix_lon_range(landmask['lon'])
+        landmask = landmask.sortby('lon')
+
         # convert time dimension to unlimited so that NEMO reads in the calendar correctly
-        for filename in glob.glob(f'{era5_folder}{variable}*y{year}.nc'):
+        for filename in glob.glob(f'{era5_folder}raw/{variable}*y{year}.nc'):
             with xr.open_dataset(filename, mode='a') as data:
                 print('Processing', filename)
                 try:
                     data = data.rename({'valid_time':'time'})
                 except:
                     pass
+
+                # tidy up the longitude range and naming conventions
+                data        = data.rename({'longitude':'lon', 'latitude':'lat'})
+                data['lon'] = fix_lon_range(data['lon'])
+                data        = data.sortby('lon')
+                name_remap  = {'msdwlwrf':'avg_sdlwrf', 'msdwswrf':'avg_sdswrf', 'mtpr':'avg_tprate', 'msr':'avg_tsrwe'}
+                try:
+                    data = data.rename({f'{name_remap[variable]}':variable})
+                except:
+                    pass
                 
-                variable = filename.split('files/')[1].split('_')[0]
-                if variable in ['msdwlwrf','msdwswrf','t2m','sph2m','d2m','msl']: 
+                variable = filename.split('raw/')[1].split('_')[0]
+                if variable in ['msdwlwrf','msdwswrf','t2m','sph2m','d2m','msl','msr','mtpr','t2m']: 
                     print(f'Filling land for variable {variable} year {year}')
                     if variable=='sph2m':
                         varname='specific_humidity'
@@ -690,9 +703,9 @@ def process_era5_forcing(variable, year_start=1979, year_end=2023, era5_folder='
                     for tind, t in enumerate(src_to_fill.time):
                         var_filled_array[:,:,tind] = extend_into_mask(src_to_fill.isel(time=tind).values, missing_val=-9999, fill_val=np.nan, 
                                                                       use_2d=True, use_3d=False, num_iters=200)
-                    data[varname] = (('latitude','longitude','time'), var_filled_array)
-                    data = data.transpose('time','latitude','longitude')
-               
-                data.to_netcdf(f'{era5_folder}processed/{variable}_time_y{year}.nc', unlimited_dims={'time':True})
+                    data[varname] = (('lat','lon','time'), var_filled_array)
+                    data = data.transpose('time','lat','lon')
+
+                data.to_netcdf(f'{era5_folder}processed/{variable}_y{year}.nc', unlimited_dims={'time':True})
 
     return
