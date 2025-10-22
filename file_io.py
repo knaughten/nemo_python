@@ -264,9 +264,8 @@ def find_cesm2_file(expt, var_name, domain, freq, ensemble_member, year,
 # for example, expt = 'LE2', ensemble_member='1011.001'
 # Inputs:
 # bias_corr (optional) : boolean indicating whether you are looking for the bias corrected files
-def find_processed_cesm2_file(expt, var_name, ensemble_member, year, freq='daily',
-                              base_dir='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/climate-forcing/CESM2/',
-                              bias_corr=False):
+def find_processed_cesm2_file(expt, var_name, ensemble_member, year, freq='daily', highres=False,
+                              base_dir='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/climate-forcing/CESM2/'):
 
     import glob
     from datetime import datetime
@@ -283,21 +282,18 @@ def find_processed_cesm2_file(expt, var_name, ensemble_member, year, freq='daily
             raise Exception('Not a valid year for the specified experiment and ensemble member')
 
     # set the experiment directory
-    expt_dir = f'{base_dir}{expt}'
-
-    if bias_corr:
-        file_list = glob.glob(f'{expt_dir}/bias-corrected/CESM2-{expt}_ens{ensemble_member}_{freq}_{var_name}_bias_corr_y*')
-        file_path = f'{expt_dir}/bias-corrected/CESM2-{expt}_ens{ensemble_member}_{freq}_{var_name}_bias_corr_y{year}.nc'
+    if highres:
+        file_dir = f'{base_dir}{expt}/processed_highres/'
+        file_list = glob.glob(f'{file_dir}CESM2-{expt}_ens{ensemble_member}_eANT025_{freq}_{var_name}_y*')
+        file_path = f'{file_dir}CESM2-{expt}_ens{ensemble_member}_eANT025_{freq}_{var_name}_y{year}.nc'
     else:
-        file_list = glob.glob(f'{expt_dir}/processed/CESM2-{expt}_ens{ensemble_member}_{freq}_{var_name}_y*')
-        file_path = f'{expt_dir}/processed/CESM2-{expt}_ens{ensemble_member}_{freq}_{var_name}_y{year}.nc'
+        file_dir = f'{base_dir}{expt}/processed/'
+        file_list = glob.glob(f'{file_dir}CESM2-{expt}_ens{ensemble_member}_{freq}_{var_name}_y*')
+        file_path = f'{file_dir}CESM2-{expt}_ens{ensemble_member}_{freq}_{var_name}_y{year}.nc'
 
     found_date = False
     for file in file_list:
-        if bias_corr:
-            file_year = datetime.strptime((file.split(f'_{var_name}_bias_corr_y')[1]).split('.nc')[0], '%Y').year
-        else:
-            file_year = datetime.strptime((file.split(f'_{var_name}_y')[1]).split('.nc')[0], '%Y').year
+        file_year = datetime.strptime((file.split(f'_{var_name}_y')[1]).split('.nc')[0], '%Y').year
         if (year == file_year): # found the file we're looking for
             found_date = True
             break
