@@ -657,8 +657,9 @@ def thermo_dynamic_correction(source_mean, ERA5_mean, variable, out_file, fill_l
 def apply_bias_correction(variable, ens, expt='LE2', start_year=1900, end_year=2050, monthly=True, freq='daily', highres=True,
                           out_dir='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/climate-forcing/CESM2/LE2/bias-corrected/',
                           bias_dir='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/climate-forcing/CESM2/LE2/ensemble_mean/bias_corr/'):
-    
-    print(f'Processing {variable} files from {start_year}-{end_year} with bias correction file from {freq} means')
+    from tqdm import tqdm
+
+    print(f'Processing {variable} files for ensemble member {ens} from {start_year}-{end_year} with bias correction file from {freq} means')
     bias_ds = xr.open_dataset(f'{bias_dir}CESM2-LE2_{variable}_{freq}_bias_corr_monthly.nc')[variable]
 
     # helper functions for applying bias correction
@@ -666,19 +667,18 @@ def apply_bias_correction(variable, ens, expt='LE2', start_year=1900, end_year=2
         speed = angle * bias_ds.sel(month=(angle.time_counter.dt.month[0].values))
         return speed
     def add_bias(ds_var):
-        ds_var_corrected = ds_var + bias_ds.sel(month=(ds_var.time.dt.month[0].values))
+        ds_var_corrected = ds_var + bias_ds.sel(month=(ds_var.time_counter.dt.month[0].values))
         return ds_var_corrected
 
     # loop over each year to apply bias correction
-    for year in range(start_year, end_year+1):
-        print(f'Processing ensemble member {ens}, year {year}')
+    for year in tqdm(range(start_year, end_year+1)):
 
         # for the u and v wind velocities, bias correction is based on a wind speed multiplier
         if variable=='wind_speed':
             file_pathx = find_processed_cesm2_file(expt, 'UBOT', ens, year, freq='3-hourly', highres=highres)
             file_pathy = find_processed_cesm2_file(expt, 'VBOT', ens, year, freq='3-hourly', highres=highres)
-            dsx = xr.open_dataset(file_pathx)
-            dsy = xr.open_dataset(file_pathy)
+            dsx = xr.open_dataset(file_pathx, use_cftime=True)
+            dsy = xr.open_dataset(file_pathy, use_cftime=True)
             theta   = np.arctan2(dsy.VBOT, dsx.UBOT)
             speed   = np.hypot(dsx.UBOT, dsy.VBOT)
             angle_u = np.cos(theta) * speed
@@ -690,35 +690,36 @@ def apply_bias_correction(variable, ens, expt='LE2', start_year=1900, end_year=2
                 dsx['UBOT'] = angle_u * bias_ds.mean(dim='month')
                 dsy['VBOT'] = angle_v * bias_ds.mean(dim='month')
                
-            dsx.to_netcdf(f"{out_dir}CESM2-{expt}_ens{ens}_eANT025_{freq}_UBOT_bias_corr_{'monthly_' if monthly else ''}2D_y{year}.nc", unlimited_dims=['time_counter'])
-            dsy.to_netcdf(f"{out_dir}CESM2-{expt}_ens{ens}_eANT025_{freq}_VBOT_bias_corr_{'monthly_' if monthly else ''}2D_y{year}.nc", unlimited_dims=['time_counter'])
+            dsx.to_netcdf(f"{out_dir}CESM2-{expt}_ens{ens}_{'eANT025_' if highres else ''}{freq}_UBOT_bias_corr_{'monthly_' if monthly else ''}2D_y{year}.nc", unlimited_dims=['time_counter'])
+            dsy.to_netcdf(f"{out_dir}CESM2-{expt}_ens{ens}_{'eANT025_' if highres else ''}{freq}_VBOT_bias_corr_{'monthly_' if monthly else ''}2D_y{year}.nc", unlimited_dims=['time_counter'])
 
         # every other variable has an addition spatial bias field correction
         else:
             file_path = find_processed_cesm2_file(expt, variable, ens, year, freq='daily', highres=highres)
-            ds = xr.open_dataset(file_path)
+            ds = xr.open_dataset(file_path, use_cftime=True)
+            if not highres:
+                ds = ds.rename({'time':'time_counter'})
+
             if monthly:
-                ds[variable] = ds[variable].groupby('time.month').apply(add_bias)
+                ds[variable] = ds[variable].groupby(f'time_counter.month').apply(add_bias)
             else:
                 ds[variable] += bias_corr[variable].mean(dim='month')
 
             if variable=='PRECS':
-                # prevent the snowfall rate to be higher than the total precipitation rate
-                file_path_PRECT = find_processed_cesm2_file(expt, 'PRECT', ens, year)
-                ds_PRECT        = xr.open_dataset(file_path_PRECT)
-                if monthly:
-                    ds['PRECT'] = ds['PRECT'].groupby('time.month').apply(add_bias)
-                else:
-                    ds_PRECT['PRECT'] += bias_corr['PRECT'].values
-                    
+                # prevent the snowfall rate from exceeding the total precipitation rate
+                # read in bias-corrected PRECT file
+                try:
+                    ds_PRECT = xr.open_dataset(f"{out_dir}CESM2-{expt}_ens{ens}_{'eANT025_' if highres else ''}{freq}_PRECT_bias_corr_{'monthly_' if monthly else ''}y{year}.nc", use_cftime=True)
+                except:
+                    raise Exception('Need to bias correct PRECT before PRECS for consistency of precipitation rates')
+                
                 # set the snowfall rate equal to the total precipitation rate if it is higher than it, otherwise leave as is
                 ds['PRECS'] = xr.where(ds['PRECS'] > ds_PRECT['PRECT'], ds_PRECT['PRECT'], ds['PRECS'])
 
             if variable in ['PRECS', 'PRECT', 'FLDS', 'FSDS', 'QREFHT']:                    
                 ds[variable] = xr.where(ds[variable] < 0, 0, ds[variable]) # should not be negative as a result of bias correction
 
-            print(f"{out_dir}CESM2-{expt}_ens{ens}_{variable}_bias_corr_{'monthly_' if monthly else ''}y{year}.nc")
-            ds.to_netcdf(f"{out_dir}CESM2-{expt}_ens{ens}_{variable}_bias_corr_{'monthly_' if monthly else ''}y{year}.nc")
+            ds.to_netcdf(f"{out_dir}CESM2-{expt}_ens{ens}_{'eANT025_' if highres else ''}{freq}_{variable}_bias_corr_{'monthly_' if monthly else ''}y{year}.nc")
 
     return
 
@@ -728,7 +729,7 @@ def apply_bias_correction(variable, ens, expt='LE2', start_year=1900, end_year=2
 # - (optional) year_start  : start year of range to process
 # - (optional) year_end    : end year
 # - (optinoal) era5_folder : path to ERA5 forcing files
-def process_era5_forcing(variable, year_start=1979, year_end=2023, era5_folder='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/ERA5-forcing/daily/'):
+def process_era5_forcing(variable, year_start=1979, year_end=2024, era5_folder='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/ERA5-forcing/daily/'):
 
     for year in range(year_start,year_end+1):
         if variable=='d2m':
