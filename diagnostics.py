@@ -106,3 +106,57 @@ def gyre_transport (region, ds_u, ds_v, ds_domcfg, periodic=True, halo=True):
     vmin = strf.where(region_mask).min(dim=['x','y'])
 
     return -1*vmin
+
+
+# Function to calculate the coordinate of an isosurface such as a particular isotherm
+# Linearly interpolates a coordinate isosurface where a field equals a target
+# Code source: https://forum.access-hive.org.au/t/extracting-isopycnals-from-multi-dimensional-arrays/171
+# Inputs:
+# - field  : xarray DataArray to interpolate the target isosurface, i.e. temperature field if calculating an isotherm
+# - target : float target isosurface value, i.e. temperature isotherm value to find
+# - dim    : str of the field dimension to interpolate, i.e. 'deptht' to find depth of isotherm
+def isosurface(field, target, dim):
+
+    slice0 = {dim: slice(None, -1)}
+    slice1 = {dim: slice(1, None)}
+
+    field0 = field.isel(slice0).drop_vars(dim)
+    field1 = field.isel(slice1).drop_vars(dim)
+
+    crossing_mask_decr = (field0 > target) & (field1 <= target)
+    crossing_mask_incr = (field0 < target) & (field1 >= target)
+    crossing_mask = xr.where(crossing_mask_decr | crossing_mask_incr, 1, np.nan)
+
+    coords0 = crossing_mask * field[dim].isel(slice0).drop_vars(dim)
+    coords1 = crossing_mask * field[dim].isel(slice1).drop_vars(dim)
+    field0 = crossing_mask * field0
+    field1 = crossing_mask * field1
+
+    iso = (coords0 + (target - field0) * (coords1 - coords0) / (field1 - field0) )
+
+    return iso.max(dim, skipna=True)
+
+# Function calculates the depth of the thermocline, returns the depth of the thermocline at each point in your input temperature array
+# Metric is the depth of the maximum positive temperature gradient with depth (dT/dz)
+# Inputs:
+# - dsT                  : xarray DataArray of temperature (can deal with 4D)
+# - (optional) mesh_mask : path to configuration mesh mask file containing tmask and gdept_0
+# - (optional) surface_depth_mask : float depth in metres to mask from calculation (if you'd like to exclude the seasonal mixed layer gradients for example)
+def thermocline(dsT, mesh_mask='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20250715.nc', surface_depth_mask=120):
+    
+    # load mesh mask file and mask temperature with land points
+    ds_mesh  = xr.open_dataset(mesh_mask).squeeze().rename({'nav_lev':'deptht','x':'x_grid_T','y':'y_grid_T'}).drop_vars('time_counter')
+    T_masked = dsT.where(ds_mesh.tmask==1)
+    
+    # calculate the derivative of temperature with depth
+    dTdz         = T_masked.differentiate('deptht')
+    # mask grid locations that are land b/c argmax can't deal with it and mask depths in the upper surface_depth_mask meters due to strong seasonal gradients
+    dTdz_masked  = xr.where(dTdz.sum(dim='deptht')==0, 0, dTdz) 
+    dTdz_masked  = xr.where(ds_mesh.gdept_0 < surface_depth_mask, 0, dTdz_masked) 
+    # find depth of maximum dT/dz gradient, i.e. thermocline
+    zind_thermocline  = dTdz_masked.argmax(dim='deptht')               # find z index of the maximum dT/dz gradient
+    depth_thermocline = ds_mesh.gdept_0.isel(deptht=zind_thermocline)  # identify depth associated with this index
+    # only want thermoclines that are positive; otherwise you get a few at seafloor in deep troughs in the northern southern ocean
+    depth_thermocline = xr.where((dTdz_masked.max(dim='deptht') > 0), depth_thermocline, np.nan) 
+        
+    return depth_thermocline
