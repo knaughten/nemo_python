@@ -463,7 +463,7 @@ def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='t
             if gtype == 'T':
                 # Add SBC file to the dataset if it exists
                 try:
-                    ds_SBC = xr.open_mfdataset(f'{sim_dir}/{file_pattern}'.replace('grid_T', 'SBC'), decode_times=time_coder)
+                    ds_SBC = xr.open_mfdataset(f'{sim_dir}/{file_pattern}'.replace('_T', '_SBC'), decode_times=time_coder)
                 except(OSError):
                     pass
                 ds_nemo = ds_nemo.merge(ds_SBC)                            
