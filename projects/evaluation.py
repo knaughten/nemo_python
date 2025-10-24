@@ -9,6 +9,7 @@ from ..plots import circumpolar_plot, finished_plot, plot_ts_distribution, plot_
 from ..interpolation import interp_latlon_cf, interp_latlon_cf_blocks
 from ..file_io import read_schmidtko, read_woa, read_dutrieux, read_zhou
 from ..grid import extract_var_region, transect_coords_from_latlon_waypoints, region_mask
+from ..timeseries import update_simulation_timeseries
 
 # Compare the bottom temperature and salinity in NEMO (time-averaged over the given xarray Dataset) to observations: Schmidtko on the continental shelf, World Ocean Atlas 2018 in the deep ocean.
 def bottom_TS_vs_obs (nemo, time_ave=True,
@@ -594,23 +595,21 @@ def timeseries_types_evaluation ():
 
 
 # Precompute timeseries for evaluation deck from Birgit's NEMO config
-# eg for latest 'best' ERA5 case: in_dir='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/output/ERA5_1h_tune0_efr020/files1/'
-def update_timeseries_evaluation_NEMO_AIS (in_dir, out_dir='./', compressed=True):
+# eg for latest 'best' ERA5 case, uncompressed: in_dir='/gws/nopw/j04/terrafirma/kaight/NEMO_AIS/birgit_baseline/"
+def update_timeseries_evaluation_NEMO_AIS (in_dir, out_dir='./'):
 
     domain_cfg = '/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20250715.nc'
     timeseries_types = timeseries_types_evaluation()
-    # Split into 3 gtypes - simplest to compute timeseries separately based on input file structure
-    timeseries_gtypes = {'T':[], 'SBC':[], 'U':[]}
+    # Split into 2 gtypes - simplest to compute timeseries separately based on input file structure
+    timeseries_gtypes = {'T':[], 'U':[]}
     for var in timeseries_types:
-        if 'massloss' in var:
-            timeseries_gtypes['SBC'].append(var)
-        elif 'transport' in var:
+        if 'transport' in var:
             timeseries_gtypes['U'].append(var)
         else:
             timeseries_gtypes['T'].append(var)
 
     for gtype in timeseries_gtypes:
-        update_simulation_timeseries('L121', timeseries_gtypes[gtype], timeseries_file='timeseries_'+gtype+'.nc', timeseries_dir=out_dir, config='eANT025', sim_dir=in_dir, halo=False, gtype=gtype, domain_cfg=domain_cfg, compressed=compressed)
+        update_simulation_timeseries('L121', timeseries_gtypes[gtype], timeseries_file='timeseries_'+gtype+'.nc', timeseries_dir=out_dir, config='eANT025', sim_dir=in_dir, halo=False, gtype=gtype, domain_cfg=domain_cfg)
 
     # Now merge the three files
     ds = None

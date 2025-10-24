@@ -330,6 +330,7 @@ def precompute_timeseries (ds_nemo, timeseries_types, timeseries_file, halo=True
     # Calculate each timeseries and save to a Dataset
     ds_new = None
     for var in timeseries_types:
+        print('...'+var)
         if pp:
             data = calc_timeseries_um(var, ds_nemo)
         else:
@@ -437,7 +438,7 @@ def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='t
     # Loop through each date code and process
     for file_pattern in nemo_files:
         print('Processing '+file_pattern)
-        # The following block doesn't work - maybe a regex problem? Was just checking for warnings anyway
+        # The following block doesn't work any more - maybe a regex problem? Was just checking for warnings anyway
         '''has_isfT = os.path.isfile(f"{sim_dir}/{file_pattern.replace('*','_isf')}")
         has_gridT = os.path.isfile(f"{sim_dir}/{file_pattern.replace('*','_grid')}")
         if sum([has_isfT, has_gridT]) == 1:
@@ -459,6 +460,13 @@ def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='t
             ds_nemo = dsU.merge(dsV)
         else:
             ds_nemo = xr.open_mfdataset(f'{sim_dir}/{file_pattern}', decode_times=time_coder)
+            if gtype == 'T':
+                # Add SBC file to the dataset if it exists
+                try:
+                    ds_SBC = xr.open_mfdataset(f'{sim_dir}/{file_pattern}'.replace('grid_T', 'SBC'), decode_times=time_coder)
+                except(OSError):
+                    pass
+                ds_nemo = ds_nemo.merge(ds_SBC)                            
         ds_nemo.load()
         precompute_timeseries(ds_nemo, timeseries_types, f'{timeseries_dir}/{timeseries_file}', halo=halo, periodic=periodic, domain_cfg=domain_cfg,
                               name_remapping=name_remapping, nemo_mesh=nemo_mesh)
