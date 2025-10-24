@@ -37,7 +37,8 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
     # Parse variable name
     factor = 1
     region_type = None
-    region = None    
+    region = None
+    nemo_var = None
     if var.endswith('_massloss'):
         option = 'area_int'
         region = var[:var.index('_massloss')]
