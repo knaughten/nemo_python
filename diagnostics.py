@@ -1,5 +1,5 @@
 import xarray as xr
-
+import numpy as np
 from .utils import closest_point, remove_disconnected, rotate_vector
 from .constants import ross_gyre_point0, region_bounds
 from .interpolation import interp_grid
