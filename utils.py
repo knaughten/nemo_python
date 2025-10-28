@@ -169,6 +169,8 @@ def latlon_name (ds):
         return 'nav_lon_grid_V', 'nav_lat_grid_V'
     elif 'nav_lon_grid_U' in ds:
         return 'nav_lon_grid_U', 'nav_lat_grid_U'
+    else:
+        raise Exception('No valid lat or lon coordinate')
 
 
 def xy_name (ds):
@@ -181,6 +183,8 @@ def xy_name (ds):
         return 'x_grid_V', 'y_grid_V'
     elif 'x_grid_U' in ds:
         return 'x_grid_U', 'y_grid_U'
+    else:
+        raise Exception('No valid x or y coordinate')
 
 
 # Find the (y,x) coordinates of the closest model point to the given (lon, lat) coordinates. Pass an xarray Dataset containing nav_lon, nav_lat, and a target point (lon0, lat0).
@@ -193,7 +197,7 @@ def closest_point (ds, target):
     # Calculate distance of every model point to the target
     dist = np.sqrt((lon-lon0)**2 + (lat-lat0)**2)
     # Find the indices of the minimum distance
-    x_name, y_Name = xy_name(ds)
+    x_name, y_name = xy_name(ds)
     point0 = dist.argmin(dim=(y_name, x_name))
     return (int(point0[y_name].data), int(point0[x_name].data))
 
