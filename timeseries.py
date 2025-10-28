@@ -459,16 +459,18 @@ def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='t
             dsU = xr.open_dataset(glob.glob(f'{sim_dir}/{file_pattern}'.replace('V.nc', 'U.nc'))[0], decode_times=time_coder)[['e3u','uo']].rename({'nav_lon':'nav_lon_grid_U','nav_lat':'nav_lat_grid_U'})
             dsV = xr.open_dataset(glob.glob(f'{sim_dir}/{file_pattern}'.replace('U.nc', 'V.nc'))[0], decode_times=time_coder)[['e3v','vo']].rename({'nav_lon':'nav_lon_grid_V','nav_lat':'nav_lat_grid_V'})
             ds_nemo = dsU.merge(dsV)
+            ds_nemo.load()
         else:
             ds_nemo = xr.open_mfdataset(f'{sim_dir}/{file_pattern}', decode_times=time_coder)
+            ds_nemo.load()
             if gtype == 'T':
                 # Add SBC file to the dataset if it exists
                 try:
                     ds_SBC = xr.open_mfdataset(f'{sim_dir}/{file_pattern}'.replace('_T', '_SBC'), decode_times=time_coder)
+                    ds_SBC.load()
                 except(OSError):
                     pass
-                ds_nemo = ds_nemo.merge(ds_SBC)                            
-        ds_nemo.load()
+                ds_nemo = ds_nemo.merge(ds_SBC)
         precompute_timeseries(ds_nemo, timeseries_types, f'{timeseries_dir}/{timeseries_file}', halo=halo, periodic=periodic, domain_cfg=domain_cfg,
                               name_remapping=name_remapping, nemo_mesh=nemo_mesh)
         ds_nemo.close()

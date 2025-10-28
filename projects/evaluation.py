@@ -611,7 +611,7 @@ def update_timeseries_evaluation_NEMO_AIS (in_dir, out_dir='./'):
     for gtype in timeseries_gtypes:
         update_simulation_timeseries('L121', timeseries_gtypes[gtype], timeseries_file='timeseries_'+gtype+'.nc', timeseries_dir=out_dir, config='eANT025', sim_dir=in_dir, halo=False, gtype=gtype, domain_cfg=domain_cfg)
 
-    # Now merge the three files
+    # Now merge the two files
     ds = None
     for gtype in timeseries_gtypes:
         ds_new = xr.open_dataset(out_dir+'/timeseries_'+gtype+'.nc')
