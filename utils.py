@@ -175,13 +175,13 @@ def latlon_name (ds):
 
 def xy_name (ds):
 
-    if 'x' in ds:
+    if 'x' in ds.dims:
         return 'x', 'y'
-    elif 'x_grid_T' in ds:
+    elif 'x_grid_T' in ds.dims:
         return 'x_grid_T', 'y_grid_T'
-    elif 'x_grid_V' in ds:
+    elif 'x_grid_V' in ds.dims:
         return 'x_grid_V', 'y_grid_V'
-    elif 'x_grid_U' in ds:
+    elif 'x_grid_U' in ds.dims:
         return 'x_grid_U', 'y_grid_U'
     else:
         raise Exception('No valid x or y coordinate')
