@@ -7,7 +7,7 @@ import numpy as np
 import xarray as xr
 from .interpolation import neighbours
 from .constants import region_edges, region_edges_flag, region_names, region_points, shelf_lat, shelf_depth, shelf_point0, region_bounds, region_bathy_bounds
-from .utils import remove_disconnected, closest_point, latlon_name
+from .utils import remove_disconnected, closest_point, latlon_name, xy_name
 
 # Helper function to calculate a bunch of grid variables (bathymetry, draft, ocean mask, ice shelf mask) from a NEMO output file, only using thkcello/e3t and the mask on a 3D data variable (current options are to look for thetao and so).
 # This varies a little if the sea surface height changes, so not perfect, but it does take partial cells into account.
@@ -144,6 +144,8 @@ def single_cavity_mask (cavity, ds, return_name=False):
 # Select a mask for the given region, either continental shelf only ('shelf'), cavities only ('cavity'), or continental shelf with cavities ('all'). Pass it an xarray Dataset as for build_shelf_mask.
 def region_mask (region, ds, option='all', return_name=False):
 
+    x_name, y_name = xy_name(ds)
+
     if return_name:
         # Construct the title
         title = region_names[region]
@@ -203,7 +205,7 @@ def region_mask (region, ds, option='all', return_name=False):
             if direction == 'NS':
                 i = point0[1]
                 # Travel north until disconnected
-                for j in range(point0[0], ds.sizes['y']):
+                for j in range(point0[0], ds.sizes[y_name]):
                     if mask[j,i] == 0:
                         break
                     mask[j,i] = 0
@@ -215,7 +217,7 @@ def region_mask (region, ds, option='all', return_name=False):
             elif direction == 'EW':
                 j = point0[0]
                 # Travel east until disconnected
-                for i in range(point0[1], ds.sizes['x']):
+                for i in range(point0[1], ds.sizes[x_name]):
                     if mask[j,i] == 0:
                         break
                     mask[j,i] = 0
