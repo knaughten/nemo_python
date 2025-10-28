@@ -599,7 +599,6 @@ def timeseries_types_evaluation ():
 def update_timeseries_evaluation_NEMO_AIS (in_dir, out_dir='./'):
 
     domain_cfg = '/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20250715.nc'
-    nemo_mesh = '/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20250715.nc'
     timeseries_types = timeseries_types_evaluation()
     # Split into 2 gtypes - simplest to compute timeseries separately based on input file structure
     timeseries_gtypes = {'T':[], 'U':[]}
