@@ -187,6 +187,8 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
             nemo_var = 'sbs'
         else:
             raise Exception('Missing variable '+nemo_var+' or sbs')
+    if 'x_grid_T_inner' in ds_nemo.dims:
+        ds_nemo = ds_nemo.swap_dims({'x_grid_T_inner':'x_grid_T', 'y_grid_T_inner':'y_grid_T'})
 
     # Select region
     if region is not None:
