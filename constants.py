@@ -158,6 +158,7 @@ region_names = {
     'ronne_depression'  : 'Ronne Depression',
     'LAB_trough'        : 'Little America Basin Trough',
     'drygalski_trough'  : 'Drygalski Trough',
+    'dotson_cosgrove'   : 'Dotson to Cosgrove inclusive',
 }
 # Default colours to use for plotting lines
 line_colours = ['black', 'Crimson', 'blue', 'DarkMagenta', 'DimGrey', 'DarkGreen', 'DeepPink', 'DeepSkyBlue']
