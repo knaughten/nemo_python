@@ -599,6 +599,7 @@ def timeseries_types_evaluation ():
 def update_timeseries_evaluation_NEMO_AIS (in_dir, out_dir='./'):
 
     domain_cfg = '/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20250715.nc'
+    nemo_mesh = '/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20250715.nc'
     timeseries_types = timeseries_types_evaluation()
     # Split into 2 gtypes - simplest to compute timeseries separately based on input file structure
     timeseries_gtypes = {'T':[], 'U':[]}
@@ -609,7 +610,7 @@ def update_timeseries_evaluation_NEMO_AIS (in_dir, out_dir='./'):
             timeseries_gtypes['T'].append(var)
 
     for gtype in timeseries_gtypes:
-        update_simulation_timeseries('L121', timeseries_gtypes[gtype], timeseries_file='timeseries_'+gtype+'.nc', timeseries_dir=out_dir, config='eANT025', sim_dir=in_dir, halo=False, gtype=gtype, domain_cfg=domain_cfg)
+        update_simulation_timeseries('L121', timeseries_gtypes[gtype], timeseries_file='timeseries_'+gtype+'.nc', timeseries_dir=out_dir, config='eANT025', sim_dir=in_dir, halo=False, gtype=gtype, domain_cfg=domain_cfg, nemo_mesh=nemo_mesh)
 
     # Now merge the two files
     ds = None

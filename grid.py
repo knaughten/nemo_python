@@ -75,6 +75,18 @@ def build_ocean_mask (ds):
     ds = ds.assign({'ocean_mask':ocean_mask})
     return ocean_mask, ds
 
+
+def latlon_name (ds):
+
+    if 'nav_lon' in ds:
+        return 'nav_lon', 'nav_lat'
+    elif 'nav_lon_grid_T' in ds:
+        return 'nav_lon_grid_T', 'nav_lat_grid_T'
+    elif 'nav_lon_grid_V' in ds:
+        return 'nav_lon_grid_V', 'nav_lat_grid_V'
+    elif 'nav_lon_grid_U' in ds:
+        return 'nav_lon_grid_U', 'nav_lat_grid_U'
+
 # Select the continental shelf and ice shelf cavities. Pass it the path to an xarray Dataset which contains one of the following combinations:
 # 1. nav_lon, nav_lat, bathy, tmaskutil (NEMO3.6 mesh_mask)
 # 2. nav_lon, nav_lat, bathy_metry, bottom_level (NEMO4.2 domain_cfg)
@@ -98,7 +110,8 @@ def build_shelf_mask (ds):
     else:
         raise KeyError('invalid Dataset for build_shelf_mask')
     # Apply lat-lon bounds and bathymetry bound to ocean mask
-    mask = ocean_mask*(ds['nav_lat'] <= shelf_lat)*(bathy <= shelf_depth)
+    lon_name, lat_name = latlon_name(ds)
+    mask = ocean_mask*(ds[lat_name] <= shelf_lat)*(bathy <= shelf_depth)
     # Remove disconnected seamounts
     point0 = closest_point(ds, shelf_point0)
     mask.data = remove_disconnected(mask, point0)
@@ -172,8 +185,9 @@ def region_mask (region, ds, option='all', return_name=False):
     elif region in region_bounds:
         # Restrict based on lat-lon box
         [xmin, xmax, ymin, ymax] = region_bounds[region]
-        lon = ds['nav_lon']
-        lat = ds['nav_lat']
+        lon_name, lat_name = latlon_name(ds)
+        lon = ds[lon_name]
+        lat = ds[lat_name]
         mask = xr.where((lon >= xmin)*(lon <= xmax)*(lat >= ymin)*(lat <= ymax), mask, 0)
         if region in region_bathy_bounds:
             # Also restrict based on isobaths
