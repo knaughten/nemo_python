@@ -158,11 +158,25 @@ def remove_disconnected (mask, point0):
     return connected
 
 
+# Choose the right latitude and longitude name for the given dataset (sometimes it's stamped with the grid)
+def latlon_name (ds):
+
+    if 'nav_lon' in ds:
+        return 'nav_lon', 'nav_lat'
+    elif 'nav_lon_grid_T' in ds:
+        return 'nav_lon_grid_T', 'nav_lat_grid_T'
+    elif 'nav_lon_grid_V' in ds:
+        return 'nav_lon_grid_V', 'nav_lat_grid_V'
+    elif 'nav_lon_grid_U' in ds:
+        return 'nav_lon_grid_U', 'nav_lat_grid_U'
+
+
 # Find the (y,x) coordinates of the closest model point to the given (lon, lat) coordinates. Pass an xarray Dataset containing nav_lon, nav_lat, and a target point (lon0, lat0).
 def closest_point (ds, target):
 
-    lon = ds['nav_lon'].squeeze()
-    lat = ds['nav_lat'].squeeze()
+    lon_name, lat_name = latlon_name(ds)
+    lon = ds[lon_name].squeeze()
+    lat = ds[lat_name].squeeze()
     [lon0, lat0] = target
     # Calculate distance of every model point to the target
     dist = np.sqrt((lon-lon0)**2 + (lat-lat0)**2)

@@ -7,7 +7,7 @@ import numpy as np
 import xarray as xr
 from .interpolation import neighbours
 from .constants import region_edges, region_edges_flag, region_names, region_points, shelf_lat, shelf_depth, shelf_point0, region_bounds, region_bathy_bounds
-from .utils import remove_disconnected, closest_point
+from .utils import remove_disconnected, closest_point, latlon_name
 
 # Helper function to calculate a bunch of grid variables (bathymetry, draft, ocean mask, ice shelf mask) from a NEMO output file, only using thkcello/e3t and the mask on a 3D data variable (current options are to look for thetao and so).
 # This varies a little if the sea surface height changes, so not perfect, but it does take partial cells into account.
@@ -74,18 +74,6 @@ def build_ocean_mask (ds):
         ocean_mask = calc_geometry(ds)[2]
     ds = ds.assign({'ocean_mask':ocean_mask})
     return ocean_mask, ds
-
-
-def latlon_name (ds):
-
-    if 'nav_lon' in ds:
-        return 'nav_lon', 'nav_lat'
-    elif 'nav_lon_grid_T' in ds:
-        return 'nav_lon_grid_T', 'nav_lat_grid_T'
-    elif 'nav_lon_grid_V' in ds:
-        return 'nav_lon_grid_V', 'nav_lat_grid_V'
-    elif 'nav_lon_grid_U' in ds:
-        return 'nav_lon_grid_U', 'nav_lat_grid_U'
 
 # Select the continental shelf and ice shelf cavities. Pass it the path to an xarray Dataset which contains one of the following combinations:
 # 1. nav_lon, nav_lat, bathy, tmaskutil (NEMO3.6 mesh_mask)
