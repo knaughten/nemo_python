@@ -3,7 +3,7 @@ import numpy as np
 import os
 import glob
 from .constants import region_points, region_names, rho_fw, rho_ice, sec_per_year, deg_string, gkg_string, drake_passage_lon0, drake_passage_lat_bounds
-from .utils import add_months, closest_point, month_convert, bwsalt_abs
+from .utils import add_months, closest_point, month_convert, bwsalt_abs, xy_name
 from .grid import single_cavity_mask, region_mask, calc_geometry
 from .diagnostics import transport, gyre_transport
 time_coder = xr.coders.CFDatetimeCoder(use_cftime=True)
@@ -213,50 +213,60 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
             else:
                 mask, ds_nemo, region_name = region_mask(region, ds_nemo, option=region_type, return_name=True)
       
-        title += ' for '+region_name    
+        title += ' for '+region_name
+
+    def area_name ():
+        for v in ['area', 'area_grid_T', 'area_grid_U', 'area_grid_V']:
+            if v in ds_nemo:
+                return v
+    def dz_name ():
+        for v in ['thkcello', 'e3t']:
+            if v in ds_nemo:
+                return v
+    x_name, y_name = xy_name(ds_nemo)
 
     if option == 'area_int':
         # Area integral
-        dA = ds_nemo['area']*mask
+        dA = ds_nemo[area_name()]*mask
         if nemo_var == 'pminuse':
             data_xy = ds_nemo['pr'] + ds_nemo['prsn'] - ds_nemo['evs']
         else:
             data_xy = ds_nemo[nemo_var]
-        data = (data_xy*dA).sum(dim=['x','y'])
+        data = (data_xy*dA).sum(dim=[x_name,y_ name])
     elif option == 'area_avg':
         # Area average
-        dA = ds_nemo['area']*mask
+        dA = ds_nemo[area_name()]*mask
         if nemo_var == 'draft':
             data_xy = calc_geometry(ds_nemo, keep_time_dim=True)[1]
         elif nemo_var == 'bwSA':
             data_xy = bwsalt_abs(ds_nemo)
         else:
             data_xy = ds_nemo[nemo_var]
-        data = (data_xy*dA).sum(dim=['x','y'])/dA.sum(dim=['x','y'])
+        data = (data_xy*dA).sum(dim=[x_name, y_name])/dA.sum(dim=[x_name, y_name])
     elif option == 'volume_avg':
         # Volume average
         # First need a 3D mask
         mask_3d = xr.where(ds_nemo[nemo_var]==0, 0, mask)
-        dV = ds_nemo['area']*ds_nemo['thkcello']*mask_3d
-        data = (ds_nemo[nemo_var]*dV).sum(dim=['x','y','deptht'])/dV.sum(dim=['x','y','deptht'])
+        dV = ds_nemo[area_name()]*ds_nemo[dz_name()]*mask_3d
+        data = (ds_nemo[nemo_var]*dV).sum(dim=[x_name, y_name,'deptht'])/dV.sum(dim=[x_name, y_name, 'deptht'])
     elif option == 'avg_btw_depths':
         # Volume average between two depths
         # Create an extra mask to multiply dV with, which is 1 between the two depths and 0 otherwise
-        depth_below = ds_nemo['thkcello'].cumsum(dim='deptht')
+        depth_below = ds_nemo[dz_name()].cumsum(dim='deptht')
         depth_above = depth_below.shift(deptht=1, fill_value=0)
         depth_centres = 0.5*(depth_above + depth_below)
         mask_depth = xr.where((depth_centres >= z_shallow)*(depth_centres <= z_deep), 1, 0)
         mask_3d = xr.where(ds_nemo[nemo_var]==0, 0, mask)
-        dV = ds_nemo['area']*ds_nemo['thkcello']*mask_3d*mask_depth
-        data = (ds_nemo[nemo_var]*dV).sum(dim=['x','y','deptht'])/dV.sum(dim=['x','y','deptht'])        
+        dV = ds_nemo[area_name()]*ds_nemo[dz_name()]*mask_3d*mask_depth
+        data = (ds_nemo[nemo_var]*dV).sum(dim=[x_name, y_name,'deptht'])/dV.sum(dim=[x_name, y_name,'deptht'])
     elif option == 'transport':
         # Calculate zonal or meridional transport
         data = transport(ds_nemo, lon0=lon0, lat0=lat0, lon_bounds=lon_bounds, lat_bounds=lat_bounds)
     elif option == 'gyre_transport':
         ds_domcfg = xr.open_dataset(domain_cfg, decode_times=time_coder).squeeze()
-        if ds_nemo.sizes['y'] < ds_domcfg.sizes['y']:
+        if ds_nemo.sizes[y_name] < ds_domcfg.sizes[y_name]:
             # The NEMO dataset was trimmed (eg by MOOSE for UKESM) to the southernmost latitudes. Do the same for domain_cfg.
-            ds_domcfg = ds_domcfg.isel(y=slice(0, ds_nemo.sizes['y']))
+            ds_domcfg = ds_domcfg.isel(y=slice(0, ds_nemo.sizes[y_name]))
         if halo:
             ds_domcfg = ds_domcfg.isel(x=slice(1,-1))
 
@@ -335,13 +345,12 @@ def precompute_timeseries (ds_nemo, timeseries_types, timeseries_file, halo=True
         if pp:
             data = calc_timeseries_um(var, ds_nemo)
         else:
-            try:
-                data, ds_nemo = calc_timeseries(var, ds_nemo, domain_cfg=domain_cfg, halo=halo, periodic=periodic,
-                                            name_remapping=name_remapping, nemo_mesh=nemo_mesh)
-            except(KeyError):
+            #try:
+            data, ds_nemo = calc_timeseries(var, ds_nemo, domain_cfg=domain_cfg, halo=halo, periodic=periodic, name_remapping=name_remapping, nemo_mesh=nemo_mesh)
+            '''except(KeyError):
                 # Incomplete dataset missing some crucial variables. This can happen when grid-T is present but isf-T is missing, or vice versa. Return a masked value.
                 print('Warning: missing variables')
-                data = ds_nemo['time_counter'].where(False)
+                data = ds_nemo['time_counter'].where(False)'''
         if ds_new is None:            
             ds_new = xr.Dataset({var:data})
         else:
