@@ -472,7 +472,7 @@ def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='t
                     pass
                 ds_nemo = ds_nemo.merge(ds_SBC)
         # Loop over time indices to save memory
-        for t in range(ds_nemo.sizes('time_counter')):
+        for t in range(ds_nemo.sizes['time_counter']):
             print('...month '+str(t+1))
             ds_tmp = ds_nemo.isel(time_counter=t)
             precompute_timeseries(ds_tmp, timeseries_types, f'{timeseries_dir}/{timeseries_file}', halo=halo, periodic=periodic, domain_cfg=domain_cfg, name_remapping=name_remapping, nemo_mesh=nemo_mesh)
