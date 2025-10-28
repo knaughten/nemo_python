@@ -232,7 +232,7 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
             data_xy = ds_nemo['pr'] + ds_nemo['prsn'] - ds_nemo['evs']
         else:
             data_xy = ds_nemo[nemo_var]
-        data = (data_xy*dA).sum(dim=[x_name,y_ name])
+        data = (data_xy*dA).sum(dim=[x_name, y_name])
     elif option == 'area_avg':
         # Area average
         dA = ds_nemo[area_name()]*mask
