@@ -171,6 +171,18 @@ def latlon_name (ds):
         return 'nav_lon_grid_U', 'nav_lat_grid_U'
 
 
+def xy_name (ds):
+
+    if 'x' in ds:
+        return 'x', 'y'
+    elif 'x_grid_T' in ds:
+        return 'x_grid_T', 'y_grid_T'
+    elif 'x_grid_V' in ds:
+        return 'x_grid_V', 'y_grid_V'
+    elif 'x_grid_U' in ds:
+        return 'x_grid_U', 'y_grid_U'
+
+
 # Find the (y,x) coordinates of the closest model point to the given (lon, lat) coordinates. Pass an xarray Dataset containing nav_lon, nav_lat, and a target point (lon0, lat0).
 def closest_point (ds, target):
 
@@ -181,8 +193,9 @@ def closest_point (ds, target):
     # Calculate distance of every model point to the target
     dist = np.sqrt((lon-lon0)**2 + (lat-lat0)**2)
     # Find the indices of the minimum distance
-    point0 = dist.argmin(dim=('y','x'))
-    return (int(point0['y'].data), int(point0['x'].data))
+    x_name, y_Name = xy_name(ds)
+    point0 = dist.argmin(dim=(y_name, x_name))
+    return (int(point0[y_name].data), int(point0[x_name].data))
 
 # Helper function to calculate the Cartesian distance between two longitude and latitude points
 # This also works if one of point0, point1 is a 2D array.
