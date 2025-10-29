@@ -465,30 +465,36 @@ def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='t
             else:
                 print('Timeseries file will have some NaNs at this index.')'''
 
+        dsV = None
+        ds_SBC = None
         if 'weddell_gyre_transport' in timeseries_types or 'ross_gyre_transport' in timeseries_types: # need to load both gridU and grid V files to be able to calculate this; not currently the neatest approach
             if gtype not in ['U', 'V']:
                 raise Exception('Grid type must be specified as either U or V when calculating gyre transport') # should be U and V:
-            dsU = xr.open_dataset(glob.glob(f'{sim_dir}/{file_pattern}'.replace('V.nc', 'U.nc'))[0], decode_times=time_coder)[['e3u','uo']].rename({'nav_lon':'nav_lon_grid_U','nav_lat':'nav_lat_grid_U'})
+            ds_nemo = xr.open_dataset(glob.glob(f'{sim_dir}/{file_pattern}'.replace('V.nc', 'U.nc'))[0], decode_times=time_coder)[['e3u','uo']].rename({'nav_lon':'nav_lon_grid_U','nav_lat':'nav_lat_grid_U'})
             dsV = xr.open_dataset(glob.glob(f'{sim_dir}/{file_pattern}'.replace('U.nc', 'V.nc'))[0], decode_times=time_coder)[['e3v','vo']].rename({'nav_lon':'nav_lon_grid_V','nav_lat':'nav_lat_grid_V'})
-            dsU.load()
-            dsV.load()
-            ds_nemo = dsU.merge(dsV)
         else:
             ds_nemo = xr.open_mfdataset(f'{sim_dir}/{file_pattern}', decode_times=time_coder)
-            ds_nemo.load()
             if gtype == 'T':
                 # Add SBC file to the dataset if it exists
                 try:
                     ds_SBC = xr.open_mfdataset(f'{sim_dir}/{file_pattern}'.replace('_T', '_SBC'), decode_times=time_coder)
-                    ds_SBC.load()
                 except(OSError):
                     pass
-                ds_nemo = ds_nemo.merge(ds_SBC)
         # Loop over time indices to save memory
+        # Fastest option is to load datasets after slicing but before merging
         for t in range(ds_nemo.sizes['time_counter']):
             print('...month '+str(t+1))
             # Sneaky selection of slice of size 1, to prevent dimension collapsing
             ds_tmp = ds_nemo.isel(time_counter=slice(t,t+1))
+            ds_tmp.load()
+            if dsV is not None:
+                dsV_tmp = dsV.isel(time_counter=slice(t,t+1))
+                dsV_tmp.load()
+                ds_tmp = ds_tmp.merge(dsV_tmp)
+            if ds_SBC is not None:
+                ds_SBC_tmp = ds_SBC.isel(time_counter=slice(t,t+1))
+                ds_SBC_tmp.load()
+                ds_tmp = ds_tmp.merge(ds_SBC_tmp)
             precompute_timeseries(ds_tmp, timeseries_types, f'{timeseries_dir}/{timeseries_file}', halo=halo, periodic=periodic, domain_cfg=domain_cfg, name_remapping=name_remapping, nemo_mesh=nemo_mesh)
         ds_nemo.close()
 
