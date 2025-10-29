@@ -175,6 +175,7 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
     if nemo_var == 'sowflisf' and nemo_var not in ds_nemo:
         if 'fwfisf' in ds_nemo:
             nemo_var = 'fwfisf'
+            factor *= -1
         else:
             raise Exception('Missing variable '+nemo_var+' or fwfisf')
     if nemo_var == 'tob' and nemo_var not in ds_nemo:
@@ -343,7 +344,7 @@ def precompute_timeseries (ds_nemo, timeseries_types, timeseries_file, halo=True
     # Calculate each timeseries and save to a Dataset
     ds_new = None
     for var in timeseries_types:
-        print('...'+var)
+        #print('...'+var)
         if pp:
             data = calc_timeseries_um(var, ds_nemo)
         else:
