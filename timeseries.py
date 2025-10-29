@@ -118,12 +118,12 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         units = 'Sv'
         title = 'Drake Passage Transport'
     elif var == 'weddell_gyre_transport':
-        region = 'weddell'
+        region = 'weddell_gyre'
         option = 'gyre_transport'
         units = 'Sv'
         title = 'Weddell Gyre Transport'
     elif var == 'ross_gyre_transport':
-        region = 'ross'
+        region = 'ross_gyre'
         option = 'gyre_transport'
         units = 'Sv'
         title = 'Ross Gyre Transport'
@@ -193,6 +193,9 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
 
     # Select region
     if region is not None:
+        if 'gyre' in region:
+            # Will be selected later
+            pass
         if region_type is None:
             if region.endswith('cavity'):
                 region = region[:region.index('_cavity')]
@@ -272,13 +275,7 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
             ds_domcfg = ds_domcfg.isel(y=slice(0, ds_nemo.sizes[y_name]))
         if halo:
             ds_domcfg = ds_domcfg.isel(x=slice(1,-1))
-
-        # No longer needed because gyre_transport allows for any choice of thkcello, e3u, e3v
-        '''if 'thkcello' in ds_nemo:
-            # dataset already contains thkcello (cell thickness) so don't need to rename e3u/v to thkcello
-            data = gyre_transport(region, ds_nemo, ds_nemo, ds_domcfg, periodic=periodic, halo=halo)
-        else:
-            data = gyre_transport(region, ds_nemo.rename({'e3u':name_remapping['e3u']}), ds_nemo.rename({'e3v':name_remapping['e3v']}), ds_domcfg, periodic=periodic, halo=halo)'''
+        data = gyre_transport(region, ds_nemo, ds_nemo, ds_domcfg, periodic=periodic, halo=halo)
        
     data *= factor
     data = data.assign_attrs(long_name=title, units=units)

@@ -1,6 +1,6 @@
 import xarray as xr
 import numpy as np
-from .utils import closest_point, remove_disconnected, rotate_vector
+from .utils import closest_point, remove_disconnected, rotate_vector, xy_name
 from .constants import ross_gyre_point0, region_bounds
 from .interpolation import interp_grid
 
@@ -95,7 +95,7 @@ def gyre_transport (region, ds_u, ds_v, ds_domcfg, periodic=True, halo=True):
 
     strf = barotropic_streamfunction(ds_u, ds_v, ds_domcfg, periodic=periodic, halo=halo)
     # Identify Weddell Gyre region:
-    [xW, xE, yS, yN] = region_bounds[region+'_gyre']
+    [xW, xE, yS, yN] = region_bounds[region]
     if xW > xE:
         # Crosses 180 degrees longitude
         region_mask_lon = (ds_domcfg.nav_lon > xW) or (ds_domcfg.nav_lon < xE)
@@ -103,7 +103,8 @@ def gyre_transport (region, ds_u, ds_v, ds_domcfg, periodic=True, halo=True):
         region_mask_lon = (ds_domcfg.nav_lon > xW) and (ds_domcfg.nav_lat < xE)
     region_mask = region_mask_lon and (ds_domcfg.nav_lat > yS) and (ds_domcfg.nav_lat < yN)
     # Find the most negative streamfunction within the gyre bounds
-    vmin = strf.where(region_mask).min(dim=['x','y'])
+    x_name, y_name = xy_name(ds_u)
+    vmin = strf.where(region_mask).min(dim=[x_name, y_name])
 
     return -1*vmin
 
