@@ -470,8 +470,9 @@ def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='t
                 raise Exception('Grid type must be specified as either U or V when calculating gyre transport') # should be U and V:
             dsU = xr.open_dataset(glob.glob(f'{sim_dir}/{file_pattern}'.replace('V.nc', 'U.nc'))[0], decode_times=time_coder)[['e3u','uo']].rename({'nav_lon':'nav_lon_grid_U','nav_lat':'nav_lat_grid_U'})
             dsV = xr.open_dataset(glob.glob(f'{sim_dir}/{file_pattern}'.replace('U.nc', 'V.nc'))[0], decode_times=time_coder)[['e3v','vo']].rename({'nav_lon':'nav_lon_grid_V','nav_lat':'nav_lat_grid_V'})
+            dsU.load()
+            dsV.load()
             ds_nemo = dsU.merge(dsV)
-            ds_nemo.load()
         else:
             ds_nemo = xr.open_mfdataset(f'{sim_dir}/{file_pattern}', decode_times=time_coder)
             ds_nemo.load()
