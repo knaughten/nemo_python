@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import glob
 import cmocean
 from ..utils import select_bottom, distance_along_transect, moving_average
-from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli melt, adusumilli_std
+from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli_melt, adusumilli_std
 from ..plots import circumpolar_plot, finished_plot, plot_ts_distribution, plot_transect
 from ..interpolation import interp_latlon_cf, interp_latlon_cf_blocks
 from ..file_io import read_schmidtko, read_woa, read_dutrieux, read_zhou
