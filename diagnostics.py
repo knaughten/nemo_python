@@ -98,10 +98,10 @@ def gyre_transport (region, ds_u, ds_v, ds_domcfg, periodic=True, halo=True):
     [xW, xE, yS, yN] = region_bounds[region]
     if xW > xE:
         # Crosses 180 degrees longitude
-        region_mask_lon = (ds_domcfg.nav_lon > xW) or (ds_domcfg.nav_lon < xE)
+        region_mask_lon = (ds_domcfg.nav_lon > xW) + (ds_domcfg.nav_lon < xE)
     else:
-        region_mask_lon = (ds_domcfg.nav_lon > xW) and (ds_domcfg.nav_lat < xE)
-    region_mask = region_mask_lon and (ds_domcfg.nav_lat > yS) and (ds_domcfg.nav_lat < yN)
+        region_mask_lon = (ds_domcfg.nav_lon > xW)*(ds_domcfg.nav_lon < xE)
+    region_mask = region_mask_lon*(ds_domcfg.nav_lat > yS)*(ds_domcfg.nav_lat < yN)
     # Find the most negative streamfunction within the gyre bounds
     x_name, y_name = xy_name(ds_u)
     vmin = strf.where(region_mask).min(dim=[x_name, y_name])
