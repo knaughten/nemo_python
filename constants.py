@@ -193,14 +193,16 @@ adusumilli_std = {
     'west_antarctica': 113.4,
     'dotson_cosgrove': 33.5,
 }
-# Observations of Drake Passage Transport, Donohue et al. 2016
-dp_trans_obs = 173.3
-dp_trans_std = 10.7
-# Weddell Gyre transport, Klatt et al. 2005
-wg_trans_obs = 56
-wg_trans_std = 8
-# Ross Gyre transport including ASC, Dotto et al. 2018
-rg_trans_obs = 29
-rg_trans_std = 8
+# Dictionary of transport observations for Drake Passage (Donohue et al. 2016), Weddell Gyre (Klatt et al. 2005), Ross Gyre including ASC (Dotto et al. 2018)
+transport_obs = {
+    'drake_passage' : 173.3,
+    'weddell_gyre'  : 56,
+    'ross_gyre'     : 29,
+}
+transport_std = {
+    'drake_passage' : 10.7,
+    'weddell_gyre'  : 8,
+    'ross_gyre'     : 8,
+}
 
 

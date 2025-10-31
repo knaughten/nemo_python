@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import glob
 import cmocean
 from ..utils import select_bottom, distance_along_transect, moving_average
-from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli_melt, adusumilli_std
+from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli_melt, adusumilli_std, transport_obs, transport_std
 from ..plots import circumpolar_plot, finished_plot, plot_ts_distribution, plot_transect
 from ..interpolation import interp_latlon_cf, interp_latlon_cf_blocks
 from ..file_io import read_schmidtko, read_woa, read_dutrieux, read_zhou
@@ -611,18 +611,8 @@ def update_timeseries_evaluation_NEMO_AIS (in_dir, out_dir='./'):
     for gtype in timeseries_gtypes:
         update_simulation_timeseries('L121', timeseries_gtypes[gtype], timeseries_file='timeseries_'+gtype+'.nc', timeseries_dir=out_dir, config='eANT025', sim_dir=in_dir, halo=False, gtype=gtype, domain_cfg=domain_cfg)
 
-    # Now merge the two files
-    ds = None
-    for gtype in timeseries_gtypes:
-        ds_new = xr.open_dataset(out_dir+'/timeseries_'+gtype+'.nc')
-        if ds is None:
-            ds = ds_new
-        else:
-            ds = ds.merge(ds_new)
-    ds.to_netcdf(out_dir+'/timeseries.nc')
 
-
-def plot_evaluation_timeseries_TS (timeseries_file, fig_name=None):
+def plot_evaluation_timeseries_shelf (timeseries_file='timeseries_T.nc', fig_name=None):
 
     regions = ['all', 'larsen', 'filchner_ronne', 'east_antarctica', 'amery', 'ross', 'west_antarctica', 'dotson_cosgrove']    
     var_names = ['massloss', 'shelf_bwtemp', 'shelf_bwsalt']
@@ -685,6 +675,38 @@ def plot_evaluation_timeseries_TS (timeseries_file, fig_name=None):
                     depth_label = ''
                 plt.text(0.05, 0.95, depth_label, fontsize=8, ha='left', va='top', transform=ax.transAxes)
     finished_plot(fig, fig_name=fig_name)
+
+
+def plot_evaluation_timeseries_transport (timeseries_file='timeseries_U.nc', fig_name=None):
+
+    var_names = ['drake_passage_transport', 'weddell_gyre_transport', 'ross_gyre_transport']
+    var_titles = ['Drake Passage', 'Weddell Gyre', 'Ross Gyre']
+    num_var = len(var_names)
+    smooth = 2*months_per_year
+
+    ds = xr.open_dataset(timeseries_file)
+
+    fig = plt.figure(figsize=(7,5))
+    gs = plt.GridSpec(1, num_var)
+    gs.update(left=0.05, right=0.95, bottom=0.05, top=0.9, wspace=0.2)
+    for v in range(num_var):
+        ax = plt.subplot(gs[0,v])
+        time = ds['time_centered']
+        ax.plot(time, ds[var_names[v]], color='DarkGrey', linewidth=1)
+        data_smoothed = moving_average(ds[var_names[v]], smooth)
+        ax.plot(data_smoothed.time_centered, data_smoothed, color='black', linewidth=1.5)
+        region = var_names[:var_names.index('_transport')]
+        obs_mean = transport_obs[region]
+        obs_std = transport_std[region]
+        ax.axhline(obs_mean, color='blue', linestyle='dashed', linewidth=1)
+        ax.axhspan(obs_mean-obs_std, obs_mean+obs_std, color='DodgerBlue', alpha=0.1)
+        ax.set_xlim([time[0], time[-1]])
+        ax.set_title(var_titles[v])
+        if v == 0:
+            ax.set_ylabel('Transport (Sv)')
+        ax.grid(linestyle='dotted')
+    finished_plot(fig, fig_name=fig_name)
+        
         
                 
             
