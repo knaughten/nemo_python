@@ -3,8 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob
 import cmocean
-from ..utils import select_bottom, distance_along_transect
-from ..constants import deg_string, gkg_string, transect_amundsen
+from ..utils import select_bottom, distance_along_transect, moving_average
+from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names
 from ..plots import circumpolar_plot, finished_plot, plot_ts_distribution, plot_transect
 from ..interpolation import interp_latlon_cf, interp_latlon_cf_blocks
 from ..file_io import read_schmidtko, read_woa, read_dutrieux, read_zhou
@@ -620,6 +620,58 @@ def update_timeseries_evaluation_NEMO_AIS (in_dir, out_dir='./'):
         else:
             ds = ds.merge(ds_new)
     ds.to_netcdf(out_dir+'/timeseries.nc')
+
+
+def plot_evaluation_timeseries_TS (timeseries_file, fig_name=None):
+
+    regions = ['all', 'larsen', 'filchner_ronne', 'east_antarctica', 'amery', 'ross', 'west_antarctica', 'dotson_cosgrove']    
+    var_names = ['massloss', 'shelf_bwtemp', 'shelf_bwsalt']
+    var_names_ASE = ['massloss', 'shelf_temp_btw_200_700m', 'shelf_salt_btw_200_700m']
+    var_titles = ['Basal mass loss\n(Gt/y)', 'Temperature ('+deg_string+')\n on continental shelf', 'Salinity on\n continental shelf']
+    num_regions = len(regions)
+    num_var = len(var_names)
+    smooth = 2*months_per_year
+
+    ds = xr.open_dataset(timeseries_file)
+    fig = plt.figure(figsize=(5,10))
+    gs = plt.GridSpec(num_var, num_regions)
+    gs.update(left=0.1, right=0.95, bottom=0.02, top=0.95, hspace=0.1, wspace=0.1)
+    for n in range(num_regions):
+        for v in range(num_var):
+            ax = plt.subplot(gs[n,v])
+            var = regions[n]+'_'
+            if regions[n] == 'dotson_cosgrove':
+                var += var_names_ASE[v]
+            else:
+                var += var_names[v]
+            # Plot data; monthly in thin grey, 2-year running mean in thicker black
+            time = ds['time_centered']
+            ax.plot(time, ds[var], color='DarkGrey', linewidth=1)
+            data_smoothed = moving_average(ds[var], smooth)
+            ax.plot(data_smoothed.time_centered, data_smoothed,  color='black', linewidth=1.5)
+            # TO DO Plot obs; central estimate in dashed blue, uncertainty range in shaded blue
+            ax.set_xlim([time[0], time[-1]])
+            ax.grid(linestyle='dotted')
+            if n == 0:
+                # Variable title and units on top
+                ax.set_title(var_titles[v], fontsize=12)
+            if v == 0:
+                # Label region on the left
+                plt.text(-1, 0.5, region_names[regions[n]], fontsize=12, ha='left', va='center', transform=ax.transAxes)
+            else:
+                # Label depth
+                if n == num_regions - 1:
+                    depth_label = '(200-700m)'
+                else:
+                    depth_label = '(bottom)'
+                plt.text(0.05, 0.95, depth_label, fontsize=8, ha='left', va='top', transform=ax.transAxes)
+    # TO DO legend
+    finished_plot(fig, fig_name=fig_name)
+        
+                
+            
+    
+    
 
     
 
