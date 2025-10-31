@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import glob
 import cmocean
 from ..utils import select_bottom, distance_along_transect, moving_average
-from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names
+from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli melt, adusumilli_std
 from ..plots import circumpolar_plot, finished_plot, plot_ts_distribution, plot_transect
 from ..interpolation import interp_latlon_cf, interp_latlon_cf_blocks
 from ..file_io import read_schmidtko, read_woa, read_dutrieux, read_zhou
@@ -633,12 +633,16 @@ def plot_evaluation_timeseries_TS (timeseries_file, fig_name=None):
     smooth = 2*months_per_year
 
     ds = xr.open_dataset(timeseries_file)
-    fig = plt.figure(figsize=(5,10))
-    gs = plt.GridSpec(num_var, num_regions)
-    gs.update(left=0.1, right=0.95, bottom=0.02, top=0.95, hspace=0.1, wspace=0.1)
+    
+    fig = plt.figure(figsize=(14,7))
+    rows = num_regions//2
+    columns = num_var*4*2 + 2
+    gs = plt.GridSpec(rows, columns)
+    gs.update(left=0.01, right=0.99, bottom=0.08, top=0.92, hspace=0.2, wspace=3)
     for n in range(num_regions):
         for v in range(num_var):
-            ax = plt.subplot(gs[n,v])
+            y0 = 1 + (4*num_var+1)*(n//rows) + v*4
+            ax = plt.subplot(gs[n%rows, y0:y0+4])
             var = regions[n]+'_'
             if regions[n] == 'dotson_cosgrove':
                 var += var_names_ASE[v]
@@ -649,23 +653,37 @@ def plot_evaluation_timeseries_TS (timeseries_file, fig_name=None):
             ax.plot(time, ds[var], color='DarkGrey', linewidth=1)
             data_smoothed = moving_average(ds[var], smooth)
             ax.plot(data_smoothed.time_centered, data_smoothed,  color='black', linewidth=1.5)
-            # TO DO Plot obs; central estimate in dashed blue, uncertainty range in shaded blue
+            # Plot obs; central estimate in dashed blue, uncertainty range in shaded blue
+            if 'massloss' in var:
+                obs_mean = adusumilli_melt[regions[n]]
+                obs_std = adusumilli_std[regions[n]]
+                ax.axhline(obs_mean, color='blue', linestyle='dashed', linewidth=1)
+                ax.axhspan(obs_mean-obs_std, obs_mean+obs_std, color='DodgerBlue', alpha=0.1)
+            else:
+                # TO DO Shenjie
+                pass            
             ax.set_xlim([time[0], time[-1]])
+            if n%rows == rows-1:
+                ax.tick_params(axis='x', labelrotation=90)
+            else:
+                ax.set_xticklabels([])
             ax.grid(linestyle='dotted')
-            if n == 0:
+            ax.tick_params(axis='both', labelsize=7)
+            if n%(rows) == 0:
                 # Variable title and units on top
-                ax.set_title(var_titles[v], fontsize=12)
+                ax.set_title(var_titles[v], fontsize=11)
             if v == 0:
                 # Label region on the left
-                plt.text(-1, 0.5, region_names[regions[n]], fontsize=12, ha='left', va='center', transform=ax.transAxes)
+                plt.text(-0.3, 0.5, region_names[regions[n]], fontsize=10, ha='center', va='center', transform=ax.transAxes, rotation=90)
             else:
                 # Label depth
-                if n == num_regions - 1:
+                if n == 0:
+                    depth_label = '(bottom)'
+                elif n == num_regions - 1:
                     depth_label = '(200-700m)'
                 else:
-                    depth_label = '(bottom)'
+                    depth_label = ''
                 plt.text(0.05, 0.95, depth_label, fontsize=8, ha='left', va='top', transform=ax.transAxes)
-    # TO DO legend
     finished_plot(fig, fig_name=fig_name)
         
                 
