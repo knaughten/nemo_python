@@ -686,16 +686,16 @@ def plot_evaluation_timeseries_transport (timeseries_file='timeseries_U.nc', fig
 
     ds = xr.open_dataset(timeseries_file)
 
-    fig = plt.figure(figsize=(7,5))
+    fig = plt.figure(figsize=(10,3))
     gs = plt.GridSpec(1, num_var)
-    gs.update(left=0.05, right=0.95, bottom=0.05, top=0.9, wspace=0.2)
+    gs.update(left=0.06, right=0.99, bottom=0.2, top=0.9, wspace=0.15)
     for v in range(num_var):
         ax = plt.subplot(gs[0,v])
         time = ds['time_centered']
         ax.plot(time, ds[var_names[v]], color='DarkGrey', linewidth=1)
         data_smoothed = moving_average(ds[var_names[v]], smooth)
         ax.plot(data_smoothed.time_centered, data_smoothed, color='black', linewidth=1.5)
-        region = var_names[:var_names.index('_transport')]
+        region = var_names[v][:var_names[v].index('_transport')]
         obs_mean = transport_obs[region]
         obs_std = transport_std[region]
         ax.axhline(obs_mean, color='blue', linestyle='dashed', linewidth=1)
@@ -705,6 +705,7 @@ def plot_evaluation_timeseries_transport (timeseries_file='timeseries_U.nc', fig
         if v == 0:
             ax.set_ylabel('Transport (Sv)')
         ax.grid(linestyle='dotted')
+        ax.tick_params(axis='x', labelrotation=90)
     finished_plot(fig, fig_name=fig_name)
         
         
