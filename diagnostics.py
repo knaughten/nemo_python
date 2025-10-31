@@ -94,7 +94,7 @@ def ross_gyre_eastern_extent (ds_u, ds_v, ds_domcfg, periodic=True, halo=True):
 def gyre_transport (region, ds_u, ds_v, ds_domcfg, periodic=True, halo=True):
 
     strf = barotropic_streamfunction(ds_u, ds_v, ds_domcfg, periodic=periodic, halo=halo)
-    # Identify Weddell Gyre region:
+    # Identify gyre region:
     [xW, xE, yS, yN] = region_bounds[region]
     if xW > xE:
         # Crosses 180 degrees longitude

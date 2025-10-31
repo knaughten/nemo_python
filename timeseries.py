@@ -192,10 +192,7 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         ds_nemo = ds_nemo.swap_dims({'x_grid_T_inner':'x_grid_T', 'y_grid_T_inner':'y_grid_T'})
 
     # Select region
-    if region is not None:
-        if 'gyre' in region:
-            # Will be selected later
-            pass
+    if region is not None and 'gyre' not in region:
         if region_type is None:
             if region.endswith('cavity'):
                 region = region[:region.index('_cavity')]
