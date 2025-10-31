@@ -159,6 +159,8 @@ region_names = {
     'LAB_trough'        : 'Little America Basin Trough',
     'drygalski_trough'  : 'Drygalski Trough',
     'dotson_cosgrove'   : 'Dotson to Cosgrove',
+    'weddell_gyre'      : 'Weddell Gyre',
+    'ross_gyre'         : 'Ross Gyre',
 }
 # Default colours to use for plotting lines
 line_colours = ['black', 'Crimson', 'blue', 'DarkMagenta', 'DimGrey', 'DarkGreen', 'DeepPink', 'DeepSkyBlue']
