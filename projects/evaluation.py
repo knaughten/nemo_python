@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob
 import cmocean
-from ..utils import select_bottom, distance_along_transect, moving_average
+from ..utils import select_bottom, distance_along_transect, moving_average, polar_stereo
 from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli_melt, adusumilli_std, transport_obs, transport_std, region_edges
 from ..plots import circumpolar_plot, finished_plot, plot_ts_distribution, plot_transect
 from ..interpolation import interp_latlon_cf, interp_latlon_cf_blocks
@@ -747,6 +747,7 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
     # Copy the two variables we need over to the main dataset
     ds = ds.assign({'bathymetry':ds_bathy['bathymetry'], 'shelf_mask':ds_bathy['shelf_mask']})
     ds_bathy.close()
+    
     # Precompute the region masks
     for region in regions_bottom+regions_mid:
         if region == 'east_antarctica':
@@ -763,6 +764,16 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
     mask = xr.where((region_edges[region][0][0] < ds['longitude'])*(ds['longitude'] < region_edges[region][1][0]), mask, 0).transpose()
     ds = ds.assign({'east_antarctica_shelf_mask':mask})
 
+    # Get area integrands
+    lon = ds['longitude'].data
+    lon_edges = np.concatenate((0.5*(lon[0] + lon[-1] - 360), 0.5*(lon[:-1] + lon[1:]), 0.5*(lon[0] + 360 + lon[-1])))
+    lat = ds['latitude'].data
+    lat_edges = np.concatenate((2*(lat[0] - lat[1]), 0.5*(lat[:-1] + lat[1:]), 2*(lat[-1] - lat[-2])))
+    x_edges, y_edges = polar_stereo(lon_edges, lat_edges)
+    dx = x_edges[1:] - x_edges[:-1]
+    dy = y_edges[1:] - y_edges[:-1]
+    dA = dx*dy
+
     # Mask for bottom layer: within 150 m of bathymetry (assume pressure in dbar = depth in m)
     bottom_mask = xr.where(0 < ds['bathymetry']-ds['pressure'] < bottom_thickness, 1, 0)
     # Mask for 200-700m depth range
@@ -770,18 +781,14 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
 
     # Loop over variables we care about
     for var in ['ct', 'ct_mse', 'sa', 'sa_mse']:
-        print(var)
+        print('\n'+var)
         for depth_mask, regions in zip([bottom_mask, mid_mask], [regions_bottom, regions_mid]):
             # Vertically average over depth range
             var_2D = (ds[var]*ds['pressure']*depth_mask).sum(dim='nz')/(ds['pressure']*depth_mask).sum(dim='nz')
             for region in regions:
-                var_avg = var_
-            
-
-    # Loop over regions
-    # Set up region mask
-    # Average 4 variables within it
-    # Print
+                mask = ds[region+'_shelf_mask']
+                var_avg = (var_2D*dA*mask).sum(dim=['nx','ny'])/(dA*mask).sum(dim=['nx','ny'])
+                print(region+': '+str(var_avg))
                 
             
     
