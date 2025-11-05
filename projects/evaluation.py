@@ -720,8 +720,8 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
 
     # Read bathymetry from alternate file
     ds_bathy = xr.open_dataset(bathy_file).rename_dims({'NB_x':'nx', 'NB_y':'ny'}).drop_vars(['shelf_mask']).transpose()
-    # Swap sign on bathymetry
-    ds_bathy['bathymetry'] = -1*ds_bathy['bathymetry']
+    # Swap sign on bathymetry and mask land
+    ds_bathy['bathymetry'] = -1*ds_bathy['bathymetry']    
     # Build shelf mask
     ds_bathy = build_shelf_mask(ds_bathy)[1]
     # Now mask land (and cavities) - crucially after shelf mask constructed otherwise the Brunt overhang disconnects it
@@ -729,6 +729,18 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
     # Copy the two variables we need over to the main dataset
     ds = ds.assign({'bathymetry':ds_bathy['bathymetry'], 'shelf_mask':ds_bathy['shelf_mask']})
     ds_bathy.close()
+    # Precompute the region masks
+    for region in regions_bottom+regions_mid:
+        if region == 'east_antarctica':
+            # Do this one at the end
+            continue
+        mask, ds = region_mask(region, ds, option='shelf')
+    # Now do East Antarctica: what's left when you remove the others
+    mask = ds['all_shelf_mask']
+    for region in regions_bottom[1:]:
+        if region != 'east_antarctica':
+            mask -= ds[region+'_shelf_mask']
+    ds = ds.assign({'east_antarctica_shelf_mask'}:mask)
 
     # Get bottom layer: within 150 m of bathymetry
 
