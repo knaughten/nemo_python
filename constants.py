@@ -65,6 +65,7 @@ shelf_lat = -58
 shelf_depth = 2000
 # Lon and lat of a point which is definitely on the given continental shelf (so we can isolate seamounts disconnected from this)
 shelf_point0 = [-51.5, -74.5]
+shelf_point1 = [171, -75]
 # Drake Passage transect
 drake_passage_lon0 = -68  # Corresponds to i=219 in eORCA1
 drake_passage_lat_bounds = [-67.3, -52.6]  # Corresponds to j=79:109 in eORCA1
