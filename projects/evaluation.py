@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import glob
 import cmocean
 from ..utils import select_bottom, distance_along_transect, moving_average
-from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli_melt, adusumilli_std, transport_obs, transport_std
+from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli_melt, adusumilli_std, transport_obs, transport_std, region_edges
 from ..plots import circumpolar_plot, finished_plot, plot_ts_distribution, plot_transect
 from ..interpolation import interp_latlon_cf, interp_latlon_cf_blocks
 from ..file_io import read_schmidtko, read_woa, read_dutrieux, read_zhou
@@ -754,10 +754,13 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
             continue
         mask, ds = region_mask(region, ds, option='shelf')
     # Now do East Antarctica: what's left when you remove the others
-    mask = ds['all_shelf_mask']
+    mask = ds['all_shelf_mask'].copy()
     for region in regions_bottom[1:]:
-        if region != 'east_antarctica':
-            mask -= ds[region+'_shelf_mask']
+        if region not in ['east_antarctica', 'amery']:
+            mask -= ds[region+'_shelf_mask']*mask
+    # Now slice out disconnected regions by imposing bounds
+    region = 'east_antarctica'
+    mask = xr.where((region_edges[region][0][0] < ds['longitude'])*(ds['longitude'] < region_edges[region][1][0]), mask, 0).transpose()
     ds = ds.assign({'east_antarctica_shelf_mask':mask})
 
     # Mask for bottom layer: within 150 m of bathymetry (assume pressure in dbar = depth in m)

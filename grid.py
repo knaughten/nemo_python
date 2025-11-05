@@ -266,12 +266,13 @@ def region_mask (region, ds, option='all', return_name=False):
         if region == 'dotson_cosgrove':
             # Bear Ridge can interrupt this one
             (j,i) = point0_E
-            if np.max(mask[j,:]) > 0:
-                # Need to make a second cut
-                i = np.where(mask[j,:] > 0)[0][0]
-                cut_mask((j,i), flag_E)
-                mask_region = remove_disconnected(mask, point0_W)
-                mask.data = mask_region
+            for n in range(2):
+                if np.max(mask[j,:]) > 0:
+                    # Need to make a second cut (sometimes even a third)
+                    i = np.where(mask[j,:] > 0)[0][0]
+                    cut_mask((j,i), flag_E)
+                    mask_region = remove_disconnected(mask, point0_W)
+                    mask.data = mask_region
     else:
         raise Exception('Undefined region '+region)
 
