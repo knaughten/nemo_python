@@ -171,6 +171,8 @@ def latlon_name (ds):
         return 'nav_lon_grid_U', 'nav_lat_grid_U'
     elif 'lon' in ds:
         return 'lon', 'lat'
+    elif 'longitude' in ds:
+        return 'longitude', 'latitude'
     else:
         raise Exception('No valid lat or lon coordinate')
 

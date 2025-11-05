@@ -718,24 +718,26 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
 
     ds = xr.open_dataset(obs_file).squeeze().transpose('nz', 'ny', 'nx')
 
-    # Set up region masks
     # Read bathymetry from alternate file
     ds_bathy = xr.open_dataset(bathy_file).rename_dims({'NB_x':'nx', 'NB_y':'ny'}).drop_vars(['shelf_mask']).transpose()
-    # Mask land out of bathymetry and swap sign
-    ds_bathy['bathymetry'] = -1*ds_bathy['bathymetry'].where(ds['ct'].isel(nz=0).notnull())
-    
+    # Swap sign on bathymetry
+    ds_bathy['bathymetry'] = -1*ds_bathy['bathymetry']
+    # Build shelf mask
+    ds_bathy = build_shelf_mask(ds_bathy)[1]
+    # Now mask land (and cavities) - crucially after shelf mask constructed otherwise the Brunt overhang disconnects it
+    ds_bathy['shelf_mask'] = xr.where(ds['ct'].isel(nz=0).notnull(), ds_bathy['shelf_mask'], 0)
+    # Copy the two variables we need over to the main dataset
+    ds = ds.assign({'bathymetry':ds_bathy['bathymetry'], 'shelf_mask':ds_bathy['shelf_mask']})
+    ds_bathy.close()
 
-
-    
-    
-
-    # Read data
-    # Read bathymtery from second file
     # Get bottom layer: within 150 m of bathymetry
-    # Get 200-700 m average
-    # Set up regions, following NEMO code
-    # Average each variable over regions
-    # Print results
+
+    # Vertically average between 200-700m
+
+    # Loop over regions
+    # Set up region mask
+    # Average 4 variables within it
+    # Print
                 
             
     

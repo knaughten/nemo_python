@@ -7,7 +7,7 @@ import numpy as np
 import os
 import xarray as xr
 from .interpolation import neighbours
-from .constants import region_edges, region_edges_flag, region_names, region_points, shelf_lat, shelf_depth, shelf_point0, shelf_point1, region_bounds, region_bathy_bounds
+from .constants import region_edges, region_edges_flag, region_names, region_points, shelf_lat, shelf_depth, shelf_point0, region_bounds, region_bathy_bounds
 from .utils import remove_disconnected, closest_point, latlon_name, xy_name
 
 # Helper function to calculate a bunch of grid variables (bathymetry, draft, ocean mask, ice shelf mask) from a NEMO output file, only using thkcello/e3t and the mask on a 3D data variable (current options are to look for thetao and so).
@@ -106,19 +106,14 @@ def build_shelf_mask (ds):
     lon_name, lat_name = latlon_name(ds)
     mask = ocean_mask*(ds[lat_name] <= shelf_lat)*(bathy <= shelf_depth)
     # Remove disconnected seamounts
-    mask1 = mask.copy()
+    mask_orig = mask.copy()
     point0 = closest_point(ds, shelf_point0)
     mask.data = remove_disconnected(mask, point0)
-    if mask.isel(nx=-1).max() == 0:
-        # Special case for Shenjie's dataset where no cavities means the Brunt overhang breaks the continuity
-        # Make a second mask to the east of that
-        point1 = closest_point(ds, shelf_point1)
-        mask1.data = remove_disconnected(mask1, point1)
-        mask = mask+mask1
     # Save to the Dataset in case it's useful later
     ds = ds.assign({'shelf_mask':mask})
 
     return mask, ds
+
 
 # Select a mask for a single cavity. Pass it an xarray Dataset as for build_shelf_mask.
 def single_cavity_mask (cavity, ds, return_name=False):
