@@ -185,7 +185,7 @@ def xy_name (ds):
         return 'x_grid_V', 'y_grid_V'
     elif 'x_grid_U' in ds.dims:
         return 'x_grid_U', 'y_grid_U'
-    elif 'nx' in ds_dims:
+    elif 'nx' in ds.dims:
         return 'nx', 'ny'
     else:
         raise Exception('No valid x or y coordinate')
