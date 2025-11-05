@@ -9,7 +9,7 @@ from ..plots import circumpolar_plot, finished_plot, plot_ts_distribution, plot_
 from ..interpolation import interp_latlon_cf, interp_latlon_cf_blocks
 from ..file_io import read_schmidtko, read_woa, read_dutrieux, read_zhou
 from ..grid import extract_var_region, transect_coords_from_latlon_waypoints, region_mask
-from ..timeseries import update_simulation_timeseries
+from ..timeseries import update_simulation_timeseries, overwrite_file
 
 # Compare the bottom temperature and salinity in NEMO (time-averaged over the given xarray Dataset) to observations: Schmidtko on the continental shelf, World Ocean Atlas 2018 in the deep ocean.
 def bottom_TS_vs_obs (nemo, time_ave=True,
@@ -610,6 +610,23 @@ def update_timeseries_evaluation_NEMO_AIS (in_dir, out_dir='./'):
 
     for gtype in timeseries_gtypes:
         update_simulation_timeseries('L121', timeseries_gtypes[gtype], timeseries_file='timeseries_'+gtype+'.nc', timeseries_dir=out_dir, config='eANT025', sim_dir=in_dir, halo=False, gtype=gtype, domain_cfg=domain_cfg)
+
+
+# Bug with Dotson-Cosgrove mask definition means we need to redo those timeseries variables only
+def redo_dotson_cosgrove_timeseries (in_dir, out_dir='./'):
+
+    var_names_ASE = ['massloss', 'shelf_temp_btw_200_700m', 'shelf_salt_btw_200_700m']
+    timeseries_types = ['dotson_cosgrove_'+var for var in var_names_ASE]
+    timeseries_file_old = 'timeseries_T.nc'
+    timeseries_file_new = 'timeseries_redo.nc'
+    update_simulation_timeseries('L121', timeseries_types, timeseries_file=timeseries_file_new, timeseries_dir=out_dir, config='eANT025', sim_dir=in_dir, halo=False, gtype='T')
+    # Merge with old file
+    print('Merging')
+    ds_old = xr.open_dataset(out_dir+'/'+timeseries_file_old)
+    ds_new = xr.open_dataset(out_dir+'/'+timeseries_file_new)
+    for var in ds_new:
+        ds_old[var] = ds_new[var]
+    overwrite_file(ds_old, out_dir+'/'+timeseries_file_old)    
 
 
 def plot_evaluation_timeseries_shelf (timeseries_file='timeseries_T.nc', fig_name=None):
