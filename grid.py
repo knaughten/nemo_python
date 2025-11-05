@@ -98,7 +98,7 @@ def build_shelf_mask (ds):
         # Make sure ice shelves are included in the final mask, by setting bathy to 0 here
         bathy = xr.where(ice_mask, 0, bathy)
     elif 'bathymetry' in ds:
-        bathy = -1*ds['bathymetry']
+        bathy = ds['bathymetry']
         ocean_mask = xr.where(bathy > 0, 1, 0)
     else:
         raise KeyError('invalid Dataset for build_shelf_mask')

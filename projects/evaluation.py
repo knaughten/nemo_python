@@ -710,19 +710,23 @@ def plot_evaluation_timeseries_transport (timeseries_file='timeseries_U.nc', fig
         
 
 # Calculate the observed mean and uncertainty of T and S on the shelf averaged over each region, from the Zhou 2025 climatology.
-def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/', bathy_file='shenjie_climatology_bottom_TS.nc'):
+def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_climatology.nc', bathy_file='shenjie_climatology_bottom_TS.nc'):
 
     regions_bottom = ['all', 'larsen', 'filchner_ronne', 'east_antarctica', 'amery', 'ross', 'west_antarctica']
     regions_mid = ['dotson_cosgrove']
     depth_bounds = [200, 700]
 
+    ds = xr.open_dataset(obs_file).squeeze().transpose('nz', 'ny', 'nx')
+
     # Set up region masks
     # Read bathymetry from alternate file
     ds_bathy = xr.open_dataset(bathy_file).rename_dims({'NB_x':'nx', 'NB_y':'ny'}).drop_vars(['shelf_mask']).transpose()
+    # Mask land out of bathymetry and swap sign
+    ds_bathy['bathymetry'] = -1*ds_bathy['bathymetry'].where(ds['ct'].isel(nz=0).notnull())
     
 
 
-    ds = xr.open_dataset(obs_file)
+    
     
 
     # Read data
