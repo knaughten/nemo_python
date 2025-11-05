@@ -253,7 +253,7 @@ def region_mask (region, ds, option='all', return_name=False):
         # Western boundary is inclusive: cut at cell to "west"
         cut_mask(cell_to_west(point0_W, flag_W), flag_W)
         # Eastern boundary is exclusive: cut at that cell
-        cut_mask(point0_E, flag_E)
+        cut_mask(point0_E, flag_E)              
 
         # Run remove_disconnected on western point to disconnect the rest of the continental shelf
         mask_region = remove_disconnected(mask, point0_W)
@@ -263,6 +263,15 @@ def region_mask (region, ds, option='all', return_name=False):
             mask_region2 = remove_disconnected(mask, cell_to_west(point0_E, flag_E))
             mask_region += mask_region2
         mask.data = mask_region
+        if region == 'dotson_cosgrove':
+            # Bear Ridge can interrupt this one
+            (j,i) = point0_E
+            if np.max(mask[j,:]) > 0:
+                # Need to make a second cut
+                i = np.where(mask[j,:] > 0)[0][0]
+                cut_mask((j,i), flag_E)
+                mask_region = remove_disconnected(mask, point0_W)
+                mask.data = mask_region
     else:
         raise Exception('Undefined region '+region)
 

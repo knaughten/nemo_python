@@ -715,6 +715,7 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
     regions_bottom = ['all', 'larsen', 'filchner_ronne', 'east_antarctica', 'amery', 'ross', 'west_antarctica']
     regions_mid = ['dotson_cosgrove']
     depth_bounds = [200, 700]
+    bottom_thickness = 150 
 
     ds = xr.open_dataset(obs_file).squeeze().transpose('nz', 'ny', 'nx')
 
@@ -742,9 +743,20 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
             mask -= ds[region+'_shelf_mask']
     ds = ds.assign({'east_antarctica_shelf_mask'}:mask)
 
-    # Get bottom layer: within 150 m of bathymetry
+    # Mask for bottom layer: within 150 m of bathymetry (assume pressure in dbar = depth in m)
+    bottom_mask = xr.where(0 < ds['bathymetry']-ds['pressure'] < bottom_thickness, 1, 0)
+    # Mask for 200-700m depth range
+    mid_mask = xr.where(depth_bounds[0] < ds['pressure'] < depth_bounds[1], 1, 0)
 
-    # Vertically average between 200-700m
+    # Loop over variables we care about
+    for var in ['ct', 'ct_mse', 'sa', 'sa_mse']:
+        print(var)
+        for depth_mask, regions in zip([bottom_mask, mid_mask], [regions_bottom, regions_mid]):
+            # Vertically average over depth range
+            var_2D = (ds[var]*ds['pressure']*depth_mask).sum(dim='nz')/(ds['pressure']*depth_mask).sum(dim='nz')
+            for region in regions:
+                var_avg = var_
+            
 
     # Loop over regions
     # Set up region mask
