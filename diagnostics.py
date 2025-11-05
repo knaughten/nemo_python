@@ -138,12 +138,14 @@ def isosurface(field, target, dim):
     return iso.max(dim, skipna=True)
 
 # Function calculates the depth of the thermocline, returns the depth of the thermocline at each point in your input temperature array
-# Metric is the depth of the maximum positive temperature gradient with depth (dT/dz)
+# Metric is the first crossing of the thermocline gradient (dT/dz) with limit; identifies the point where it transitions from 
+# winter water to the (m)CDW layer, i.e. not core of the CDW layer but rather where the transition occurs. Inspired by approach
+# from Sebastian Rossier
 # Inputs:
 # - dsT                  : xarray DataArray of temperature (can deal with 4D)
 # - (optional) mesh_mask : path to configuration mesh mask file containing tmask and gdept_0
-# - (optional) surface_depth_mask : float depth in metres to mask from calculation (if you'd like to exclude the seasonal mixed layer gradients for example)
-def thermocline(dsT, mesh_mask='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20250715.nc', surface_depth_mask=120):
+# - (optional) limit     : float specifying the gradient dT/dz threshold where to find the thermocline
+def thermocline(dsT, mesh_mask='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20250715.nc', limit=5e-3):
     
     # load mesh mask file and mask temperature with land points
     ds_mesh  = xr.open_dataset(mesh_mask).squeeze().rename({'nav_lev':'deptht','x':'x_grid_T','y':'y_grid_T'}).drop_vars('time_counter')
@@ -151,13 +153,16 @@ def thermocline(dsT, mesh_mask='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathyme
     
     # calculate the derivative of temperature with depth
     dTdz         = T_masked.differentiate('deptht')
-    # mask grid locations that are land b/c argmax can't deal with it and mask depths in the upper surface_depth_mask meters due to strong seasonal gradients
-    dTdz_masked  = xr.where(dTdz.sum(dim='deptht')==0, 0, dTdz) 
-    dTdz_masked  = xr.where(ds_mesh.gdept_0 < surface_depth_mask, 0, dTdz_masked) 
-    # find depth of maximum dT/dz gradient, i.e. thermocline
-    zind_thermocline  = dTdz_masked.argmax(dim='deptht')               # find z index of the maximum dT/dz gradient
-    depth_thermocline = ds_mesh.gdept_0.isel(deptht=zind_thermocline)  # identify depth associated with this index
-    # only want thermoclines that are positive; otherwise you get a few at seafloor in deep troughs in the northern southern ocean
-    depth_thermocline = xr.where((dTdz_masked.max(dim='deptht') > 0), depth_thermocline, np.nan) 
+    # mask grid locations that are land b/c argmin can't deal with it 
+    dTdz_masked  = xr.where(dTdz.sum(dim='deptht')==0, 0, dTdz)
+    # mask grid depths shallower than the first strongest negative gradient b/c that helps remove the mixed layer
+    z_shallowlim = dTdz_masked.argmin(dim='deptht', skipna=True)
+    dTdz_masked  = dTdz_masked.where(dTdz.deptht >= ds_mesh.gdept_0.isel(deptht=z_shallowlim))
+
+    # find depth of first crossing of the dT/dz gradient past the defined "limit"
+    z_thermocline     = dTdz_masked.where(dTdz_masked > limit).notnull().argmax(dim='deptht', skipna=True)
+    depth_thermocline = ds_mesh.gdept_0.isel(deptht=z_thermocline)  # identify depth associated with this index
+    # only want thermoclines that are realistic
+    depth_thermocline = xr.where(z_thermocline==0, np.nan, depth_thermocline) 
         
     return depth_thermocline
