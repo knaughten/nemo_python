@@ -460,12 +460,15 @@ def era5_time_mean_forcing(variable, year_start=1979, year_end=2024, freq='daily
         varname=variable
 
     if freq=='daily' or freq=='hourly':
-        if variable=='wind_speed':
+        if variable in ['wind_speed', 'wind_angle']:
             era5_u  = xr.open_mfdataset(f'{era5_folder_in}u10_*')['u10'].sortby('lat').sel(lat=lat_slice)
             era5_v  = xr.open_mfdataset(f'{era5_folder_in}v10_*')['v10'].sortby('lat').sel(lat=lat_slice)
             era5_u  = era5_u.isel(time=((era5_u.time.dt.year <= year_end)*(era5_u.time.dt.year >= year_start)*(era5_u.time.dt.year != 1996)))
             era5_v  = era5_v.isel(time=((era5_v.time.dt.year <= year_end)*(era5_v.time.dt.year >= year_start)*(era5_v.time.dt.year != 1996)))
-            era5_ds = np.sqrt(era5_u**2 + era5_v**2).rename(variable).to_dataset()
+            if variable == 'wind_speed':
+                era5_ds = np.hypot(era5_u, era5_v).rename(variable).to_dataset()
+            elif variable == 'wind_angle':
+                era5_ds = np.arctan2(era5_v, era5_u).rename(variable).to_dataset()
         else:
             era5_ds = xr.open_mfdataset(f'{era5_folder_in}{variable}_*.nc')[varname].sortby('lat').sel(lat=lat_slice)
             era5_ds = era5_ds.isel(time=((era5_ds.time.dt.year <= year_end)*(era5_ds.time.dt.year >= year_start)*(era5_ds.time.dt.year != 1996)))
@@ -479,12 +482,15 @@ def era5_time_mean_forcing(variable, year_start=1979, year_end=2024, freq='daily
                 print('skipping year 1996')
             else:
                 print(year)
-                if variable=='wind_speed':
+                if variable in ['wind_speed', 'wind_angle']:
                     era5_u = xr.open_dataset(f'{era5_folder_in}u10_y{year}.nc')['u10'].sortby('lat').sel(lat=lat_slice)
                     era5_v = xr.open_dataset(f'{era5_folder_in}v10_y{year}.nc')['v10'].sortby('lat').sel(lat=lat_slice)
                     era5_u = era5_u.resample(time='3h').mean()
                     era5_v = era5_v.resample(time='3h').mean()               
-                    era5_ds = np.sqrt(era5_u**2 + era5_v**2).rename(variable).groupby('time.month').mean(dim='time').to_dataset()
+                    if variable == 'wind_speed':
+                        era5_ds = np.hypot(era5_u, era5_v).rename(variable).groupby('time.month').mean(dim='time').to_dataset()
+                    elif variable == 'wind_angle':
+                        era5_ds = np.arctan2(era5_v, era5_u).rename(variable).groupby('time.month').mean(dim='time').to_dataset()
                 else:
                     era5_ds = xr.open_dataset(f'{era5_folder_in}{variable}_y{year}.nc')[varname].sortby('lat').sel(lat=lat_slice)
                     era5_ds = era5_ds.resample(time='3h').mean().groupby('time.month').to_dataset()
@@ -527,10 +533,13 @@ def cesm2_ensemble_time_mean_forcing(expt, variable, out_dir, year_start=1979, y
     # For each year within the specified range, calculate the monthly ensemble mean and write to file
     for year in range(year_start, year_end+1):
         print(year)
-        if variable=='wind_speed':
+        if variable in ['wind_speed', 'wind_angle']:
             cesm2_u_ens = load_cesm2_ensemble('UBOT', year)
             cesm2_v_ens = load_cesm2_ensemble('VBOT', year)
-            cesm2_ds_ens = (((cesm2_u_ens.UBOT**2) + (cesm2_v_ens.VBOT**2))**0.5).rename(variable)
+            if variable == 'wind_speed':
+                cesm2_ds_ens = np.hypot(cesm2_u_ens.UBOT, cesm2_v_ens.VBOT).rename(variable)
+            elif variable == 'wind_angle':
+                cesm2_ds_ens = np.arctan2(cesm2_v_ens.VBOT, cesm2_u_ens.UBOT).rename(variable)
         else:
             cesm2_ds_ens = load_cesm2_ensemble(variable, year)      
 
@@ -549,8 +558,8 @@ def cesm2_ensemble_time_mean_forcing(expt, variable, out_dir, year_start=1979, y
 # wrapper function to calculate ensemble mean for each of the atmospheric variables we're interested in:
 def cesm2_all_variables_ensemble_mean(expt, out_dir, year_start=1979, year_end=2024, ensemble_members=cesm2_ensemble_members):
 
-    for variable in ['TREFHT','QREFHT','FSDS','FLDS','PRECT','PRECS', 'PSL', 'wind_speed']: 
-        if variable == 'wind_speed':
+    for variable in ['TREFHT','QREFHT','FSDS','FLDS','PRECT','PRECS', 'PSL', 'wind_speed', 'wind_angle']: 
+        if variable in ['wind_speed','wind_angle']:
             freq='3-hourly'
         else:
             freq='daily'
@@ -583,7 +592,8 @@ def calc_bias_correction(source, variable, expt='LE2', year_start=1979, year_end
         CESM2_ensemble_mean = xr.open_dataset(f'{source_folder}CESM2-{expt}_eANT025_{variable}_{freq}_ensemble_{year_start}-{year_end}_mean_monthly.nc')
 
         # Load regridded ERA5 climatology
-        CESM2_to_ERA5_varnames = {'TREFHT':'t2m','FSDS':'msdwswrf','FLDS':'msdwlwrf','QREFHT':'sph2m', 'PRECS':'msr', 'PRECT':'mtpr', 'PSL':'msl', 'wind_speed':'wind_speed'}
+        CESM2_to_ERA5_varnames = {'TREFHT':'t2m','FSDS':'msdwswrf','FLDS':'msdwlwrf','QREFHT':'sph2m', 'PRECS':'msr', 'PRECT':'mtpr', \
+                                  'PSL':'msl', 'wind_speed':'wind_speed', 'wind_angle':'wind_angle'}
         filevarname = CESM2_to_ERA5_varnames[variable]
         if variable=='QREFHT':
            varname='specific_humidity' # file with dewpoint temperature converted to specific humidity
@@ -592,7 +602,7 @@ def calc_bias_correction(source, variable, expt='LE2', year_start=1979, year_end
         ERA5_climatology = xr.open_dataset(f'{era5_folder}ERA5_eANT025_{filevarname}_{freq}_{year_start}-{year_end}_mean_monthly.nc').rename({varname:variable})
  
         # thermo(dynamic) correction
-        if variable in ['TREFHT','QREFHT','FLDS','FSDS','PRECS','PRECT','wind_speed']:
+        if variable in ['TREFHT','QREFHT','FLDS','FSDS','PRECS','PRECT','wind_speed','wind_angle']:
             if monthly:
                 out_file = f'{out_folder}{source}-{expt}_{variable}_{freq}_bias_corr_monthly.nc'
             else:
@@ -614,12 +624,26 @@ def calc_bias_correction(source, variable, expt='LE2', year_start=1979, year_end
 # - source_mean : xarray Dataset containing the ensemble and time mean of the source dataset variable (currently CESM2)
 # - ERA5_mean   : xarray Dataset containing the time mean of the ERA5 variable
 # - out_file    : string to path to write NetCDF file to
-# - (optional) fill_land : boolean indicating whether to fill areas that are land in the source mask with nearest values or whether to just leave it as is
-# - (optional) monthly   : boolean indicating whether bias correction fields are monthly or not
-def thermo_dynamic_correction(source_mean, ERA5_mean, variable, out_file, fill_land=True, monthly=False):
+# - (optional) fill_land  : boolean indicating whether to fill areas that are land in the source mask with nearest values or whether to just leave it as is
+# - (optional) monthly    : boolean indicating whether bias correction fields are monthly or not
+# - (optional) dist_coast : 
+# - (optional) coastal_correction_limit : float indicating the distance from the coastline (in km) considered for the coastal wind angle correction
+def thermo_dynamic_correction(source_mean, ERA5_mean, variable, out_file, fill_land=True, monthly=False, 
+                              dist_coast='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/distance_coast-20250715.nc', coastal_correction_limit=400):
     if variable=='wind_speed':
         print('Correcting dynamics')
         bias = ERA5_mean / source_mean
+    elif variable=='wind_angle':
+        print('Correcting dynamics') 
+        # open file with distance from coastline for the configuration
+        distcoast = xr.open_dataset(dist_coast)
+        # apply correction to distance within coastal_correction_limit (excluding south america)
+        region_to_correct = (distcoast.distance_coast < coastal_correction_limit)*(distcoast.nav_lat <-59)
+        angle_bias = ERA5_mean - source_mean
+        angle_bias = xr.where(region_to_correct, angle_bias, 0)
+        angle_bias = xr.where(distcoast.distance_coast ==0, 0, angle_bias) # mask land
+        # apply a cosine taper to the angle bias to gradually transition from strength 1 to 0
+        bias = xr.where(region_to_correct, angle_bias*np.cos((np.pi/2)*(distcoast.distance_coast/coastal_correction_limit)), 0)
     else:
         print('Correcting thermodynamics')
         # Calculate difference:
@@ -661,6 +685,8 @@ def apply_bias_correction(variable, ens, expt='LE2', start_year=1900, end_year=2
 
     print(f'Processing {variable} files for ensemble member {ens} from {start_year}-{end_year} with bias correction file from {freq} means')
     bias_ds = xr.open_dataset(f'{bias_dir}CESM2-LE2_{variable}_{freq}_bias_corr_monthly.nc')[variable]
+    if variable=='wind_speed': # also load wind angle bias correction file
+        bias_ds_angle = xr.open_dataset(f'{bias_dir}CESM2-LE2_wind_angle_{freq}_bias_corr.nc').wind_angle
 
     # helper functions for applying bias correction
     def apply_multiplier(angle):
@@ -677,12 +703,13 @@ def apply_bias_correction(variable, ens, expt='LE2', start_year=1900, end_year=2
         if variable=='wind_speed':
             file_pathx = find_processed_cesm2_file(expt, 'UBOT', ens, year, freq='3-hourly', highres=highres)
             file_pathy = find_processed_cesm2_file(expt, 'VBOT', ens, year, freq='3-hourly', highres=highres)
-            dsx = xr.open_dataset(file_pathx, use_cftime=True)
-            dsy = xr.open_dataset(file_pathy, use_cftime=True)
+            dsx = xr.open_dataset(file_pathx, use_cftime=True, chunks='auto')
+            dsy = xr.open_dataset(file_pathy, use_cftime=True, chunks='auto')
             theta   = np.arctan2(dsy.VBOT, dsx.UBOT)
             speed   = np.hypot(dsx.UBOT, dsy.VBOT)
-            angle_u = np.cos(theta) * speed
-            angle_v = np.sin(theta) * speed
+            theta_corrected = theta + bias_ds_angle # correct wind angle
+            angle_u = np.cos(theta_corrected) * speed
+            angle_v = np.sin(theta_corrected) * speed
             if monthly:
                 dsx['UBOT'] = angle_u.groupby('time_counter.month').apply(apply_multiplier)
                 dsy['VBOT'] = angle_v.groupby('time_counter.month').apply(apply_multiplier)
