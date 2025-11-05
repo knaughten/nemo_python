@@ -78,7 +78,8 @@ def build_ocean_mask (ds):
 # Select the continental shelf and ice shelf cavities. Pass it the path to an xarray Dataset which contains one of the following combinations:
 # 1. nav_lon, nav_lat, bathy, tmaskutil (NEMO3.6 mesh_mask)
 # 2. nav_lon, nav_lat, bathy_metry, bottom_level (NEMO4.2 domain_cfg)
-# 3. nav_lon, nav_lat, thkcello/e3t, a 3D data variable with a zero-mask applied (current options are thetao or so) (NEMO output file) 
+# 3. nav_lon, nav_lat, thkcello/e3t, a 3D data variable with a zero-mask applied (current options are thetao or so) (NEMO output file)
+# 4. lon, lat, bathymetry (Shenjie's climatology)
 def build_shelf_mask (ds):
 
     if 'shelf_mask' in ds:
@@ -95,6 +96,9 @@ def build_shelf_mask (ds):
         bathy, draft, ocean_mask, ice_mask = calc_geometry(ds)
         # Make sure ice shelves are included in the final mask, by setting bathy to 0 here
         bathy = xr.where(ice_mask, 0, bathy)
+    elif 'bathymetry' in ds:
+        bathy = ds['bathymetry']
+        ocean_mask = xr.where(bathy < 0, 1, 0)
     else:
         raise KeyError('invalid Dataset for build_shelf_mask')
     # Apply lat-lon bounds and bathymetry bound to ocean mask
@@ -259,37 +263,41 @@ def region_mask (region, ds, option='all', return_name=False):
     else:
         raise Exception('Undefined region '+region)
 
-    # Special cases (where common boundaries didn't agree for eORCA1 and eORCA025)
-    if region == 'amundsen_sea':
-        # Remove bits of Abbot
-        mask_excl, ds = single_cavity_mask('abbot', ds)
-    elif region == 'filchner_ronne':
-        # Remove bits of Brunt
-        mask_excl, ds = single_cavity_mask('brunt', ds)
-    elif region == 'thwaites':
-        # Remove bits of Pine Island 
-        mask_excl, ds = single_cavity_mask('pine_island', ds)
-    else:
-        mask_excl = None
-    if region == 'bellingshausen_sea':
-        # Add back in bits of Abbot
-        mask_incl, ds = single_cavity_mask('abbot', ds)
-    elif region == 'east_antarctica':
-        # Add back in bits of Brunt
-        mask_incl, ds = single_cavity_mask('brunt', ds)
-    else:
-        mask_incl = None
-    if mask_excl is not None:
-        mask *= 1-mask_excl
-    if mask_incl is not None:
-        mask = xr.where(mask_incl, 1, mask)
+    if option != 'shelf':
+        # Special cases (where common boundaries didn't agree for eORCA1 and eORCA025)
+        if region == 'amundsen_sea':
+            # Remove bits of Abbot
+            mask_excl, ds = single_cavity_mask('abbot', ds)
+        elif region == 'filchner_ronne':
+            # Remove bits of Brunt
+            mask_excl, ds = single_cavity_mask('brunt', ds)
+        elif region == 'thwaites':
+            # Remove bits of Pine Island 
+            mask_excl, ds = single_cavity_mask('pine_island', ds)
+        else:
+            mask_excl = None
+        if region == 'bellingshausen_sea':
+            # Add back in bits of Abbot
+            mask_incl, ds = single_cavity_mask('abbot', ds)
+        elif region == 'east_antarctica':
+            # Add back in bits of Brunt
+            mask_incl, ds = single_cavity_mask('brunt', ds)
+        else:
+            mask_incl = None
+        if mask_excl is not None:
+            mask *= 1-mask_excl
+        if mask_incl is not None:
+            mask = xr.where(mask_incl, 1, mask)
 
     # Now select cavities, shelf, or both
-    ice_mask, ds = build_ice_mask(ds)
-    if option == 'cavity':
-        mask *= ice_mask
-    elif option == 'shelf':
-        mask *= 1-ice_mask
+    try:
+        ice_mask, ds = build_ice_mask(ds)
+        if option == 'cavity':
+            mask *= ice_mask
+        elif option == 'shelf':
+            mask *= 1-ice_mask
+    except:
+        print('Warning: no cavities in this dataset')
 
     # Save to the Dataset in case it's useful later
     ds = ds.assign({region+'_'+option+'_mask':mask})

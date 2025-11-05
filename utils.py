@@ -169,6 +169,8 @@ def latlon_name (ds):
         return 'nav_lon_grid_V', 'nav_lat_grid_V'
     elif 'nav_lon_grid_U' in ds:
         return 'nav_lon_grid_U', 'nav_lat_grid_U'
+    elif 'lon' in ds:
+        return 'lon', 'lat'
     else:
         raise Exception('No valid lat or lon coordinate')
 
@@ -183,6 +185,8 @@ def xy_name (ds):
         return 'x_grid_V', 'y_grid_V'
     elif 'x_grid_U' in ds.dims:
         return 'x_grid_U', 'y_grid_U'
+    elif 'nx' in ds_dims:
+        return 'nx', 'ny'
     else:
         raise Exception('No valid x or y coordinate')
 
