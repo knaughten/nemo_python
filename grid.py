@@ -4,6 +4,7 @@
 #######################################################
 
 import numpy as np
+import os
 import xarray as xr
 from .interpolation import neighbours
 from .constants import region_edges, region_edges_flag, region_names, region_points, shelf_lat, shelf_depth, shelf_point0, region_bounds, region_bathy_bounds
@@ -362,21 +363,29 @@ def create_regions_file(nemo_mesh, option, out_file):
 # regions_file : (optional) string path to regions mask definition netcdf file
 # nemo_domain  : (optional) string path to NEMO domain cfg file to create mask from
 def extract_var_region(ds_nemo, nemo_var, region, 
-                       region_type='all', regions_file='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/output/regions_all.nc', 
+                       region_type='all', regions_file='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/output/regions.nc', 
                        nemo_domain='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20250715.nc'):
 
-    # Get mask for Amundsen Sea region
+    # Calculate a mask or read masks from a regions file
     if not regions_file:
         nemo_file = xr.open_dataset(nemo_domain)
-        mask, _, region_name = region_mask(region, nemo_file, option=region_type, return_name=True)
+        mask, _   = region_mask(region, nemo_file, option=region_type, return_name=False)
     else: 
         region_masks = xr.open_dataset(regions_file)
-        if f'mask_{region}' in list(region_masks.keys()): # if the regions_file contains the mask, read it otherwise create it
-            mask = region_masks[f'mask_{region}']
+        # if the regions_file contains the mask, read it otherwise create it and add it to the regions file
+        if f'mask_{region}_{region_type}' in list(region_masks.keys()): 
+            mask = region_masks[f'mask_{region}_{region_type}']
         else:
-            nemo_file = xr.open_dataset(nemo_domain)
-            mask, _, region_name = region_mask(region, nemo_file, option=region_type, return_name=True)
-
+            # move old regions file to a backup location and delete the original file
+            region_masks.to_netcdf(f'{regions_file.split('.nc')[0]}_old.nc')
+            os.remove(regions_file)
+            # calculate new mask
+            nemo_file    = xr.open_dataset(nemo_domain)
+            mask, _      = region_mask(region, nemo_file, option=region_type, return_name=False)
+            # write mask to new regions file 
+            region_masks_new = region_masks.copy()
+            region_masks_new[f'mask_{region}_{region_type}'] = mask
+            region_masks_new.to_netcdf(regions_file)
 
     # Make mask 3D if needed
     if len(ds_nemo[nemo_var].dims) == 3:
