@@ -758,7 +758,7 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
     for region in regions_bottom[1:]:
         if region != 'east_antarctica':
             mask -= ds[region+'_shelf_mask']
-    ds = ds.assign({'east_antarctica_shelf_mask'}:mask)
+    ds = ds.assign({'east_antarctica_shelf_mask':mask})
 
     # Mask for bottom layer: within 150 m of bathymetry (assume pressure in dbar = depth in m)
     bottom_mask = xr.where(0 < ds['bathymetry']-ds['pressure'] < bottom_thickness, 1, 0)
