@@ -283,11 +283,11 @@ def find_processed_cesm2_file(expt, var_name, ensemble_member, year, freq='daily
 
     # set the experiment directory
     if highres:
-        file_dir = f'{base_dir}{expt}/processed_highres/'
+        file_dir = f'{base_dir}{expt}/processed_highres/ens{ensemble_member}/'
         file_list = glob.glob(f'{file_dir}CESM2-{expt}_ens{ensemble_member}_eANT025_{freq}_{var_name}_y*')
         file_path = f'{file_dir}CESM2-{expt}_ens{ensemble_member}_eANT025_{freq}_{var_name}_y{year}.nc'
     else:
-        file_dir = f'{base_dir}{expt}/processed/'
+        file_dir = f'{base_dir}{expt}/processed/ens{ensemble_member}/'
         file_list = glob.glob(f'{file_dir}CESM2-{expt}_ens{ensemble_member}_{freq}_{var_name}_y*')
         file_path = f'{file_dir}CESM2-{expt}_ens{ensemble_member}_{freq}_{var_name}_y{year}.nc'
 
