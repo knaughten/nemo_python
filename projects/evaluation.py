@@ -769,10 +769,13 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
     lon_edges = np.concatenate(([0.5*(lon[0] + lon[-1] - 360)], 0.5*(lon[:-1] + lon[1:]), [0.5*(lon[0] + 360 + lon[-1])]))
     lat = ds['latitude'].data
     lat_edges = np.concatenate(([2*(lat[0] - lat[1])], 0.5*(lat[:-1] + lat[1:]), [2*(lat[-1] - lat[-2])]))
+    lon_edges, lat_edges = np.meshgrid(lon_edges, lat_edges)
     x_edges, y_edges = polar_stereo(lon_edges, lat_edges)
-    dx = x_edges[1:] - x_edges[:-1]
-    dy = y_edges[1:] - y_edges[:-1]
-    dA = dx*dy
+    dx = x_edges[:,1:] - x_edges[:,:-1]
+    dx = 0.5*(dx[:-1,:] + dx[1:,:])
+    dy = y_edges[1:,:] - y_edges[:-1,:]
+    dy = 0.5*(dy[:,:-1] + dy[:,1:])
+    dA = xr.DataArray(dx*dy, coords={'ny':ds['ny'], 'nx':ds['nx']})
 
     # Mask for bottom layer: within 150 m of bathymetry (assume pressure in dbar = depth in m)
     bottom_mask = xr.where(0 < ds['bathymetry']-ds['pressure'] < bottom_thickness, 1, 0)
