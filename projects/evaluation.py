@@ -793,7 +793,7 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
             for region in regions:
                 mask = ds[region+'_shelf_mask']
                 var_avg = (var_2D*dA*mask).sum(dim=['nx','ny'])/(dA*mask).sum(dim=['nx','ny'])
-                print(region+': '+str(var_avg))
+                print(region+': '+str(var_avg.item()))
                 
             
     
