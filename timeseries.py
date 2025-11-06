@@ -5,7 +5,7 @@ import glob
 from .constants import region_points, region_names, rho_fw, rho_ice, sec_per_year, deg_string, gkg_string, drake_passage_lon0, drake_passage_lat_bounds
 from .utils import add_months, closest_point, month_convert, bwsalt_abs, xy_name
 from .grid import single_cavity_mask, region_mask, calc_geometry
-from .diagnostics import transport, gyre_transport
+from .diagnostics import transport, gyre_transport, thermocline
 time_coder = xr.coders.CFDatetimeCoder(use_cftime=True)
 
 # Calculate a timeseries of the given preset variable from an xarray Dataset of NEMO output (must have halo removed). Returns DataArrays of the timeseries data, the associated time values, and the variable title. Specify whether there is a halo (true for periodic boundaries in NEMO 3.6).
@@ -160,6 +160,12 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         factor = 1e-3*sec_per_year
         units = 'm^3/y'
         title = 'Sea ice melting minus freezing'
+    elif var.endswith('_thermocline'):
+        option   = 'area_avg'
+        region   = var[:var.index('_thermocline')]
+        title    = 'Mean thermocline depth'
+        nemo_var = 'thetao'
+        units    = 'm'
 
     if var == 'drake_passage_transport' and 'e2u' not in ds_nemo:
         # Need to add e2u from domain_cfg
@@ -170,6 +176,11 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         if halo:
             ds_domcfg = ds_domcfg.isel(x=slice(1,-1))
         ds_nemo = ds_nemo.assign({'e2u':ds_domcfg['e2u']})
+
+    if var.endswith('_thermocline'):
+        if nemo_mesh:
+            kwargs = {'mesh_mask':nemo_mesh}
+        ds_nemo['thermocline_depth'] = thermocline(ds_nemo[nemo_var], **kwargs)
 
     # Some variables have two equivalent options - allow for either
     if nemo_var == 'sowflisf' and nemo_var not in ds_nemo:
@@ -205,14 +216,15 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         if region in region_points and region_type == 'cavity':
             # Single ice shelf
             if nemo_mesh:
-                nemo_file = xr.open_dataset(nemo_mesh, decode_times=time_coder)
+                nemo_file = xr.open_dataset(domain_cfg, decode_times=time_coder)
                 mask, _, region_name = single_cavity_mask(region, nemo_file, return_name=True)
             else:
                 mask, ds_nemo, region_name = single_cavity_mask(region, ds_nemo, return_name=True)
         else:
             if nemo_mesh:
-                nemo_file = xr.open_dataset(nemo_mesh, decode_times=time_coder)
+                nemo_file = xr.open_dataset(domain_cfg, decode_times=time_coder)
                 mask, _, region_name = region_mask(region, nemo_file, option=region_type, return_name=True)
+                print(region_name)
             else:
                 mask, ds_nemo, region_name = region_mask(region, ds_nemo, option=region_type, return_name=True)
       
@@ -243,6 +255,10 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
             data_xy = calc_geometry(ds_nemo, keep_time_dim=True)[1]
         elif nemo_var == 'bwSA':
             data_xy = bwsalt_abs(ds_nemo)
+        elif var.endswith('_thermocline'):
+            # need to use the actual area of grid cells where thermocline was able to be calculated, so dA_actual < dA
+            data_xy = ds_nemo['thermocline_depth']
+            dA = xr.where(~np.isnan(data_xy), dA, 0)
         else:
             data_xy = ds_nemo[nemo_var]
         data = (data_xy*dA).sum(dim=[x_name, y_name])/dA.sum(dim=[x_name, y_name])
