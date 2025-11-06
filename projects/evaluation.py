@@ -768,23 +768,25 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
     lon = ds['longitude'].data
     lon_edges = np.concatenate(([0.5*(lon[0] + lon[-1] - 360)], 0.5*(lon[:-1] + lon[1:]), [0.5*(lon[0] + 360 + lon[-1])]))
     lat = ds['latitude'].data
-    lat_edges = np.concatenate(([2*(lat[0] - lat[1])], 0.5*(lat[:-1] + lat[1:]), [2*(lat[-1] - lat[-2])]))
+    lat_edges = np.concatenate(([2*lat[0] - lat[1]], 0.5*(lat[:-1] + lat[1:]), [2*lat[-1] - lat[-2]]))
     lon_edges, lat_edges = np.meshgrid(lon_edges, lat_edges)
     x_edges, y_edges = polar_stereo(lon_edges, lat_edges)
-    dx = x_edges[:,1:] - x_edges[:,:-1]
+    dx = np.abs(x_edges[:,1:] - x_edges[:,:-1])
     dx = 0.5*(dx[:-1,:] + dx[1:,:])
-    dy = y_edges[1:,:] - y_edges[:-1,:]
+    dy = np.abs(y_edges[1:,:] - y_edges[:-1,:])
     dy = 0.5*(dy[:,:-1] + dy[:,1:])
     dA = xr.DataArray(dx*dy, coords={'ny':ds['ny'], 'nx':ds['nx']})
+    dA = dA.where(ds['ct'].isel(nz=0).notnull())
 
     # Mask for bottom layer: within 150 m of bathymetry (assume pressure in dbar = depth in m)
-    bottom_mask = xr.where(0 < ds['bathymetry']-ds['pressure'] < bottom_thickness, 1, 0)
+    bottom_mask = xr.where((ds['pressure']<ds['bathymetry'])*(ds['pressure']>ds['bathymetry']-bottom_thickness), 1, 0)
     # Mask for 200-700m depth range
-    mid_mask = xr.where(depth_bounds[0] < ds['pressure'] < depth_bounds[1], 1, 0)
+    mid_mask = xr.where((ds['pressure']>depth_bounds[0])*(ds['pressure']<depth_bounds[1]), 1, 0)
 
     # Loop over variables we care about
     for var in ['ct', 'ct_mse', 'sa', 'sa_mse']:
         print('\n'+var)
+        ds[var].load()
         for depth_mask, regions in zip([bottom_mask, mid_mask], [regions_bottom, regions_mid]):
             # Vertically average over depth range
             var_2D = (ds[var]*ds['pressure']*depth_mask).sum(dim='nz')/(ds['pressure']*depth_mask).sum(dim='nz')
