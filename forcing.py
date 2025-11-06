@@ -408,6 +408,7 @@ def cesm2_expt_all_atm_forcing (expt, ens_strs=None, out_dir=None, start_year=18
     var_names = ['UBOT','VBOT','FSDS','FLDS','TREFHT','QREFHT','PRECT','PSL','PRECS'] 
     for ens in ens_strs:
         print(f'Processing ensemble member {ens}')
+        out_dir = f'{out_dir}ens{ens}/'
         for var in var_names:
             print(f'Processing {var}')
             # specify the forcing frequency to read in
@@ -682,8 +683,9 @@ def apply_bias_correction(variable, ens, expt='LE2', start_year=1900, end_year=2
                           out_dir='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/climate-forcing/CESM2/LE2/bias-corrected/',
                           bias_dir='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/climate-forcing/CESM2/LE2/ensemble_mean/bias_corr/'):
     from tqdm import tqdm
-
     print(f'Processing {variable} files for ensemble member {ens} from {start_year}-{end_year} with bias correction file from {freq} means')
+
+    out_dir = f'{out_dir}ens{ens}/'
     bias_ds = xr.open_dataset(f'{bias_dir}CESM2-LE2_{variable}_{freq}_bias_corr_monthly.nc')[variable]
     if variable=='wind_speed': # also load wind angle bias correction file
         bias_ds_angle = xr.open_dataset(f'{bias_dir}CESM2-LE2_wind_angle_{freq}_bias_corr.nc').wind_angle
@@ -717,8 +719,10 @@ def apply_bias_correction(variable, ens, expt='LE2', start_year=1900, end_year=2
                 dsx['UBOT'] = angle_u * bias_ds.mean(dim='month')
                 dsy['VBOT'] = angle_v * bias_ds.mean(dim='month')
                
-            dsx.to_netcdf(f"{out_dir}CESM2-{expt}_ens{ens}_{'eANT025_' if highres else ''}{freq}_UBOT_bias_corr_{'monthly_' if monthly else ''}2D_y{year}.nc", unlimited_dims=['time_counter'])
-            dsy.to_netcdf(f"{out_dir}CESM2-{expt}_ens{ens}_{'eANT025_' if highres else ''}{freq}_VBOT_bias_corr_{'monthly_' if monthly else ''}2D_y{year}.nc", unlimited_dims=['time_counter'])
+            dsx.to_netcdf(f"{out_dir}CESM2-{expt}_ens{ens}_{'eANT025_' if highres else ''}{freq}_UBOT_bias_corr_{'monthly_' if monthly else ''}2D_y{year}.nc", \
+                    unlimited_dims=['time_counter'])
+            dsy.to_netcdf(f"{out_dir}CESM2-{expt}_ens{ens}_{'eANT025_' if highres else ''}{freq}_VBOT_bias_corr_{'monthly_' if monthly else ''}2D_y{year}.nc", \
+                    unlimited_dims=['time_counter'])
 
         # every other variable has an addition spatial bias field correction
         else:
