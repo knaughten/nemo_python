@@ -784,16 +784,22 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
     mid_mask = xr.where((ds['pressure']>depth_bounds[0])*(ds['pressure']<depth_bounds[1]), 1, 0)
 
     # Loop over variables we care about
+    ds_out = None
     for var in ['ct', 'ct_mse', 'sa', 'sa_mse']:
         print('\n'+var)
         ds[var].load()
-        for depth_mask, regions in zip([bottom_mask, mid_mask], [regions_bottom, regions_mid]):
+        for depth_mask, regions, depth_name in zip([bottom_mask, mid_mask], [regions_bottom, regions_mid], ['bottom', '200-700m']):
             # Vertically average over depth range
             var_2D = (ds[var]*ds['pressure']*depth_mask).sum(dim='nz')/(ds['pressure']*depth_mask).sum(dim='nz')
+            if ds_out is None:
+                ds_out = xr.Dataset({var+'_'+depth_name:var_2D})
+            else:
+                ds_out = ds_out.assign({var+'_'+depth_name:var_2D})
             for region in regions:
                 mask = ds[region+'_shelf_mask']
                 var_avg = (var_2D*dA*mask).sum(dim=['nx','ny'])/(dA*mask).sum(dim=['nx','ny'])
-                print(region+': '+str(var_avg.item()))
+                print(region+' ('+depth_name+'): '+str(var_avg.item()))
+    ds_out.to_netcdf('var_2D_debug.nc')
                 
             
     
