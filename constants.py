@@ -172,6 +172,29 @@ cesm2_ensemble_members = ['1011.001','1031.002','1051.003','1071.004','1091.005'
                          [f'1231.0{i:02}' for i in range(11,16)] + [f'1251.0{i:02}' for i in range(11,16)] + [f'1281.0{i:02}' for i in range(11,16)] + \
                          [f'1301.0{i:02}' for i in range(11,16)]
 
+# Dictionary of Zhou 2025 climatology estimates of T and S averaged over specific regions (precomputed in preproc_shenjie() in projects/evaluations.py)
+# All for the bottom layer of the continental shelf, except for Dotson-Cosgrove which is 200-700m.
+zhou_TS = {
+    'all' : [-0.6624610603780043, 34.340062290887104],
+    'larsen' : [-0.6764930302416399, 34.33657631251264],
+    'filchner_ronne' : [-1.5234748427056521, 34.57272687715117],
+    'east_antarctica' : [-0.8931693377409321, 34.033997318318576],
+    'amery' : [-1.4373044995905713, 34.359281948968295],
+    'ross' : [-1.1227010022482637, 34.52439772482515],
+    'west_antarctica' : [0.38122126292144076, 34.49882932167444],
+    'dotson_cosgrove' : [-0.6931747874633932, 33.99931330844494],
+}
+zhou_TS_std = {
+    'all' : [0.06983090163324034, 0.01387839598809856],
+    'larsen' : [0.05940798628980707, 0.0067851814244054495],
+    'filchner_ronne' : [0.03361451469046931, 0.010265294058217272],
+    'east_antarctica' : [0.07356760983714346, 0.011876601139966636],
+    'amery' : [0.012055670038430598, 0.002701490188725218],
+    'ross' : [0.1073420385340239, 0.014636081969675495],
+    'west_antarctica' : [0.06790013450626642, 0.021157405907232616],
+    'dotson_cosgrove' : [0.05002545124839453, 0.027181334224251185],
+}
+
 # Dictionary of Adusumilli 2020 satellite estimates of melt rates for specific ice shelves and regions, over 1994-2018.
 adusumilli_melt = {
     'all' : 1264.3,
