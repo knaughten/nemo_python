@@ -784,6 +784,7 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
     z_mid = 0.5*(z[:-1] + z[1:])
     z_edges = np.concatenate(([2*z_mid[0] - z_mid[1]], z_mid, [2*z_mid[-1] - z_mid[-2]]))
     dz = z_edges[1:] - z_edges[:-1]
+    dz = xr.DataArray(dz, coords={'nz':ds['nz']})
 
     # Mask for bottom layer: within 150 m of bathymetry (assume pressure in dbar = depth in m)
     bathy = ds['bathymetry']
