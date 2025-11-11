@@ -802,7 +802,7 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
                 # Extra mask on uncertainty variables
                 depth_mask_tmp = depth_mask.where(ds[var]!=1e10)
             else:
-                depth_mask = depth_mask
+                depth_mask_tmp = depth_mask
             # Vertically average over depth range
             var_2D = (ds[var]*dz*depth_mask_tmp).sum(dim='nz')/(dz*depth_mask_tmp).sum(dim='nz')
             if ds_out is None:
