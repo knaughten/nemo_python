@@ -796,10 +796,13 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
     ds_out = None
     for var in ['ct', 'ct_mse', 'sa', 'sa_mse']:
         print('\n'+var)
-        ds[var].load()
+        data = ds[var]
+        data.load()
+        if 'mse' in var:
+            data = data.where(data!=1e10)            
         for depth_mask, regions, depth_name in zip([bottom_mask, mid_mask], [regions_bottom, regions_mid], ['bottom', '200-700m']):
             # Vertically average over depth range
-            var_2D = (ds[var]*dz*depth_mask).sum(dim='nz')/(dz*depth_mask).sum(dim='nz')
+            var_2D = (data*dz*depth_mask).sum(dim='nz')/(dz*depth_mask).sum(dim='nz')
             if ds_out is None:
                 ds_out = xr.Dataset({var+'_'+depth_name:var_2D})
             else:
