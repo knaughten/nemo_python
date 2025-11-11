@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import glob
 import cmocean
 from ..utils import select_bottom, distance_along_transect, moving_average, polar_stereo
-from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli_melt, adusumilli_std, transport_obs, transport_std, region_edges, rEarth, deg2rad
+from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli_melt, adusumilli_std, transport_obs, transport_std, region_edges, rEarth, deg2rad, zhou_TS, zhou_TS_std
 from ..plots import circumpolar_plot, finished_plot, plot_ts_distribution, plot_transect
 from ..interpolation import interp_latlon_cf, interp_latlon_cf_blocks
 from ..file_io import read_schmidtko, read_woa, read_dutrieux, read_zhou
@@ -663,12 +663,16 @@ def plot_evaluation_timeseries_shelf (timeseries_file='timeseries_T.nc', fig_nam
             # Plot obs; central estimate in dashed blue, uncertainty range in shaded blue
             if 'massloss' in var:
                 obs_mean = adusumilli_melt[regions[n]]
-                obs_std = adusumilli_std[regions[n]]
-                ax.axhline(obs_mean, color='blue', linestyle='dashed', linewidth=1)
-                ax.axhspan(obs_mean-obs_std, obs_mean+obs_std, color='DodgerBlue', alpha=0.1)
+                obs_std = adusumilli_std[regions[n]]                
             else:
-                # TO DO Shenjie
-                pass            
+                if 'temp' in var:
+                    m = 0
+                elif 'salt' in var:
+                    m = 1
+                obs_mean = zhou_TS[regions[n]][m]
+                obs_std = zhou_TS_std[regions[n]][m]
+            ax.axhline(obs_mean, color='blue', linestyle='dashed', linewidth=1)
+            ax.axhspan(obs_mean-obs_std, obs_mean+obs_std, color='DodgerBlue', alpha=0.1)
             ax.set_xlim([time[0], time[-1]])
             if n%rows == rows-1:
                 ax.tick_params(axis='x', labelrotation=90)
