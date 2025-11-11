@@ -782,7 +782,6 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
     dx = rEarth*np.cos(lat*deg2rad)*dlon*deg2rad
     dy = rEarth*dlat*deg2rad
     dA = xr.DataArray(dx*dy, coords={'ny':ds['ny'], 'nx':ds['nx']})
-    dA = dA.where(ds['ct'].isel(nz=0).notnull())
     # Get depth integrand
     z = ds['pressure']
     z_mid = 0.5*(z[:-1] + z[1:])
@@ -815,7 +814,10 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
                 ds_out = ds_out.assign({var+'_'+depth_name:var_2D})
             for region in regions:
                 mask = ds[region+'_shelf_mask']
-                var_avg = (var_2D*dA*mask).sum(dim=['nx','ny'])/(dA*mask).sum(dim=['nx','ny'])
+                area = dA*mask
+                weights = area/area.sum()
+                data_weighted = var_2D.weighted(weights)
+                var_avg = data_weighted.mean()
                 print(region+' ('+depth_name+'): '+str(var_avg.item()))
     ds_out.to_netcdf('var_2D_debug.nc')
                 
