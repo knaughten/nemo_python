@@ -814,12 +814,8 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
                 ds_out = ds_out.assign({var+'_'+depth_name:var_2D})
             for region in regions:
                 mask = ds[region+'_shelf_mask']
-                area = dA*mask
-                area = area.where(var_2D.notnull())
+                area = (dA*mask).where(var_2D.notnull())
                 var_avg = (var_2D*area).sum()/area.sum()
-                #weights = area/area.sum()
-                # Important to use xarray weighted mean function because there are missing values within the mask. So (var_2D*area).sum()/area.sum() would return a value biased towards zero. This is not the case for NEMO output, which is why it is safe for timeseries.py to use the manual sum approach.
-                #var_avg = var_2D.weighted(weights).mean()
                 print(region+' ('+depth_name+'): '+str(var_avg.item()))
     ds_out.to_netcdf('var_2D_debug.nc')
                 
