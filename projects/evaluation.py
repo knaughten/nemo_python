@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import glob
 import cmocean
 from ..utils import select_bottom, distance_along_transect, moving_average, polar_stereo
-from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli_melt, adusumilli_std, transport_obs, transport_std, region_edges
+from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli_melt, adusumilli_std, transport_obs, transport_std, region_edges, rEarth, deg2rad
 from ..plots import circumpolar_plot, finished_plot, plot_ts_distribution, plot_transect
 from ..interpolation import interp_latlon_cf, interp_latlon_cf_blocks
 from ..file_io import read_schmidtko, read_woa, read_dutrieux, read_zhou
@@ -770,18 +770,23 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
     lat = ds['latitude'].data
     lat_edges = np.concatenate(([2*lat[0] - lat[1]], 0.5*(lat[:-1] + lat[1:]), [2*lat[-1] - lat[-2]]))
     lon_edges, lat_edges = np.meshgrid(lon_edges, lat_edges)
-    x_edges, y_edges = polar_stereo(lon_edges, lat_edges)
-    dx = np.abs(x_edges[:,1:] - x_edges[:,:-1])
-    dx = 0.5*(dx[:-1,:] + dx[1:,:])
-    dy = np.abs(y_edges[1:,:] - y_edges[:-1,:])
-    dy = 0.5*(dy[:,:-1] + dy[:,1:])
+    lon, lat = np.meshgrid(lon, lat)
+    dlon = lon_edges[:,1:] - lon_edges[:,:-1]
+    dlat = lat_edges[1:,:] - lat_edges[:,:-1]
+    dx = rEarth*np.cos(lat*deg2rad)*dlon*deg2rad
+    dy = rEarth*dlat*deg2rad
     dA = xr.DataArray(dx*dy, coords={'ny':ds['ny'], 'nx':ds['nx']})
     dA = dA.where(ds['ct'].isel(nz=0).notnull())
+    # Get depth integrand
+    z = ds['pressure']
+    z_edges = np.concatenate(([2*z[0] - z[1]], 0.5*(z[:-1] + z[1:]), [2*z[-1] - z[-2]]))
+    dz = z_edges[1:] - z_edges[:-1]
 
     # Mask for bottom layer: within 150 m of bathymetry (assume pressure in dbar = depth in m)
-    bottom_mask = xr.where((ds['pressure']<ds['bathymetry'])*(ds['pressure']>ds['bathymetry']-bottom_thickness), 1, 0)
+    bathy = ds['bathymetry']
+    bottom_mask = xr.where((z<bathy)*(z>bathy-bottom_thickness), 1, 0)
     # Mask for 200-700m depth range
-    mid_mask = xr.where((ds['pressure']>depth_bounds[0])*(ds['pressure']<depth_bounds[1]), 1, 0)
+    mid_mask = xr.where((z>depth_bounds[0])*(z<depth_bounds[1]), 1, 0)
 
     # Loop over variables we care about
     ds_out = None
@@ -790,7 +795,7 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
         ds[var].load()
         for depth_mask, regions, depth_name in zip([bottom_mask, mid_mask], [regions_bottom, regions_mid], ['bottom', '200-700m']):
             # Vertically average over depth range
-            var_2D = (ds[var]*ds['pressure']*depth_mask).sum(dim='nz')/(ds['pressure']*depth_mask).sum(dim='nz')
+            var_2D = (ds[var]*dz*depth_mask).sum(dim='nz')/(dz*depth_mask).sum(dim='nz')
             if ds_out is None:
                 ds_out = xr.Dataset({var+'_'+depth_name:var_2D})
             else:
