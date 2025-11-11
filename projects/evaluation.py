@@ -788,9 +788,9 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
 
     # Mask for bottom layer: within 150 m of bathymetry (assume pressure in dbar = depth in m)
     bathy = ds['bathymetry']
-    bottom_mask = xr.where((z<bathy)*(z>bathy-bottom_thickness), 1, 0)
+    bottom_mask = xr.where((z<bathy)*(z>bathy-bottom_thickness)*ds['ct'].notnull(), 1, 0)
     # Mask for 200-700m depth range
-    mid_mask = xr.where((z>depth_bounds[0])*(z<depth_bounds[1]), 1, 0)
+    mid_mask = xr.where((z>depth_bounds[0])*(z<depth_bounds[1])*ds['ct'].notnull(), 1, 0)
 
     # Loop over variables we care about
     ds_out = None
