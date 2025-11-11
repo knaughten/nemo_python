@@ -766,20 +766,23 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
 
     # Get area integrands
     lon = ds['longitude'].data
-    lon_edges = np.concatenate(([0.5*(lon[0] + lon[-1] - 360)], 0.5*(lon[:-1] + lon[1:]), [0.5*(lon[0] + 360 + lon[-1])]))
+    lon_mid = 0.5*(lon[:-1] + lon[1:])
+    lon_edges = np.concatenate(([0.5*(lon_mid[0] + lon_mid[-1] - 360)], lon_mid, [0.5*(lon_mid[0] + 360 + lon_mid[-1])]))
     lat = ds['latitude'].data
-    lat_edges = np.concatenate(([2*lat[0] - lat[1]], 0.5*(lat[:-1] + lat[1:]), [2*lat[-1] - lat[-2]]))
+    lat_mid = 0.5*(lat[:-1] + lat[1:])
+    lat_edges = np.concatenate(([2*lat_mid[0] - lat_mid[1]], lat_mid, [2*lat_mid[-1] - lat_mid[-2]]))
     lon_edges, lat_edges = np.meshgrid(lon_edges, lat_edges)
     lon, lat = np.meshgrid(lon, lat)
-    dlon = lon_edges[:,1:] - lon_edges[:,:-1]
-    dlat = lat_edges[1:,:] - lat_edges[:,:-1]
+    dlon = lon_edges[1:,1:] - lon_edges[1:,:-1]
+    dlat = lat_edges[1:,1:] - lat_edges[:-1,1:]
     dx = rEarth*np.cos(lat*deg2rad)*dlon*deg2rad
     dy = rEarth*dlat*deg2rad
     dA = xr.DataArray(dx*dy, coords={'ny':ds['ny'], 'nx':ds['nx']})
     dA = dA.where(ds['ct'].isel(nz=0).notnull())
     # Get depth integrand
     z = ds['pressure']
-    z_edges = np.concatenate(([2*z[0] - z[1]], 0.5*(z[:-1] + z[1:]), [2*z[-1] - z[-2]]))
+    z_mid = 0.5*(z[:-1] + z[1:])
+    z_edges = np.concatenate(([2*z_mid[0] - z_mid[1]], z_mid, [2*z_mid[-1] - z_mid[-2]]))
     dz = z_edges[1:] - z_edges[:-1]
 
     # Mask for bottom layer: within 150 m of bathymetry (assume pressure in dbar = depth in m)
