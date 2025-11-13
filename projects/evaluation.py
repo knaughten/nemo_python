@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import glob
 import cmocean
 import os
+import gsw
 from ..utils import select_bottom, distance_along_transect, moving_average, polar_stereo
 from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli_melt, adusumilli_std, transport_obs, transport_std, region_edges, rEarth, deg2rad, zhou_TS, zhou_TS_std
 from ..plots import circumpolar_plot, finished_plot, plot_ts_distribution, plot_transect
@@ -852,6 +853,7 @@ def precompute_bottom_TS (config='NEMO_AIS', suite_id=None, in_dir=None, num_yea
             in_dir = './'
         file_head = suite_id+'_1m_'
         file_tail = '_grid_T.nc'
+        eos = 'teos10'
     elif config == 'UKESM1':
         if suite_id is None:
             raise Exception('Must set suite_id')
@@ -859,6 +861,7 @@ def precompute_bottom_TS (config='NEMO_AIS', suite_id=None, in_dir=None, num_yea
             in_dir = suite_id + '/'
         file_head = 'nemo_'+suite_id+'o_1m_'
         file_tail = 'grid-T.nc'
+        eos = 'eos80'
 
     # Find all the output filenames
     nemo_files = []
@@ -880,9 +883,15 @@ def precompute_bottom_TS (config='NEMO_AIS', suite_id=None, in_dir=None, num_yea
 
     # Now read one file at a time
     ds_accum = None
+    depth_bottom = None
     for file_path in nemo_files:
         print('Processing '+file_path)
         ds = xr.open_dataset(file_path)
+        if eos == 'eos80' and depth_bottom is None:
+            # Will need depth of bottom cell for converting to TEOS-10 later
+            
+            depth_3d_masked = xr.broadcast(ds['deptht'], ds['so'])[0].where(ds['so']!=0)
+            depth_bottom =  depth_3d_masked.max(dim='deptht')
         # Only keep T and S
         if var_names_1[0] in ds:
             # Bottom variables already exist
@@ -891,6 +900,15 @@ def precompute_bottom_TS (config='NEMO_AIS', suite_id=None, in_dir=None, num_yea
             var_names = var_names_2
         # Select only variables we want, and mask where identically zero
         ds = ds[var_names].where(ds[var_names[0]]!=0)
+        if eos == 'eos80':
+            # Convert to TEOS-10
+            pot_temp = ds[var_names[0]]
+            prac_salt = ds[var_names[1]]
+            abs_salt = gsw.SA_from_SP(prac_salt, depth_bottom, ds['nav_lon'], ds['nav_lat'])
+            con_temp = gsw.CT_from_pt(abs_salt, pot_temp)
+            ds[var_names[0]] = con_temp.assign_attrs(long_name='conservative temperature, TEOS-10')
+            ds[var_names[1]] = abs_salt.assign_attrs(long_name='absolute salinity, TEOS-10')
+            
         if months_per_file == months_per_year:
             # Annual average
             ndays = ds.time_centered.dt.days_in_month
