@@ -742,7 +742,7 @@ def plot_evaluation_timeseries_transport (timeseries_file='timeseries_U.nc', fig
         
 
 # Calculate the observed mean and uncertainty of T and S on the shelf averaged over each region, from the Zhou 2025 climatology.
-def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_climatology.nc', bathy_file='shenjie_climatology_bottom_TS.nc'):
+def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_climatology.nc', bathy_file='shenjie_climatology_bottom_TS.nc', out_file='OI_climatology_2D.nc'):
 
     regions_bottom = ['all', 'larsen', 'filchner_ronne', 'east_antarctica', 'amery', 'ross', 'west_antarctica']
     regions_mid = ['dotson_cosgrove']
@@ -828,11 +828,97 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
                 area = (dA*mask).where(var_2D.notnull())
                 var_avg = (var_2D*area).sum()/area.sum()
                 print(region+' ('+depth_name+'): '+str(var_avg.item()))
-    ds_out.to_netcdf('var_2D_debug.nc')
-                
-            
-    
-    
+    ds_out.to_netcdf(out_file)
+
+
+# Precompute bottom T and S averaged over the last part of the simulation (default 20 years).
+# config can be NEMO_AIS or UKESM1
+def precompute_bottom_TS (config='NEMO_AIS', suite_id=None, in_dir=None, num_years=20, out_file='bottom_TS_avg.nc'):
+
+    var_names_bottom = ['tob', 'sob']
+    var_names_3d = ['thetao', 'so']
+
+    if config == 'NEMO_AIS':
+        if suite_id is None:
+            suite_id = 'eANT025.L121'
+        if in_dir is None:
+            in_dir = './'
+        file_head = suite_id+'_1m_'
+        file_tail = '_grid_T.nc'
+    elif config == 'UKESM1':
+        if suite_id is None:
+            raise Exception('Must set suite_id')
+        if in_dir is None:
+            in_dir = suite_id + '/'
+        file_head = 'nemo_'+suite_id+'o_1m_'
+        file_tail = 'grid-T.nc'
+
+    # Find all the output filenames
+    nemo_files = []
+    months_per_file = None
+    for f in os.listdir(in_dir):
+        if f.startswith(file_head) and f.endswith(file_tail):
+            nemo_files.append(in_dir+'/'+f)
+            if months_per_file is None:
+                ds = xr.open_dataset(f)
+                months_per_file = ds.sizes['time_counter']
+                if months_per_file not in [1, months_per_year]:
+                    raise Exception('Invalid months_per_file = '+str(months_per_file))
+                ds.close()
+    # Sort chronologically
+    nemo_files.sort()
+    # Select the last num_years
+    num_t = num_years*months_per_file
+    nemo_files = nemo_files[-num_t:]
+
+    # Now read one file at a time
+    ds_accum = None
+    for file_path in nemo_files:
+        print('Processing '+file_path)
+        ds = xr.open_dataset(file_path)
+        # Only keep T and S
+        if var_names_bottom[0] in ds:
+            # Bottom variables already exist
+            var_names = var_names_bottom
+        else:
+            var_names = var_names_3d
+        ds = ds[var_names]
+        if months_per_file == months_per_year:
+            # Annual average
+            ndays = ds.time_centered.dt.days_in_month
+            weights = ndays/ndays.sum()
+            # This is more memory efficient than the built in functions, if not more code efficient!
+            for t in range(months_per_file):
+                ds_tmp = ds.isel(time_counter=t)
+                for var in var_names:
+                    ds_tmp[var] = ds_tmp[var]*weights[t]
+                ds_tmp = ds_tmp.drop_vars({'time_counter', 'time_centered'})
+                if ds_accum is None:
+                    ds_accum = ds_tmp
+                else:
+                    ds_accum += ds_tmp
+        elif config == 'UKESM1':
+            # UKESM1 has 30-day months so don't need to worry about weights
+            ds = ds.squeeze().drop_vars({'time_counter', 'time_centered'})
+            if ds_accum is None:
+                ds_accum = ds
+            else:
+                ds_accum += ds
+        else:
+            raise Exception('Unsure how to handle monthly files for config='+config)
+        ds.close()
+    ds_avg = ds_accum/num_t
+
+    if var_names_3d[0] in ds_avg:
+        # Select bottom
+        for var_old, var_new in zip(var_names_3d, var_names_bottom):
+            data = select_bottom(ds_avg[var_old], 'deptht')
+            ds_avg = ds_avg.drop_vars({var_old})
+            ds_avg = ds_avg.assign({var_new:data})
+
+    print('Writing '+out_file)
+    ds_avg.to_netcdf(out_file)
+    ds_avg.close()
 
     
 
