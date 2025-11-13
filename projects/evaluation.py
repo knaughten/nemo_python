@@ -582,15 +582,17 @@ def timeseries_types_evaluation ():
     regions = ['all', 'larsen', 'filchner_ronne', 'east_antarctica', 'amery', 'ross', 'west_antarctica', 'dotson_cosgrove']    
     var_names = ['massloss', 'shelf_bwtemp', 'shelf_bwsalt']
     var_names_ASE = ['massloss', 'shelf_temp_btw_200_700m', 'shelf_salt_btw_200_700m']
-    timeseries_types = []
+    timeseries_types_T = []
     for region in regions:
         if region == 'dotson_cosgrove':
             var_names_use = var_names_ASE
         else:
             var_names_use = var_names
         for var in var_names_use:
-            timeseries_types.append(region+'_'+var)
-    timeseries_types += ['drake_passage_transport', 'weddell_gyre_transport', 'ross_gyre_transport']
+            timeseries_types_T.append(region+'_'+var)
+    timeseries_types_U = ['drake_passage_transport', 'weddell_gyre_transport', 'ross_gyre_transport']
+    timeseries_types = {'T' : timeseries_types_T,
+                        'U' : timeseries_types_U}
     return timeseries_types
 
 
@@ -600,16 +602,25 @@ def update_timeseries_evaluation_NEMO_AIS (in_dir, out_dir='./'):
 
     domain_cfg = '/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20250715.nc'
     timeseries_types = timeseries_types_evaluation()
-    # Split into 2 gtypes - simplest to compute timeseries separately based on input file structure
-    timeseries_gtypes = {'T':[], 'U':[]}
-    for var in timeseries_types:
-        if 'transport' in var:
-            timeseries_gtypes['U'].append(var)
-        else:
-            timeseries_gtypes['T'].append(var)
 
-    for gtype in timeseries_gtypes:
-        update_simulation_timeseries('L121', timeseries_gtypes[gtype], timeseries_file='timeseries_'+gtype+'.nc', timeseries_dir=out_dir, config='eANT025', sim_dir=in_dir, halo=False, gtype=gtype, domain_cfg=domain_cfg)
+    for gtype in timeseries_types:
+        update_simulation_timeseries('L121', timeseries_types[gtype], timeseries_file='timeseries_'+gtype+'.nc', timeseries_dir=out_dir, config='eANT025', sim_dir=in_dir, halo=False, gtype=gtype, domain_cfg=domain_cfg)
+
+
+# As above, for UKESM1 suites
+def update_timeseries_evaluation_UKESM1 (suite_id, base_dir='./', out_dir=None, compute_u=False):
+
+    domain_cfg = '/gws/nopw/j04/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc'
+    timeseries_types = timeseries_types_evaluation()
+    sim_dir = base_dir+'/'+suite_id+'/'
+    if out_dir is None:
+        out_dir = sim_dir        
+
+    gtypes = ['T']
+    if compute_u:
+        gtypes += ['U']
+    for gtype in gtypes:
+        update_simulation_timeseries(suite_id, timeseries_types[gtype], timeseries_file='timeseries_'+gtype+'.nc', timeseries_dir=out_dir, sim_dir=sim_dir, halo=True, gtype=gtype, domain_cfg=domain_cfg)   
 
 
 # Bug with Dotson-Cosgrove mask definition means we need to redo those timeseries variables only
