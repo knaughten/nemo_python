@@ -992,6 +992,30 @@ def plot_bottom_TS (in_file='bottom_TS_avg.nc', obs_file='/gws/nopw/j04/terrafir
         plt.text(0.5, 0.99-0.48*v, var_titles[v], ha='center', va='top', transform=fig.transFigure, fontsize=16)
     finished_plot(fig, fig_name=fig_name)
 
+
+# Precompute the zonal mean T and S over the Southern Ocean (to 50S) from WOA 2023.
+def precompute_woa_zonal_mean (in_dir='./', out_file='woa_zonal_mean.nc'):
+
+    var_names = ['t', 's']
+    file_head = in_dir+'/'+'woa23_decav_'
+    file_tail = '00_04.nc'
+
+    ds_out = None
+    for var in var_names:
+        file_path = file_head + var + file_tail
+        ds = xr.open_dataset(file_path, decode_times=False)
+        data = ds[var+'_an'].squeeze()
+        # WOA grid is regular 0.25 deg spacing, so zonal mean is simple
+        data_mean = ds.mean(dim='lon').squeeze()
+        if ds_out is None:
+            ds_out = xr.Dataset({var:data_mean})
+        else:
+            ds_out = ds_out.assign({var:data_mean})
+        ds.close()
+    ds_out.to_netcdf(out_file)
+        
+        
+
     
 
     
