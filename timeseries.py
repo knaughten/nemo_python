@@ -360,10 +360,10 @@ def precompute_timeseries (ds_nemo, timeseries_types, timeseries_file, halo=True
         else:
             #try:
             data, ds_nemo = calc_timeseries(var, ds_nemo, domain_cfg=domain_cfg, halo=halo, periodic=periodic, name_remapping=name_remapping, nemo_mesh=nemo_mesh)
-            '''except(KeyError):
+            except(KeyError):
                 # Incomplete dataset missing some crucial variables. This can happen when grid-T is present but isf-T is missing, or vice versa. Return a masked value.
                 print('Warning: missing variables')
-                data = ds_nemo['time_counter'].where(False)'''
+                data = ds_nemo['time_counter'].where(False)
         if ds_new is None:            
             ds_new = xr.Dataset({var:data})
         else:
@@ -461,7 +461,7 @@ def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='t
     # Loop through each date code and process
     for file_pattern in nemo_files:
         print('Processing '+file_pattern)
-        has_isfT = os.path.isfile(f"{sim_dir}/{file_pattern.replace('*','_isf')}")
+        '''has_isfT = os.path.isfile(f"{sim_dir}/{file_pattern.replace('*','_isf')}")
         has_gridT = os.path.isfile(f"{sim_dir}/{file_pattern.replace('*','_grid')}")
         if sum([has_isfT, has_gridT]) == 1:
             if has_isfT and not has_gridT:
@@ -472,7 +472,7 @@ def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='t
                 print('This is the last file, so it will probably be pulled from MASS later. Stopping.')
                 break
             else:
-                print('Timeseries file will have some NaNs at this index.')
+                print('Timeseries file will have some NaNs at this index.')'''
 
         dsV = None
         ds_SBC = None
