@@ -669,9 +669,15 @@ def plot_evaluation_timeseries_shelf (timeseries_file='timeseries_T.nc', fig_nam
                 var += var_names[v]
             # Plot data; monthly in thin grey, 2-year running mean in thicker black
             time = ds['time_centered']
-            ax.plot(time, ds[var], color='DarkGrey', linewidth=1)
+            try:
+                ax.plot(time, ds[var], color='DarkGrey', linewidth=1)
+            except(TypeError):
+                ax.plot_date(time, ds[var], '-', color='DarkGrey', linewidth=1)
             data_smoothed = moving_average(ds[var], smooth)
-            ax.plot(data_smoothed.time_centered, data_smoothed,  color='black', linewidth=1.5)
+            try:
+                ax.plot(data_smoothed.time_centered, data_smoothed,  color='black', linewidth=1.5)
+            except(TypeError):
+                ax.plot_date(data_smoothed.time_centered, data_smoothed, '-', color='black', linewidth=1.5)
             # Plot obs; central estimate in dashed blue, uncertainty range in shaded blue
             if 'massloss' in var:
                 obs_mean = adusumilli_melt[regions[n]]
