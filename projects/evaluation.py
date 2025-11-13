@@ -973,7 +973,7 @@ def plot_bottom_TS (in_file='bottom_TS_avg.nc', obs_file='/gws/nopw/j04/terrafir
     # Plot
     fig = plt.figure(figsize=(8,6))
     gs = plt.GridSpec(2,3)
-    gs.update(left=0.1, right=0.9, bottom=0.05, top=0.9, wspace=0.1, hspace=0.3):
+    gs.update(left=0.1, right=0.9, bottom=0.05, top=0.9, wspace=0.1, hspace=0.3)
     for v in range(2):
         model_plot = ds_model[var_names[v]]
         obs_plot = ds_obs_interp[var_names[v]]
