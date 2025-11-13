@@ -492,8 +492,10 @@ def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='t
                     pass
         # Loop over time indices to save memory
         # Fastest option is to load datasets after slicing but before merging
-        for t in range(ds_nemo.sizes['time_counter']):
-            print('...month '+str(t+1))
+        num_t = ds_nemo.sizes['time_counter']
+        for t in range(num_t):
+            if num_t > 1:
+                print('...month '+str(t+1))
             # Sneaky selection of slice of size 1, to prevent dimension collapsing
             ds_tmp = ds_nemo.isel(time_counter=slice(t,t+1))
             ds_tmp.load()
