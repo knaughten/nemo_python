@@ -5,7 +5,7 @@ import glob
 import cmocean
 import os
 import gsw
-from ..utils import select_bottom, distance_along_transect, moving_average, polar_stereo
+from ..utils import select_bottom, distance_along_transect, moving_average, polar_stereo, latlon_name, xy_name
 from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli_melt, adusumilli_std, transport_obs, transport_std, region_edges, rEarth, deg2rad, zhou_TS, zhou_TS_std
 from ..plots import circumpolar_plot, finished_plot, plot_ts_distribution, plot_transect
 from ..interpolation import interp_latlon_cf, interp_latlon_cf_blocks
@@ -838,15 +838,21 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
                 area = (dA*mask).where(var_2D.notnull())
                 var_avg = (var_2D*area).sum()/area.sum()
                 print(region+' ('+depth_name+'): '+str(var_avg.item()))
-    ds_out.to_netcdf(out_file)
+    ds_out.to_netcdf(out_file)    
 
 
-# Precompute bottom T and S averaged over the last part of the simulation (default 20 years). Convert to TEOS-10 if it's not already.
+# Precompute variables averaged over the last part of the simulation (default 20 years). Convert to TEOS-10 if it's not already.
 # config can be NEMO_AIS or UKESM1
-def precompute_bottom_TS (config='NEMO_AIS', suite_id=None, in_dir=None, num_years=20, out_file='bottom_TS_avg.nc'):
+# option: 'bottom_TS' (bottom T and S), 'zonal_TS' (zonal mean T and S)
+def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir=None, num_years=20, out_file='bottom_TS_avg.nc'):
 
-    var_names_1 = ['tob', 'sob']
-    var_names_2 = ['sbt', 'sbs']
+    import cf_xarray as cfxr
+
+    if option == 'bottom_TS':
+        var_names_1 = ['tob', 'sob']
+        var_names_2 = ['sbt', 'sbs']
+    elif option == 'zonal_TS':
+        var_names = ['thetao', 'so']
 
     if config == 'NEMO_AIS':
         if suite_id is None:
@@ -881,46 +887,52 @@ def precompute_bottom_TS (config='NEMO_AIS', suite_id=None, in_dir=None, num_yea
     nemo_files.sort()
     # Select the last num_years
     num_t = int(num_years*months_per_year/months_per_file)
-    nemo_files = nemo_files[-num_t:]
+    nemo_files =  nemo_files[-num_t:]
 
     # Now read one file at a time
     ds_accum = None
-    depth_bottom = None
+    depth_3d = None
     for file_path in nemo_files:
         print('Processing '+file_path)
         ds = xr.open_dataset(file_path)
-        if eos == 'eos80' and depth_bottom is None:
-            # Will need depth of bottom cell for converting to TEOS-10 later
-            
-            depth_3d_masked = xr.broadcast(ds['deptht'], ds['so'])[0].where(ds['so']!=0)
-            depth_bottom =  depth_3d_masked.max(dim='deptht')
-        # Only keep T and S
-        if var_names_1[0] in ds:
-            # Bottom variables already exist
-            var_names = var_names_1
-        else:
-            var_names = var_names_2
+        if eos == 'eos80' and option in ['bottom_TS', 'zonal_TS'] and depth_3d is None:
+            depth_3d = xr.broadcast(ds['deptht'], ds['so'])[0].where(ds['so']!=0)
+            depth_bottom =  depth_3d.max(dim='deptht')
+        if option == 'bottom_TS':
+            # Two options for variable naming
+            if var_names_1[0] in ds:
+                var_names = var_names_1
+            else:
+                var_names = var_names_2                
         # Select only variables we want, and mask where identically zero
-        ds = ds[var_names+['nav_lon_grid_T', 'nav_lat_grid_T', 'bouonds_nav_lon_grid_T', 'bounds_nav_lat_grid_T']].where(ds[var_names[0]]!=0)
-        if eos == 'eos80':
+        lon_name, lat_name = latlon_name(ds)
+        ds = ds[var_names+[lon_name, lat_name, 'bounds_'+lon_name, 'bounds_'+lat_name]].where(ds[var_names[0]]!=0)
+        if eos == 'eos80' and option in ['bottom_TS', 'zonal_TS']:
             # Convert to TEOS-10
             pot_temp = ds[var_names[0]]
             prac_salt = ds[var_names[1]]
-            abs_salt = gsw.SA_from_SP(prac_salt, depth_bottom, ds['nav_lon'], ds['nav_lat'])
+            if option == 'bottom_TS':
+                depth = depth_bottom
+            elif option == 'zonal_TS':
+                depth = depth_3d
+            abs_salt = gsw.SA_from_SP(prac_salt, depth, ds[lon_name], ds[lat_name])
             con_temp = gsw.CT_from_pt(abs_salt, pot_temp)
             ds[var_names[0]] = con_temp.assign_attrs(long_name='conservative temperature, TEOS-10')
-            ds[var_names[1]] = abs_salt.assign_attrs(long_name='absolute salinity, TEOS-10')
-            
+            ds[var_names[1]] = abs_salt.assign_attrs(long_name='absolute salinity, TEOS-10')            
         if months_per_file == months_per_year:
             # Annual average
             ndays = ds.time_centered.dt.days_in_month
             weights = ndays/ndays.sum()
-            # This is more memory efficient than the built in functions, if not more code efficient!
+            # Process one month at a time: this is more memory efficient than the built in functions, if not more code efficient!
             for t in range(months_per_file):
                 ds_tmp = ds.isel(time_counter=t)
                 for var in var_names:
                     ds_tmp[var] = ds_tmp[var]*weights[t]
                 ds_tmp = ds_tmp.drop_vars({'time_counter', 'time_centered'})
+                if option == 'zonal_TS':
+                    # Zonal mean - keep it simple
+                    x_name, y_name = xy_name(ds_tmp)
+                    ds_tmp = ds_tmp.mean(dim=x_name).squeeze()                
                 if ds_accum is None:
                     ds_accum = ds_tmp
                 else:
@@ -928,6 +940,9 @@ def precompute_bottom_TS (config='NEMO_AIS', suite_id=None, in_dir=None, num_yea
         elif config == 'UKESM1':
             # UKESM1 has 30-day months so don't need to worry about weights
             ds = ds.squeeze().drop_vars({'time_counter', 'time_centered'})
+            if option == 'zonal_TS':
+                x_name, y_name = xy_name(ds_tmp)
+                ds_tmp = ds_tmp.mean(dim=x_name).squeeze()
             if ds_accum is None:
                 ds_accum = ds
             else:
@@ -1002,23 +1017,15 @@ def precompute_woa_zonal_mean (in_dir='./', out_file='woa_zonal_mean.nc'):
 
     ds_out = None
     for var in var_names:
+        print('Processing '+var)
         file_path = file_head + var + file_tail
         ds = xr.open_dataset(file_path, decode_times=False)
         data = ds[var+'_an'].squeeze()
         # WOA grid is regular 0.25 deg spacing, so zonal mean is simple
-        data_mean = ds.mean(dim='lon').squeeze()
+        data_mean = data.mean(dim='lon').squeeze()
         if ds_out is None:
             ds_out = xr.Dataset({var:data_mean})
         else:
             ds_out = ds_out.assign({var:data_mean})
         ds.close()
     ds_out.to_netcdf(out_file)
-        
-        
-
-    
-
-    
-
-    
-    
