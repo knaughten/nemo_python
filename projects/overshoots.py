@@ -1447,7 +1447,7 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
             if n == 2:
                 ax.contour(x, y, mask, levels=[0.5], colors=('magenta'), linewidths=0.5)
             if n != 1:
-                cax = cax = fig.add_axes([0.01+0.45*n, 0.1, 0.02, 0.6])
+                cax = fig.add_axes([0.01+0.45*n, 0.1, 0.02, 0.6])
                 plt.colorbar(img, cax=cax, extend='both')
         plt.suptitle('Bottom salinity (psu)', fontsize=18)
         finished_plot(fig, fig_name='figures/bwsalt_bias.png', dpi=300)

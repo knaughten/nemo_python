@@ -829,6 +829,8 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
             var_2D = (ds[var]*dz*depth_mask_tmp).sum(dim='nz')/(dz*depth_mask_tmp).sum(dim='nz')
             if ds_out is None:
                 ds_out = xr.Dataset({var+'_'+depth_name:var_2D})
+                for varg in ['latitude', 'longitude']:
+                    ds_out = ds_out.assign({varg:ds[varg].squeeze()})
             else:
                 ds_out = ds_out.assign({var+'_'+depth_name:var_2D})
             for region in regions:
@@ -839,7 +841,7 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
     ds_out.to_netcdf(out_file)
 
 
-# Precompute bottom T and S averaged over the last part of the simulation (default 20 years).
+# Precompute bottom T and S averaged over the last part of the simulation (default 20 years). Convert to TEOS-10 if it's not already.
 # config can be NEMO_AIS or UKESM1
 def precompute_bottom_TS (config='NEMO_AIS', suite_id=None, in_dir=None, num_years=20, out_file='bottom_TS_avg.nc'):
 
@@ -938,6 +940,55 @@ def precompute_bottom_TS (config='NEMO_AIS', suite_id=None, in_dir=None, num_yea
     print('Writing '+out_file)
     ds_avg.to_netcdf(out_file)
     ds_avg.close()
+
+
+# Plot bottom T and S compared to Shenjie's obs.
+def plot_bottom_TS (in_file='bottom_TS_avg.nc', obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_climatology_2D.nc', fig_name=None):
+
+    var_names_1 = ['tob', 'sob']
+    var_names_2 = ['sbt', 'sbs']
+    var_names_obs = ['ct_bottom', 'sa_bottom']
+    var_titles = ['Conservative temperature ('+deg_string+'C)', 'Absolute salinity']
+    vmin = [-2, 34]
+    vmax = [5, 35]
+    vdiff = [1, 0.5]
+    subtitles = ['Model', 'Observations', 'Model bias']
+    ctype = ['RdBu_r', 'RdBu_r', 'plusminus']
+
+    # Read precomputed model fields
+    ds_model = xr.open_dataset(in_file)
+    if var_names_1[0] in ds_model:
+        var_names = var_names_1
+    else:
+        var_names = var_names_2
+
+    # Read observations and interpolate to model grid
+    ds_obs = xr.open_dataset(obs_file)
+    def set_var (var_name):
+        return xr.DataArray(ds_obs[var_name].data, coords=[ds_obs['latitude'].data, ds_obs['longitude'].data], dims=['lat', 'lon'])
+    [temp, salt] = [set_var(var_names_obs[v]) for v in range(2)]
+    ds_obs_rename = xr.Dataset({var_names[0]:temp, var_names[1]:salt})
+    ds_obs_interp = interp_latlon_cf(ds_obs_rename, ds_model, method='bilinear')
+    
+    # Plot
+    fig = plt.figure(figsize=(8,6))
+    gs = plt.GridSpec(2,3)
+    gs.update(left=0.1, right=0.9, bottom=0.05, top=0.9, wspace=0.1, hspace=0.3):
+    for v in range(2):
+        model_plot = ds_model[var_names[v]]
+        obs_plot = ds_obs_interp[var_names[v]]
+        data_plot = [model_plot, obs_plot, model_plot-obs_plot]
+        vmin_tmp = [vmin[v], vmin[v], -1*vdiff[v]]
+        vmax_tmp = [vmax[v], vmax[v], vdiff[v]]
+        for n in range(3):
+            ax = plt.subplot(gs[v,n])
+            ax.axis('equal')
+            img = circumpolar_plot(data_plot[n], ds_model, ax=ax, masked=True, make_cbar=False, title=subtitles[n], vmin=vmin_tmp[n], vmax=vmax_tmp[n], ctype=ctype[n], lat_max=-63)
+            if n != 1:
+                cax = fig.add_axes([0.01+0.45*n, 0.05+0.5*v, 0.02, 0.3])
+                plt.colorbar(img, cax=cax, extend='both')
+        plt.text(0.5, 0.99-0.5*v, var_titles[v], ha='center', va='top', transform=fig.transFigure, fontsize=14)
+    finished_plot(fig, fig_name=fig_name)
 
     
 
