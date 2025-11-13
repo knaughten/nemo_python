@@ -836,8 +836,8 @@ def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_cli
 # config can be NEMO_AIS or UKESM1
 def precompute_bottom_TS (config='NEMO_AIS', suite_id=None, in_dir=None, num_years=20, out_file='bottom_TS_avg.nc'):
 
-    var_names_bottom = ['tob', 'sob']
-    var_names_3d = ['thetao', 'so']
+    var_names_1 = ['tob', 'sob']
+    var_names_2 = ['sbt', 'sbs']
 
     if config == 'NEMO_AIS':
         if suite_id is None:
@@ -878,11 +878,11 @@ def precompute_bottom_TS (config='NEMO_AIS', suite_id=None, in_dir=None, num_yea
         print('Processing '+file_path)
         ds = xr.open_dataset(file_path)
         # Only keep T and S
-        if var_names_bottom[0] in ds:
+        if var_names_1[0] in ds:
             # Bottom variables already exist
-            var_names = var_names_bottom
+            var_names = var_names_1
         else:
-            var_names = var_names_3d
+            var_names = var_names_2
         ds = ds[var_names]
         if months_per_file == months_per_year:
             # Annual average
@@ -911,12 +911,12 @@ def precompute_bottom_TS (config='NEMO_AIS', suite_id=None, in_dir=None, num_yea
         ds.close()
     ds_avg = ds_accum/num_t
 
-    if var_names_3d[0] in ds_avg:
+    '''if var_names_3d[0] in ds_avg:
         print('Selecting bottom layer')
         for var_old, var_new in zip(var_names_3d, var_names_bottom):
             data = select_bottom(ds_avg[var_old], 'deptht')
             ds_avg = ds_avg.drop_vars({var_old})
-            ds_avg = ds_avg.assign({var_new:data})
+            ds_avg = ds_avg.assign({var_new:data})'''
 
     print('Writing '+out_file)
     ds_avg.to_netcdf(out_file)
