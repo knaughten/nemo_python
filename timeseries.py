@@ -188,17 +188,17 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
             nemo_var = 'fwfisf'
             factor *= -1
         else:
-            raise Exception('Missing variable '+nemo_var+' or fwfisf')
+            raise KeyError('Missing variable '+nemo_var+' or fwfisf')
     if nemo_var == 'tob' and nemo_var not in ds_nemo:
         if 'sbt' in ds_nemo:
             nemo_var = 'sbt'
         else:
-            raise Exception('Missing variable '+nemo_var+' or sbt')
+            raise KeyError('Missing variable '+nemo_var+' or sbt')
     if nemo_var == 'sob' and nemo_var not in ds_nemo:
         if 'sbs' in ds_nemo:
             nemo_var = 'sbs'
         else:
-            raise Exception('Missing variable '+nemo_var+' or sbs')
+            raise KeyError('Missing variable '+nemo_var+' or sbs')
     if 'x_grid_T_inner' in ds_nemo.dims:
         ds_nemo = ds_nemo.swap_dims({'x_grid_T_inner':'x_grid_T', 'y_grid_T_inner':'y_grid_T'})
 
