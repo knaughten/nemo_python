@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob
 import cmocean
+import os
 from ..utils import select_bottom, distance_along_transect, moving_average, polar_stereo
 from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli_melt, adusumilli_std, transport_obs, transport_std, region_edges, rEarth, deg2rad, zhou_TS, zhou_TS_std
 from ..plots import circumpolar_plot, finished_plot, plot_ts_distribution, plot_transect
@@ -868,7 +869,7 @@ def precompute_bottom_TS (config='NEMO_AIS', suite_id=None, in_dir=None, num_yea
     # Sort chronologically
     nemo_files.sort()
     # Select the last num_years
-    num_t = num_years*months_per_file
+    num_t = int(num_years*months_per_year/months_per_file)
     nemo_files = nemo_files[-num_t:]
 
     # Now read one file at a time
@@ -889,6 +890,7 @@ def precompute_bottom_TS (config='NEMO_AIS', suite_id=None, in_dir=None, num_yea
             weights = ndays/ndays.sum()
             # This is more memory efficient than the built in functions, if not more code efficient!
             for t in range(months_per_file):
+                print('...month '+str(t+1))
                 ds_tmp = ds.isel(time_counter=t)
                 for var in var_names:
                     ds_tmp[var] = ds_tmp[var]*weights[t]
@@ -910,7 +912,7 @@ def precompute_bottom_TS (config='NEMO_AIS', suite_id=None, in_dir=None, num_yea
     ds_avg = ds_accum/num_t
 
     if var_names_3d[0] in ds_avg:
-        # Select bottom
+        print('Selecting bottom layer')
         for var_old, var_new in zip(var_names_3d, var_names_bottom):
             data = select_bottom(ds_avg[var_old], 'deptht')
             ds_avg = ds_avg.drop_vars({var_old})

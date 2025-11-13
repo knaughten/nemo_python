@@ -461,8 +461,7 @@ def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='t
     # Loop through each date code and process
     for file_pattern in nemo_files:
         print('Processing '+file_pattern)
-        # The following block doesn't work any more - maybe a regex problem? Was just checking for warnings anyway
-        '''has_isfT = os.path.isfile(f"{sim_dir}/{file_pattern.replace('*','_isf')}")
+        has_isfT = os.path.isfile(f"{sim_dir}/{file_pattern.replace('*','_isf')}")
         has_gridT = os.path.isfile(f"{sim_dir}/{file_pattern.replace('*','_grid')}")
         if sum([has_isfT, has_gridT]) == 1:
             if has_isfT and not has_gridT:
@@ -473,7 +472,7 @@ def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='t
                 print('This is the last file, so it will probably be pulled from MASS later. Stopping.')
                 break
             else:
-                print('Timeseries file will have some NaNs at this index.')'''
+                print('Timeseries file will have some NaNs at this index.')
 
         dsV = None
         ds_SBC = None
