@@ -358,8 +358,8 @@ def precompute_timeseries (ds_nemo, timeseries_types, timeseries_file, halo=True
         if pp:
             data = calc_timeseries_um(var, ds_nemo)
         else:
-            #try:
-            data, ds_nemo = calc_timeseries(var, ds_nemo, domain_cfg=domain_cfg, halo=halo, periodic=periodic, name_remapping=name_remapping, nemo_mesh=nemo_mesh)
+            try:
+                data, ds_nemo = calc_timeseries(var, ds_nemo, domain_cfg=domain_cfg, halo=halo, periodic=periodic, name_remapping=name_remapping, nemo_mesh=nemo_mesh)
             except(KeyError):
                 # Incomplete dataset missing some crucial variables. This can happen when grid-T is present but isf-T is missing, or vice versa. Return a masked value.
                 print('Warning: missing variables')
