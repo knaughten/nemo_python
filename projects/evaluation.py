@@ -901,7 +901,7 @@ def precompute_bottom_TS (config='NEMO_AIS', suite_id=None, in_dir=None, num_yea
         else:
             var_names = var_names_2
         # Select only variables we want, and mask where identically zero
-        ds = ds[var_names].where(ds[var_names[0]]!=0)
+        ds = ds[var_names+['nav_lon_grid_T', 'nav_lat_grid_T', 'bouonds_nav_lon_grid_T', 'bounds_nav_lat_grid_T']].where(ds[var_names[0]]!=0)
         if eos == 'eos80':
             # Convert to TEOS-10
             pot_temp = ds[var_names[0]]
@@ -949,8 +949,8 @@ def plot_bottom_TS (in_file='bottom_TS_avg.nc', obs_file='/gws/nopw/j04/terrafir
     var_names_2 = ['sbt', 'sbs']
     var_names_obs = ['ct_bottom', 'sa_bottom']
     var_titles = ['Conservative temperature ('+deg_string+'C)', 'Absolute salinity']
-    vmin = [-2, 34]
-    vmax = [5, 35]
+    vmin = [-2.5, 34.4]
+    vmax = [2, 35]
     vdiff = [1, 0.5]
     subtitles = ['Model', 'Observations', 'Model bias']
     ctype = ['RdBu_r', 'RdBu_r', 'plusminus']
@@ -961,6 +961,8 @@ def plot_bottom_TS (in_file='bottom_TS_avg.nc', obs_file='/gws/nopw/j04/terrafir
         var_names = var_names_1
     else:
         var_names = var_names_2
+    ds_model = ds_model.rename({'x_grid_T_inner':'x', 'y_grid_T_inner':'y'})
+    ds_model = ds_model.assign({'ocean_mask':ds_model[var_names[0]].notnull()})
 
     # Read observations and interpolate to model grid
     ds_obs = xr.open_dataset(obs_file)
@@ -983,11 +985,11 @@ def plot_bottom_TS (in_file='bottom_TS_avg.nc', obs_file='/gws/nopw/j04/terrafir
         for n in range(3):
             ax = plt.subplot(gs[v,n])
             ax.axis('equal')
-            img = circumpolar_plot(data_plot[n], ds_model, ax=ax, masked=True, make_cbar=False, title=subtitles[n], vmin=vmin_tmp[n], vmax=vmax_tmp[n], ctype=ctype[n], lat_max=-63)
+            img = circumpolar_plot(data_plot[n], ds_model, ax=ax, masked=True, make_cbar=False, title=subtitles[n], titlesize=14, vmin=vmin_tmp[n], vmax=vmax_tmp[n], ctype=ctype[n], lat_max=-63)
             if n != 1:
-                cax = fig.add_axes([0.01+0.45*n, 0.05+0.5*v, 0.02, 0.3])
+                cax = fig.add_axes([0.02+0.45*n, 0.57-0.49*v, 0.02, 0.3])
                 plt.colorbar(img, cax=cax, extend='both')
-        plt.text(0.5, 0.99-0.5*v, var_titles[v], ha='center', va='top', transform=fig.transFigure, fontsize=14)
+        plt.text(0.5, 0.99-0.48*v, var_titles[v], ha='center', va='top', transform=fig.transFigure, fontsize=16)
     finished_plot(fig, fig_name=fig_name)
 
     
