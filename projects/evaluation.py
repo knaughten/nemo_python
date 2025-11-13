@@ -883,14 +883,14 @@ def precompute_bottom_TS (config='NEMO_AIS', suite_id=None, in_dir=None, num_yea
             var_names = var_names_1
         else:
             var_names = var_names_2
-        ds = ds[var_names]
+        # Select only variables we want, and mask where identically zero
+        ds = ds[var_names].where(ds[var_names[0]]!=0)
         if months_per_file == months_per_year:
             # Annual average
             ndays = ds.time_centered.dt.days_in_month
             weights = ndays/ndays.sum()
             # This is more memory efficient than the built in functions, if not more code efficient!
             for t in range(months_per_file):
-                print('...month '+str(t+1))
                 ds_tmp = ds.isel(time_counter=t)
                 for var in var_names:
                     ds_tmp[var] = ds_tmp[var]*weights[t]
@@ -910,13 +910,6 @@ def precompute_bottom_TS (config='NEMO_AIS', suite_id=None, in_dir=None, num_yea
             raise Exception('Unsure how to handle monthly files for config='+config)
         ds.close()
     ds_avg = ds_accum/num_t
-
-    '''if var_names_3d[0] in ds_avg:
-        print('Selecting bottom layer')
-        for var_old, var_new in zip(var_names_3d, var_names_bottom):
-            data = select_bottom(ds_avg[var_old], 'deptht')
-            ds_avg = ds_avg.drop_vars({var_old})
-            ds_avg = ds_avg.assign({var_new:data})'''
 
     print('Writing '+out_file)
     ds_avg.to_netcdf(out_file)
