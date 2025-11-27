@@ -22,7 +22,7 @@ from .plots import circumpolar_plot, finished_plot
 # out_file: path to desired output NetCDF file
 # imin, imax, jmin, jmax: optional bounds on the i and j indicies to slice. Uses the python convention of 0-indexing, and selecting the indices up to but not including the last value. So, jmin=0, jmax=10 will select the southernmost 10 rows.
 # nbdry: optional latitude of the desired northern boundary. The code will generate the value of jmax that corresponds to this on the zonal mean.
-def coordinates_from_global (global_file='/gws/nopw/j04/terrafirma/kaight/input_data/grids/domcfg_eORCA025_v3.nc', out_file='coordinates_AIS.nc', imin=None, imax=None, jmin=None, jmax=None, nbdry=None, remove_halo=True):
+def coordinates_from_global (global_file='/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA025_v3.nc', out_file='coordinates_AIS.nc', imin=None, imax=None, jmin=None, jmax=None, nbdry=None, remove_halo=True):
 
     ds = xr.open_dataset(global_file)
 
@@ -69,7 +69,7 @@ def coordinates_from_global (global_file='/gws/nopw/j04/terrafirma/kaight/input_
 # out_file: desired path to output file for interpolated dataset
 # periodic: whether the NEMO grid is periodic in longitude
 # blocks_x, blocks_y: number of subdomains in x and y to split the domain into: iterating over smaller domains prevents memory overflowing when the entirety of BedMachine3 is being used. If you have a little domain which won't overflow, set them both to 1.
-def interp_topo (dataset='BedMachine3', topo_file='/gws/nopw/j04/terrafirma/kaight/input_data/topo/BedMachineAntarctica-v3.nc', coordinates_file='coordinates_AIS.nc', out_file='eORCA025_BedMachine3_AIS.nc', periodic=True, blocks_x=10, blocks_y=10):
+def interp_topo (dataset='BedMachine3', topo_file='/gws/ssde/j25b/terrafirma/kaight/input_data/topo/BedMachineAntarctica-v3.nc', coordinates_file='coordinates_AIS.nc', out_file='eORCA025_BedMachine3_AIS.nc', periodic=True, blocks_x=10, blocks_y=10):
 
     print('Processing input data')
     if dataset == 'BedMachine3':        
@@ -105,7 +105,7 @@ def interp_topo (dataset='BedMachine3', topo_file='/gws/nopw/j04/terrafirma/kaig
 
 
 # Fill any missing cells from interp_topo near the northern boundary with another dataset (default GEBCO).
-def fill_missing_topo (dataset='IBCSO', topo_file='/gws/nopw/j04/terrafirma/kaight/input_data/topo/IBCSO_v2_bed_WGS84.nc', coordinates_file='coordinates_AIS.nc', interp_file='eORCA025_BedMachine3_AIS.nc', out_file='eORCA025_BedMachine3_IBCSO_AIS.nc', periodic=True, blocks_x=10, blocks_y=2):
+def fill_missing_topo (dataset='IBCSO', topo_file='/gws/ssde/j25b/terrafirma/kaight/input_data/topo/IBCSO_v2_bed_WGS84.nc', coordinates_file='coordinates_AIS.nc', interp_file='eORCA025_BedMachine3_AIS.nc', out_file='eORCA025_BedMachine3_IBCSO_AIS.nc', periodic=True, blocks_x=10, blocks_y=2):
 
     print('Processing input data')
     if dataset in ['GEBCO', 'IBCSO']:
@@ -246,7 +246,7 @@ def add_bear_ridge_bergs (lon, lat, bathy, omask):
 # depth0: isobath to define Antarctica (positive, metres)
 # smooth: whether to smooth over the transition
 # scale_dist: if smooth=True, distance to apply smoothing on either side of transition, in km
-def splice_topo (topo_regional='bathy_meter_AIS.nc', topo_global='/gws/nopw/j04/terrafirma/kaight/input_data/grids/bathy_eORCA1_noclosea_from_GEBCO2021_PlusCaspian_FillZero_S21TT_editsJuly2024.nc', out_file='bathy_meter_eORCA1_Storkey_spliceBedMachine3_smooth_nohalo.nc', halo=False, lat0=-57, depth0=2500, smooth=True, scale_dist=100):
+def splice_topo (topo_regional='bathy_meter_AIS.nc', topo_global='/gws/ssde/j25b/terrafirma/kaight/input_data/grids/bathy_eORCA1_noclosea_from_GEBCO2021_PlusCaspian_FillZero_S21TT_editsJuly2024.nc', out_file='bathy_meter_eORCA1_Storkey_spliceBedMachine3_smooth_nohalo.nc', halo=False, lat0=-57, depth0=2500, smooth=True, scale_dist=100):
 
     xr.set_options(keep_attrs=True)
 
@@ -360,7 +360,7 @@ def plot_splice_diff (old_file='mesh_mask_old.nc', new_file='mesh_mask.nc', old_
     
 
 
-def interp_ics_TS (dataset='WOA18', source_files='/gws/nopw/j04/terrafirma/kaight/input_data/WOA18/woa18_decav_*01_04.nc', nemo_dom='/gws/nopw/j04/terrafirma/kaight/input_data/grids/domain_cfg_eANT025.L121.nc'):
+def interp_ics_TS (dataset='WOA18', source_files='/gws/ssde/j25b/terrafirma/kaight/input_data/WOA18/woa18_decav_*01_04.nc', nemo_dom='/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domain_cfg_eANT025.L121.nc'):
 
     import gsw
 

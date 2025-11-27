@@ -25,7 +25,7 @@ time_coder = xr.coders.CFDatetimeCoder(use_cftime=True)
 # name_remapping: optional dictionary of dimensions and variable names that need to be remapped to match the code below (depends on the runset)
 # nemo_mesh: optional string of the location of a bathymetry meshmask file for calculating the region masks (otherwise calculates it from ds_nemo)
 def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='', 
-                     domain_cfg='/gws/nopw/j04/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc', halo=True, periodic=True):
+                     domain_cfg='/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc', halo=True, periodic=True):
 
     # Remap NetCDF variable names to match the generalized case:
     if name_remapping:
@@ -344,7 +344,7 @@ def overwrite_file (ds_new, timeseries_file):
 
 # Precompute the given list of timeseries from the given xarray Dataset of NEMO output (or PP file if pp=True). Save in a NetCDF file which concatenates after each call to the function.
 def precompute_timeseries (ds_nemo, timeseries_types, timeseries_file, halo=True, periodic=True, 
-                           domain_cfg='/gws/nopw/j04/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc',
+                           domain_cfg='/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc',
                            name_remapping='', nemo_mesh='', pp=False):
 
     if halo and not pp:
@@ -391,7 +391,7 @@ def precompute_timeseries (ds_nemo, timeseries_types, timeseries_file, halo=True
 # Precompute timeseries from the given simulation, either from the beginning (timeseries_file does not exist) or picking up where it left off (timeseries_file does exist). Considers all NEMO output files stamped with suite_id in the given directory sim_dir on the given grid (gtype='T', 'U', etc), and assumes the timeseries file is in that directory too (unless timeseries_dir is set).
 def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='timeseries.nc', timeseries_dir=None, config='', 
                                   sim_dir='./', freq='m', halo=True, periodic=True, gtype='T', name_remapping='', nemo_mesh='',
-                                  domain_cfg='/gws/nopw/j04/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc', compressed=False):
+                                  domain_cfg='/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc', compressed=False):
     import re
     from datetime import datetime
 

@@ -338,7 +338,7 @@ def create_animation (filenames, out_file='test.mp4'):
 # nemo_mesh  : (optional) string of location of NEMO mesh mask file for grid
 # Output: jpg figures in animations/ directory within the run directory and an animation within an animations/ sub-directory
 def animate_2D_circumpolar(run_folder, var, stub, vlim=(0,100), cmap='viridis', out_folder='',
-                           nemo_mesh='/gws/nopw/j04/terrafirma/birgal/NEMO_AIS/bathymetry/mesh_mask-20250715.nc'):
+                           nemo_mesh='/gws/ssde/j25b/terrafirma/birgal/NEMO_AIS/bathymetry/mesh_mask-20250715.nc'):
     import glob
 
     if not out_folder:

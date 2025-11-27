@@ -88,7 +88,7 @@ time_coder = xr.coders.CFDatetimeCoder(use_cftime=True)
 
 
 # Call update_simulation_timeseries for the given suite ID
-def update_overshoot_timeseries (suite_id, base_dir='./', domain_cfg='/gws/nopw/j04/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc'):
+def update_overshoot_timeseries (suite_id, base_dir='./', domain_cfg='/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc'):
 
     # Construct list of timeseries types for T-grid
     regions = ['all', 'ross', 'filchner_ronne', 'west_antarctica', 'east_antarctica']
@@ -106,7 +106,7 @@ def update_overshoot_timeseries (suite_id, base_dir='./', domain_cfg='/gws/nopw/
 
 
 # Call for all simulations (add to the list of suite IDs as needed)
-def update_overshoot_timeseries_all (base_dir='./', domain_cfg='/gws/nopw/j04/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc'):
+def update_overshoot_timeseries_all (base_dir='./', domain_cfg='/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc'):
 
     for scenario in suites_by_scenario:
         for suite_id in suites_by_scenario[scenario]:
@@ -114,7 +114,7 @@ def update_overshoot_timeseries_all (base_dir='./', domain_cfg='/gws/nopw/j04/te
 
 
 # Calculate a new timeseries variable(s) for the given suite, and then concatenate it with the existing corresponding timeseries file. After running this, add the variable(s) to the list in update_overshoot_timeseries.
-def new_timeseries_var (suite_id, timeseries_types, timeseries_file_new, timeseries_file='timeseries.nc', base_dir='./', domain_cfg='/gws/nopw/j04/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc'):
+def new_timeseries_var (suite_id, timeseries_types, timeseries_file_new, timeseries_file='timeseries.nc', base_dir='./', domain_cfg='/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc'):
 
     # Calculate a new file
     if timeseries_file == 'timeseries_um.nc':
@@ -667,7 +667,7 @@ def cold_cavities_by_bwsalt (var_name, base_dir='./', fig_name=None):
 
 
 # Before running this on Jasmin, do "source ~/pyenv/bin/activate" so we can use gsw
-def plot_bwsalt_vs_obs (suite='cy691', schmidtko_file='/gws/nopw/j04/terrafirma/kaight/input_data/schmidtko_TS.txt', woa_files='/gws/nopw/j04/terrafirma/kaight/input_data/WOA18/woa18_decav_*00_04.nc', precomputed_file='bwsalt_1995_2014.nc', fig_name=None, base_dir='./'):
+def plot_bwsalt_vs_obs (suite='cy691', schmidtko_file='/gws/ssde/j25b/terrafirma/kaight/input_data/schmidtko_TS.txt', woa_files='/gws/ssde/j25b/terrafirma/kaight/input_data/WOA18/woa18_decav_*00_04.nc', precomputed_file='bwsalt_1995_2014.nc', fig_name=None, base_dir='./'):
 
     start_year = 1995
     end_year = 2014
@@ -790,7 +790,7 @@ def plot_stabilisation_maps (var_name, fig_name=None):
     scenarios = ['piControl', '1.5K', '2K', '2.5K', '3K', '4K', '5K', '6K']
     in_dir = 'time_averaged/' 
     num_scenarios = len(scenarios)
-    domain_cfg = '/gws/nopw/j04/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc'
+    domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc'
     if var_name == 'barotropic_streamfunction':
         title = 'Barotropic streamfunction (Sv)'
         file_type = 'grid-U'
@@ -1353,7 +1353,7 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
     obs_start = 2000  # Most of Shenjie's observations are from post-2005, so start date of 2000 allows for a small weighting of earlier data too. At time of access (28/08/2025) this presumably includes half of 2025.
     obs_pi = [1850, 1900]  # Suggested "pre-industrial" baseline for HadCRUT
     timeseries_file_um = 'timeseries_um.nc'
-    obs_file = '/gws/nopw/j04/terrafirma/kaight/input_data/shenjie_climatology_bottom_TS.nc'  # Zhou 2025
+    obs_file = '/gws/ssde/j25b/terrafirma/kaight/input_data/shenjie_climatology_bottom_TS.nc'  # Zhou 2025
 
     # Read observed global warming
     ds = xr.open_dataset(hadcrut_file)
@@ -1751,7 +1751,7 @@ def plot_amundsen_temp_velocity (base_dir='./'):
     [xmin, xmax] = [-170, -62]
     [ymin, ymax] = [-76, -60]
     vel_scale = 0.4
-    domain_cfg = '/gws/nopw/j04/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc'
+    domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc'
     [vmin, vmax] = [0, 4.5]
 
     # Set up grid for plotting
@@ -2711,7 +2711,7 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
     suite_strings = ['cx209-cz376-da892', 'cx209-cz378-de943']
     year_titles = [['Initial', 'Tipping', '100 years later', 'Recovery'] for n in range(num_regions)]
     mask_pad = 5e4
-    ice_dir = '/gws/nopw/j04/terrafirma/tm17544/TerraFIRMA_overshoots/raw_data/'
+    ice_dir = '/gws/ssde/j25b/terrafirma/tm17544/TerraFIRMA_overshoots/raw_data/'
     ice_file_head = '/icesheet/bisicles_'
     ice_file_mid = 'c_'
     ice_file_tail = '0101_plot-AIS.hdf5'
@@ -2725,7 +2725,7 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
     lont = [-157, -22]
     latt = [-74, -77]
     depth0 = 1500
-    catchment_file = '/gws/nopw/j04/terrafirma/tm17544/TerraFIRMA_overshoots/aux_data/antarctica_IMBIE_basins_extended_250916_TMM_BISICLES_extent_1km.nc'
+    catchment_file = '/gws/ssde/j25b/terrafirma/tm17544/TerraFIRMA_overshoots/aux_data/antarctica_IMBIE_basins_extended_250916_TMM_BISICLES_extent_1km.nc'
     catchment_id = [[8, 9], [16, 17]]  # Ross EAIS and WAIS, FRIS WAIS and EAIS
     catchment_colours = ['#E6FFE6', 'Lavender']
 
@@ -3005,7 +3005,7 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
 
 def plot_SLR_timeseries (base_dir='./', draft=False):
 
-    vaf_dir = '/gws/nopw/j04/terrafirma/tm17544/TerraFIRMA_overshoots/processed_data/netcdf_files/'
+    vaf_dir = '/gws/ssde/j25b/terrafirma/tm17544/TerraFIRMA_overshoots/processed_data/netcdf_files/'
     file_head = 'vaf_'
     file_tail = '_timeseries_newmask_1km.nc'
     timeseries_file = 'timeseries.nc'
@@ -3197,7 +3197,7 @@ def find_corrupted_files (base_dir='./', log=False):
     coupling_month = 1
     file_types = ['grid', 'isf']
     file_tails = ['grid-T.nc', 'isf-T.nc']
-    ref_file = '/gws/nopw/j04/terrafirma/kaight/overshoots/cw988/nemo_cw988o_1m_21491201-21500101_grid-T.nc'  # compare draft to file that is definitely an example of the problem
+    ref_file = '/gws/ssde/j25b/terrafirma/kaight/overshoots/cw988/nemo_cw988o_1m_21491201-21500101_grid-T.nc'  # compare draft to file that is definitely an example of the problem
 
     ds_ref = xr.open_dataset(ref_file, decode_times=time_coder)
     draft_ref = calc_geometry(ds_ref)[1]
@@ -3977,7 +3977,7 @@ def merge_rerun_suite (suite_old, suite_new, base_dir='./', vaf=False):
 
     if vaf:
         timeseries_files = ['_timeseries_newmask_1km.nc']
-        vaf_dir = '/gws/nopw/j04/terrafirma/tm17544/TerraFIRMA_overshoots/processed_data/netcdf_files/'
+        vaf_dir = '/gws/ssde/j25b/terrafirma/tm17544/TerraFIRMA_overshoots/processed_data/netcdf_files/'
         time_coord = 'time'
     else:
         timeseries_files = ['timeseries.nc', 'timeseries_um.nc']

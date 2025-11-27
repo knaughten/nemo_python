@@ -12,7 +12,7 @@ from ..constants import months_per_year
 from ..utils import add_months
 
 
-def find_cgrid_issues (grid_file='/gws/nopw/j04/terrafirma/kaight/input_data/grids/domcfg_eORCA025_v3.nc'):
+def find_cgrid_issues (grid_file='/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA025_v3.nc'):
 
     from shapely.geometry import Point, Polygon
 
@@ -51,7 +51,7 @@ def find_cgrid_issues (grid_file='/gws/nopw/j04/terrafirma/kaight/input_data/gri
     fig.savefig('misaligned_cells.png')
 
 
-def plot_region_map (file_path='/gws/nopw/j04/terrafirma/kaight/input_data/grids/mesh_mask_UKESM1.1_ice.nc', option='all', 
+def plot_region_map (file_path='/gws/ssde/j25b/terrafirma/kaight/input_data/grids/mesh_mask_UKESM1.1_ice.nc', option='all', 
                      legend=False, fig_name=None, halo=True):
 
     regions = ['amundsen_sea', 'bellingshausen_sea', 'larsen', 'filchner_ronne', 'east_antarctica', 'amery', 'ross']

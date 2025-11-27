@@ -37,7 +37,7 @@ def fix_mesh_mask (file_in, file_out):
 
 
 # Read bottom temperature and salinity from the Schmidtko dataset.
-def read_schmidtko (schmidtko_file='/gws/nopw/j04/terrafirma/kaight/input_data/schmidtko_TS.txt', eos='teos10'):
+def read_schmidtko (schmidtko_file='/gws/ssde/j25b/terrafirma/kaight/input_data/schmidtko_TS.txt', eos='teos10'):
 
     import gsw
     # Read Schmidtko data on continental shelf
@@ -81,7 +81,7 @@ def read_schmidtko (schmidtko_file='/gws/nopw/j04/terrafirma/kaight/input_data/s
 
 
 # Read World Ocean Atlas 2018 data for the deep ocean.
-def read_woa (woa_files='/gws/nopw/j04/terrafirma/kaight/input_data/WOA18/woa18_decav_*00_04.nc', eos='teos10'):
+def read_woa (woa_files='/gws/ssde/j25b/terrafirma/kaight/input_data/WOA18/woa18_decav_*00_04.nc', eos='teos10'):
 
     import gsw
     woa = xr.open_mfdataset(woa_files, decode_times=False)
@@ -151,7 +151,7 @@ def read_zhou(fileT='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/observations/shenj
     return obs_ds
 
 
-def read_zhou_bottom_climatology (in_file='/gws/nopw/j04/terrafirma/kaight/input_data/shenjie_climatology_bottom_TS.nc', eos='teos10'):
+def read_zhou_bottom_climatology (in_file='/gws/ssde/j25b/terrafirma/kaight/input_data/shenjie_climatology_bottom_TS.nc', eos='teos10'):
 
     import gsw
     ds = xr.open_dataset(in_file)

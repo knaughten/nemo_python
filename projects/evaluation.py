@@ -15,8 +15,8 @@ from ..timeseries import update_simulation_timeseries, overwrite_file
 
 # Compare the bottom temperature and salinity in NEMO (time-averaged over the given xarray Dataset) to observations: Schmidtko on the continental shelf, World Ocean Atlas 2018 in the deep ocean.
 def bottom_TS_vs_obs (nemo, time_ave=True,
-                      schmidtko_file='/gws/nopw/j04/terrafirma/kaight/input_data/schmidtko_TS.txt', 
-                      woa_files='/gws/nopw/j04/terrafirma/kaight/input_data/WOA18/woa18_decav_*00_04.nc', 
+                      schmidtko_file='/gws/ssde/j25b/terrafirma/kaight/input_data/schmidtko_TS.txt', 
+                      woa_files='/gws/ssde/j25b/terrafirma/kaight/input_data/WOA18/woa18_decav_*00_04.nc', 
                       nemo_mesh='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20250715.nc',
                       fig_name=None, amundsen=False, dpi=None, return_fig=False):
 
@@ -599,7 +599,7 @@ def timeseries_types_evaluation ():
 
 
 # Precompute timeseries for evaluation deck from Birgit's NEMO config
-# eg for latest 'best' ERA5 case, uncompressed: in_dir='/gws/nopw/j04/terrafirma/kaight/NEMO_AIS/birgit_baseline/"
+# eg for latest 'best' ERA5 case, uncompressed: in_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/birgit_baseline/"
 def update_timeseries_evaluation_NEMO_AIS (in_dir, out_dir='./'):
 
     domain_cfg = '/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20250715.nc'
@@ -612,7 +612,7 @@ def update_timeseries_evaluation_NEMO_AIS (in_dir, out_dir='./'):
 # As above, for UKESM1 suites
 def update_timeseries_evaluation_UKESM1 (suite_id, base_dir='./', out_dir=None, compute_u=False):
 
-    domain_cfg = '/gws/nopw/j04/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc'
+    domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc'
     timeseries_types = timeseries_types_evaluation()
     sim_dir = base_dir+'/'+suite_id+'/'
     if out_dir is None:
@@ -750,7 +750,7 @@ def plot_evaluation_timeseries_transport (timeseries_file='timeseries_U.nc', fig
         
 
 # Calculate the observed mean and uncertainty of T and S on the shelf averaged over each region, from the Zhou 2025 climatology.
-def preproc_shenjie (obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_climatology.nc', bathy_file='shenjie_climatology_bottom_TS.nc', out_file='OI_climatology_2D.nc'):
+def preproc_shenjie (obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology.nc', bathy_file='shenjie_climatology_bottom_TS.nc', out_file='OI_climatology_2D.nc'):
 
     regions_bottom = ['all', 'larsen', 'filchner_ronne', 'east_antarctica', 'amery', 'ross', 'west_antarctica']
     regions_mid = ['dotson_cosgrove']
@@ -958,7 +958,7 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
 
 
 # Plot bottom T and S compared to Shenjie's obs.
-def plot_bottom_TS (in_file='bottom_TS_avg.nc', obs_file='/gws/nopw/j04/terrafirma/kaight/input_data/OI_climatology_2D.nc', fig_name=None):
+def plot_bottom_TS (in_file='bottom_TS_avg.nc', obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_2D.nc', fig_name=None):
 
     var_names_1 = ['tob', 'sob']
     var_names_2 = ['sbt', 'sbs']
