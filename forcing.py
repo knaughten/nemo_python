@@ -351,7 +351,7 @@ def cesm2_atm_forcing (expt, var, ens, out_dir, start_year=1850, end_year=2100, 
             data_arrays = [data]       
 
         for arr in data_arrays:
-            if var in ['QREFHT','TREFHT','FSDS','FLDS','PSL','PRECT','PRECS']: # UBOT, VBOT
+            if var in ['QREFHT','TREFHT','FSDS','FLDS','PSL','PRECT','PRECS','UBOT','VBOT']: 
                 # Mask atmospheric forcing over land based on cesm2 land mask (since land values might not be representative for the ocean areas)
                 arr = xr.where(cesm2_mask.values != 0, -9999, arr)
                 # And then fill masked areas with nearest non-NaN latitude neighbour
@@ -391,9 +391,6 @@ def cesm2_atm_forcing (expt, var, ens, out_dir, start_year=1850, end_year=2100, 
 
             # Write data
             out_file_name = f'{out_dir}CESM2-{expt}_ens{ens}_{freq}_{varname}_y{year}.nc'
-            #if expt=='piControl': # split files into ensemble chunks
-                # for now just keep the smae:
-                #out_file_name = f'{out_dir}CESM2-{expt}_ens{ens}_{varname}_y{1850+(year-year_ens_start)}.nc'
             arr.to_netcdf(out_file_name, unlimited_dims='time')
     return arr
 
@@ -603,7 +600,7 @@ def calc_bias_correction(source, variable, expt='LE2', year_start=1979, year_end
         ERA5_climatology = xr.open_dataset(f'{era5_folder}ERA5_eANT025_{filevarname}_{freq}_{year_start}-{year_end}_mean_monthly.nc').rename({varname:variable})
  
         # thermo(dynamic) correction
-        if variable in ['TREFHT','QREFHT','FLDS','FSDS','PRECS','PRECT','wind_speed','wind_angle']:
+        if variable in ['TREFHT','QREFHT','FLDS','FSDS','PRECS','PRECT','wind_speed','wind_angle','PSL']:
             if monthly:
                 out_file = f'{out_folder}{source}-{expt}_{variable}_{freq}_bias_corr_monthly.nc'
             else:
@@ -688,7 +685,7 @@ def apply_bias_correction(variable, ens, expt='LE2', start_year=1900, end_year=2
     out_dir = f'{out_dir}ens{ens}/'
     bias_ds = xr.open_dataset(f'{bias_dir}CESM2-LE2_{variable}_{freq}_bias_corr_monthly.nc')[variable]
     if variable=='wind_speed': # also load wind angle bias correction file
-        bias_ds_angle = xr.open_dataset(f'{bias_dir}CESM2-LE2_wind_angle_{freq}_bias_corr.nc').wind_angle
+        bias_ds_angle = xr.open_dataset(f'{bias_dir}CESM2-LE2_wind_angle_{freq}_bias_corr_monthly.nc').wind_angle
 
     # helper functions for applying bias correction
     def apply_multiplier(angle):
@@ -696,6 +693,9 @@ def apply_bias_correction(variable, ens, expt='LE2', start_year=1900, end_year=2
         return speed
     def add_bias(ds_var):
         ds_var_corrected = ds_var + bias_ds.sel(month=(ds_var.time_counter.dt.month[0].values))
+        return ds_var_corrected
+    def add_angle(ds_var):
+        ds_var_corrected = ds_var + bias_ds_angle.sel(month=(ds_var.time_counter.dt.month[0].values))
         return ds_var_corrected
 
     # loop over each year to apply bias correction
@@ -709,7 +709,8 @@ def apply_bias_correction(variable, ens, expt='LE2', start_year=1900, end_year=2
             dsy = xr.open_dataset(file_pathy, use_cftime=True, chunks='auto')
             theta   = np.arctan2(dsy.VBOT, dsx.UBOT)
             speed   = np.hypot(dsx.UBOT, dsy.VBOT)
-            theta_corrected = theta + bias_ds_angle # correct wind angle
+            #theta_corrected = theta + bias_ds_angle # correct wind angle
+            theta_corrected = theta.groupby(f'time_counter.month').apply(add_angle)
             angle_u = np.cos(theta_corrected) * speed
             angle_v = np.sin(theta_corrected) * speed
             if monthly:
