@@ -10,7 +10,7 @@ from .grid import get_coast_mask, get_icefront_mask
 from .ics_obcs import fill_ocean
 from .interpolation import regrid_era5_to_cesm2, extend_into_mask, regrid_to_NEMO, neighbours
 from .file_io import find_cesm2_file, find_processed_cesm2_file
-from .constants import temp_C2K, rho_fw, cesm2_ensemble_members, sec_per_day, sec_per_hour
+from .constants import temp_C2K, rho_fw, cesm2_ensemble_members, sec_per_day, sec_per_hour, months_per_year
 
 # Function subsets global forcing files from the same grid to the new domain, and fills any NaN values with connected 
 # nearest neighbour and then fill_val.
@@ -813,3 +813,82 @@ def process_era5_forcing(variable, year_start=1979, year_end=2024, era5_folder='
                 data.to_netcdf(f'{era5_folder}processed/{variable}_y{year}.nc', unlimited_dims={'time':True})
 
     return
+
+
+# Convert one suite of UKESM forcing (3-hourly, pp files, 9 variables) to NEMO forcing files.
+def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./'):
+
+    import iris
+    import warnings
+
+    var_names = ['air_temperature', 'specific_humidity', 'surface_air_pressure', 'x_wind', 'y_wind', 'precipitation_flux', 'snowfall_flux', 'surface_net_downward_shortwave_flux', 'surface_net_downward_longwave_flux']
+
+    if in_dir is None:
+        in_dir = './'+suite+'/'
+    file_head = suite+'a.p8'
+    file_tail = '.pp'
+
+    # Find all matching files in directory
+    file_names = []
+    for f in os.listdir(in_dir):
+        if f.startswith(file_head) and f.endswith(file_tail):
+            file_names.append(f)
+    file_names.sort()
+    # Find range of years to process
+    # Inner function to extract year and month from filename
+    def get_date_stamp (f):
+        date = f[len(file_head):-len(file_tail)]
+        year = int(date[:4])
+        month = int(date[4:6])
+        return year, month
+    # First loop forwards until we find a January
+    for f in file_names:
+        year, month = get_date_stamp(f)
+        if month == 1:
+            start_year = year
+            break
+    # Then loop backwards until we find a December
+    for f in file_names[::-1]:
+        year, month = get_date_stamp(f)
+        if month == months_per_year:
+            end_year = year
+            break
+
+    # Loop over years and months
+    # Will have two rolling datasets to keep track of time-mean and time-snapshot variables
+    ds_mean = None
+    ds_snapshot = None
+    index = 0
+    for year in range(start_year, end_year+1):
+        for month in range(1, months_per_year+1):
+            # Read files until we've covered this month
+            while True:
+                with warnings.catch_warnings():
+                    warnings.simplefilter('ignore')
+                    cubes = iris.load(in_dir+file_names[index])
+                ds_mean_tmp = None
+                ds_snapshot_tmp = None
+                for var in var_names:
+                    # Find how many cubes match this variable name
+                    matches = [cube.standard_name==var for cube in cubes]
+                    num_matches = np.count_nonzero(matches)
+                    if num_matches == 0:
+                        raise Exception('Missing variable '+var+' from file '+file_names[index])
+                    elif num_matches == 2:
+                        # Find the time-mean
+                        pass
+                    elif num_matches != 1:
+                        raise Exception('Unexpected number of matches ('+str(num_matches)+') for variable '+var+' in file '+file_names[index])
+                    
+                index += 1
+                    
+
+                
+    # Loop over variable names
+    # If more than one, choose the one with cell methods time mean
+    # Convert to xarray
+    # Trim latitude (set lat_max as argument - find a safe value)
+    # Make sure longitude in range -180:180
+    # On first file, set up datasets for time snapshots, and time means
+    # For non-time averaged variables, take midpoint - how to handle this with overlap? Something rolling? Queue that gets popped?
+    # If new month has started, write file: var_yYYYYmMM.nc and remove things from queue
