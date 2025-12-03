@@ -5,6 +5,7 @@ import xarray as xr
 import numpy as np
 import pandas as pd
 import glob
+import os
 from .utils import distance_btw_points, closest_point, convert_to_teos10, fix_lon_range, dewpoint_to_specific_humidity
 from .grid import get_coast_mask, get_icefront_mask
 from .ics_obcs import fill_ocean
@@ -822,6 +823,7 @@ def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./'):
     import warnings
 
     var_names = ['air_temperature', 'specific_humidity', 'surface_air_pressure', 'x_wind', 'y_wind', 'precipitation_flux', 'snowfall_flux', 'surface_net_downward_shortwave_flux', 'surface_net_downward_longwave_flux']
+    var_names_snapshot = ['air_temperature', 'specific_humidity', 'surface_air_pressure']  # Variables which are only available as 3 hour snapshots, not time-means
 
     if in_dir is None:
         in_dir = './'+suite+'/'
@@ -854,6 +856,26 @@ def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./'):
             end_year = year
             break
 
+    # Inner function to use later, to check if a cube is a time-mean
+    def check_mean (cube):
+        for cm in cube.cell_methods:
+            if cm.method=='mean' and 'time' in cm.coord_names:
+                return True
+        return False
+    # Inner function to add variable to given dataset
+    def add_var (ds, data, var):
+        if ds is None:
+            ds = xr.Dataset({var:data})
+        else:
+            ds = ds.assign({var:data})
+        return ds
+    # Inner function to concatenate dataset to master dataset
+    def concat_ds (ds_master, ds):
+        if ds_master is None:
+            return ds
+        else:
+            return xr.concat([ds_master, ds], dim='time')
+
     # Loop over years and months
     # Will have two rolling datasets to keep track of time-mean and time-snapshot variables
     ds_mean = None
@@ -863,32 +885,77 @@ def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./'):
         for month in range(1, months_per_year+1):
             # Read files until we've covered this month
             while True:
+                fname = file_names[index]
+                # Check year on this file and the next file
+                year = get_date_stamp(fname)[0]
+                next_year = get_date_stamp(file_names[index+1])[0]
+                # Prepare for next iteration of loop
+                index += 1
+                if next_year < start_year:
+                    # Too early; skip this file
+                    continue
+                # Check if this is the last file before start_year
+                is_last_file_before = year < start_year and next_year == start_year
                 with warnings.catch_warnings():
                     warnings.simplefilter('ignore')
-                    cubes = iris.load(in_dir+file_names[index])
+                    cubes = iris.load(in_dir+fname)
                 ds_mean_tmp = None
                 ds_snapshot_tmp = None
+                # Loop over variables
                 for var in var_names:
+                    if is_last_file_before and var not in var_names_snapshot:
+                        # Only need to read this file for snapshot variables
+                        continue
                     # Find how many cubes match this variable name
                     matches = [cube.standard_name==var for cube in cubes]
                     num_matches = np.count_nonzero(matches)
                     if num_matches == 0:
-                        raise Exception('Missing variable '+var+' from file '+file_names[index])
+                        raise Exception('Missing variable '+var+' from file '+fname)
                     elif num_matches == 2:
-                        # Find the time-mean
-                        pass
-                    elif num_matches != 1:
-                        raise Exception('Unexpected number of matches ('+str(num_matches)+') for variable '+var+' in file '+file_names[index])
-                    
-                index += 1
-                    
-
-                
-    # Loop over variable names
-    # If more than one, choose the one with cell methods time mean
-    # Convert to xarray
-    # Trim latitude (set lat_max as argument - find a safe value)
-    # Make sure longitude in range -180:180
-    # On first file, set up datasets for time snapshots, and time means
-    # For non-time averaged variables, take midpoint - how to handle this with overlap? Something rolling? Queue that gets popped?
-    # If new month has started, write file: var_yYYYYmMM.nc and remove things from queue
+                        # Two options; expect one is time-mean and one is snapshot
+                        is_mean = [check_mean(cube) for cube in cubes]
+                        match_mean = np.argwhere(np.array(is_mean)*np.array(matches))[0]
+                        if len(match_mean) != 1:
+                            raise Exception('Found '+str(len(match_mean))+' options for time-mean for variable '+var)
+                        cube = cubes[match_mean[0]]
+                        # Will add to time-mean dataset
+                        method = 'mean'
+                    elif num_matches == 1:
+                        cube = cubes[matches.index(True)]
+                        # Add to either time-mean or snapshot dataset
+                        if check_mean(cube):
+                            method = 'mean'
+                        else:
+                            method = 'snapshot'
+                    else:
+                        raise Exception('Unexpected number of matches ('+str(num_matches)+') for variable '+var+' in file '+fname)
+                    # Now convert to xarray
+                    with warnings.catch_warnings():
+                        warnings.simplefilter('ignore')
+                        data = xr.DataArray.from_iris(cube)
+                    # Add to the correct dataset
+                    if method == 'mean':
+                        ds_mean_tmp = add_var(ds_mean_tmp, data, var)
+                    elif method == 'snapshot':
+                        ds_snapshot_tmp = add_var(ds_snapshot_tmp, data, var)
+                # After all variables, concatenate to master datasets
+                ds_mean = concat_ds(ds_mean, ds_mean_tmp)
+                ds_snapshot = concat_ds(ds_snapshot, ds_snapshot_tmp)
+                # Now check if we have covered this month yet: will need at least one snapshot into the next month
+                end_time = ds_snapshot.time[-1]
+                if (end_time.dt.year > year) or (end_time.dt.year == year and end_time.dt.month > month):
+                    break
+            # Select data for this month and remove it from master array
+            # Time-mean array: simple
+            time_range = (ds_mean.time.dt.year==year)*(ds_mean.time.dt.month==month)
+            ds_mean_month = ds_mean.where(time_range, drop=True)
+            ds_mean = ds_mean.where(~time_range, drop=True)
+            # Snapshot array: first interpolate to time-mean axis (equivalent to midpoints of snapshots)
+            ds_snapshot_mean_month = ds_snapshot.interp(time=ds_mean_month.time, method='linear')
+            # Trim the snapshots to only keep the ones after the last time-mean
+            ds_snapshot = ds_snapshot.where(ds_snapshot.time > ds_mean_month.time[-1], drop=True)
+            # Write each variable to a file with the correct naming convention
+            for var in ds_mean_month:
+                out_file = out_dir+'/'+var+'_y'+str(year)+'m'+str(month).zfill(2)+'.nc'
+                print('Writing '+out_file)
+                ds_mean_month[var].to_netcdf(out_file)
