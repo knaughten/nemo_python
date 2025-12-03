@@ -817,13 +817,14 @@ def process_era5_forcing(variable, year_start=1979, year_end=2024, era5_folder='
 
 
 # Convert one suite of UKESM forcing (3-hourly, pp files, 9 variables) to NEMO forcing files.
-def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./'):
+def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./', lat_max=-50):
 
     import iris
     import warnings
 
     var_names = ['air_temperature', 'specific_humidity', 'surface_air_pressure', 'x_wind', 'y_wind', 'precipitation_flux', 'snowfall_flux', 'surface_net_downward_shortwave_flux', 'surface_net_downward_longwave_flux']
     var_names_snapshot = ['air_temperature', 'specific_humidity', 'surface_air_pressure']  # Variables which are only available as 3 hour snapshots, not time-means
+    lat_buffer = 1
 
     if in_dir is None:
         in_dir = './'+suite+'/'
@@ -872,6 +873,8 @@ def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./'):
     # Inner function to concatenate dataset to master dataset
     def concat_ds (ds_master, ds):
         if ds_master is None:
+            if 'time' not in ds.dims:
+                ds = ds.expand_dims(dim='time')
             return ds
         else:
             return xr.concat([ds_master, ds], dim='time')
@@ -887,7 +890,7 @@ def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./'):
             while True:
                 fname = file_names[index]
                 # Check year on this file and the next file
-                year = get_date_stamp(fname)[0]
+                this_year = get_date_stamp(fname)[0]
                 next_year = get_date_stamp(file_names[index+1])[0]
                 # Prepare for next iteration of loop
                 index += 1
@@ -895,9 +898,10 @@ def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./'):
                     # Too early; skip this file
                     continue
                 # Check if this is the last file before start_year
-                is_last_file_before = year < start_year and next_year == start_year
+                is_last_file_before = this_year < start_year and next_year == start_year
+                print('Reading '+in_dir+fname)
                 with warnings.catch_warnings():
-                    warnings.simplefilter('ignore')
+                    warnings.simplefilter('ignore')                    
                     cubes = iris.load(in_dir+fname)
                 ds_mean_tmp = None
                 ds_snapshot_tmp = None
@@ -933,13 +937,16 @@ def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./'):
                     with warnings.catch_warnings():
                         warnings.simplefilter('ignore')
                         data = xr.DataArray.from_iris(cube)
+                    # Trim latitude, with a 1-degree buffer
+                    data = data.where(data.latitude < lat_max + 1, drop=True)
                     # Add to the correct dataset
                     if method == 'mean':
                         ds_mean_tmp = add_var(ds_mean_tmp, data, var)
                     elif method == 'snapshot':
                         ds_snapshot_tmp = add_var(ds_snapshot_tmp, data, var)
                 # After all variables, concatenate to master datasets
-                ds_mean = concat_ds(ds_mean, ds_mean_tmp)
+                if ds_mean_tmp is not None:
+                    ds_mean = concat_ds(ds_mean, ds_mean_tmp)
                 ds_snapshot = concat_ds(ds_snapshot, ds_snapshot_tmp)
                 # Now check if we have covered this month yet: will need at least one snapshot into the next month
                 end_time = ds_snapshot.time[-1]
@@ -955,7 +962,11 @@ def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./'):
             # Trim the snapshots to only keep the ones after the last time-mean
             ds_snapshot = ds_snapshot.where(ds_snapshot.time > ds_mean_month.time[-1], drop=True)
             # Write each variable to a file with the correct naming convention
-            for var in ds_mean_month:
+            for var in var_names:
                 out_file = out_dir+'/'+var+'_y'+str(year)+'m'+str(month).zfill(2)+'.nc'
                 print('Writing '+out_file)
-                ds_mean_month[var].to_netcdf(out_file)
+                if var in ds_mean_month:
+                    data = ds_mean_month[var]
+                else:
+                    data = ds_snapshot_mean_month[var]
+                data.to_netcdf(out_file)
