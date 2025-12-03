@@ -939,6 +939,8 @@ def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./', lat_max=-50):
                         data = xr.DataArray.from_iris(cube)
                     # Trim latitude, with a 1-degree buffer
                     data = data.where(data.latitude < lat_max + 1, drop=True)
+                    if var == 'y_wind':
+                        data = data.rename({'longitude':'longitude_v', 'latitude':'latitude_v'})
                     # Add to the correct dataset
                     if method == 'mean':
                         ds_mean_tmp = add_var(ds_mean_tmp, data, var)
