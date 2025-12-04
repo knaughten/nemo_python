@@ -6,13 +6,11 @@ gravity = 9.81
 rho_fw = 1e3
 # Density of ice
 rho_ice = 917.
-# Seconds per hour
+# Time constants
 sec_per_hour = 60*60.
-# Seconds per day
-sec_per_day = 24*sec_per_hour
-# Seconds per year
+hours_per_day = 24
+sec_per_day = hours_per_day*sec_per_hour
 sec_per_year = 365.25*sec_per_day
-# Months per year
 months_per_year = 12
 # Celsius to Kelvins intercept
 temp_C2K = 273.15

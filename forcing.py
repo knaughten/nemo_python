@@ -11,7 +11,7 @@ from .grid import get_coast_mask, get_icefront_mask
 from .ics_obcs import fill_ocean
 from .interpolation import regrid_era5_to_cesm2, extend_into_mask, regrid_to_NEMO, neighbours
 from .file_io import find_cesm2_file, find_processed_cesm2_file
-from .constants import temp_C2K, rho_fw, cesm2_ensemble_members, sec_per_day, sec_per_hour, months_per_year
+from .constants import temp_C2K, rho_fw, cesm2_ensemble_members, sec_per_day, sec_per_hour, months_per_year, hours_per_day
 
 # Function subsets global forcing files from the same grid to the new domain, and fills any NaN values with connected 
 # nearest neighbour and then fill_val.
@@ -973,4 +973,6 @@ def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./', lat_max=-50):
                     data = ds_mean_month[var]
                 else:
                     data = ds_snapshot_mean_month[var]
+                if data.sizes['time'] != 30*hours_per_day/3:
+                    raise Exception('Invalid length of time axis ('+str(data.sizes['time'])+' for file '+out_file)
                 data.to_netcdf(out_file)
