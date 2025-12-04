@@ -822,7 +822,7 @@ def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./', lat_max=-50):
     import iris
     import warnings
 
-    var_names = ['air_temperature', 'specific_humidity', 'surface_air_pressure', 'x_wind', 'y_wind', 'precipitation_flux', 'snowfall_flux', 'surface_net_downward_shortwave_flux', 'surface_net_downward_longwave_flux']
+    var_names = ['air_temperature', 'specific_humidity', 'surface_air_pressure', 'x_wind', 'y_wind', 'precipitation_flux', 'snowfall_flux', 'surface_downwelling_shortwave_flux_in_air', 'surface_downwelling_longwave_flux_in_air']
     var_names_snapshot = ['air_temperature', 'specific_humidity', 'surface_air_pressure']  # Variables which are only available as 3 hour snapshots, not time-means
     lat_buffer = 1
 
