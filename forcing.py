@@ -894,10 +894,13 @@ def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./', lat_max=-50, flood_f
                 fname = file_names[index]
                 # Check year on this file and the next file
                 this_year = get_date_stamp(fname)[0]
-                next_year = get_date_stamp(file_names[index+1])[0]
+                if index == len(file_names)-1:
+                    next_year = None
+                else:
+                    next_year = get_date_stamp(file_names[index+1])[0]
                 # Prepare for next iteration of loop
                 index += 1
-                if next_year < start_year:
+                if next_year is not None and next_year < start_year:
                     # Too early; skip this file
                     continue
                 # Check if this is the last file before start_year
