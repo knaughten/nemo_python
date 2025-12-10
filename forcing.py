@@ -816,29 +816,19 @@ def process_era5_forcing(variable, year_start=1979, year_end=2024, era5_folder='
     return
 
 
-# Convert one suite of UKESM forcing (pp files) at the given frequency (3 hourly for 8 variables, or 6 hourly for 1 variable) to NEMO forcing files.
-def ukesm_atm_forcing (suite, freq=3, in_dir=None, out_dir='./', lat_max=-50):
+# Convert one suite of UKESM forcing (3-hourly, pp files, 9 variables) to NEMO forcing files.
+def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./', lat_max=-50):
 
     import iris
     import warnings
-    import datetime
 
-    if freq == 3:
-        var_names = ['air_temperature', 'specific_humidity', 'x_wind', 'y_wind', 'precipitation_flux', 'snowfall_flux', 'surface_downwelling_shortwave_flux_in_air', 'surface_downwelling_longwave_flux_in_air']
-        var_names_snapshot = ['air_temperature', 'specific_humidity']  # Variables which are only available as 3 hour snapshots, not time-means
-    elif freq == 6:
-        var_names = ['air_pressure_at_sea_level']
-        var_names_snapshot = ['air_pressure_at_sea_level']
-    else:
-        raise Exception('Invalid frequency '+str(freq))
+    var_names = ['air_temperature', 'specific_humidity', 'air_pressure_at_sea_level', 'x_wind', 'y_wind', 'precipitation_flux', 'snowfall_flux', 'surface_downwelling_shortwave_flux_in_air', 'surface_downwelling_longwave_flux_in_air']
+    var_names_snapshot = ['air_temperature', 'specific_humidity', 'air_pressure_at_sea_level']  # Variables which are only available as 3 hour snapshots, not time-means
     lat_buffer = 1
 
     if in_dir is None:
         in_dir = './'+suite+'/'
-    if freq == 3:
-        file_head = suite+'a.p8'
-    else:
-        file_head = suite+'a.pc'
+    file_head = suite+'a.p8'
     file_tail = '.pp'
 
     # Find all matching files in directory
@@ -967,37 +957,22 @@ def ukesm_atm_forcing (suite, freq=3, in_dir=None, out_dir='./', lat_max=-50):
                 if (end_time.dt.year > year) or (end_time.dt.year == year and end_time.dt.month > month):
                     break
             # Select data for this month and remove it from master array
-            if ds_mean is not None:
-                # Time-mean array: simple
-                time_range = (ds_mean.time.dt.year==year)*(ds_mean.time.dt.month==month)
-                ds_mean_month = ds_mean.where(time_range, drop=True)
-                ds_mean = ds_mean.where(~time_range, drop=True)
-                # Snapshot array: first interpolate to time-mean axis (equivalent to midpoints of snapshots)
-                ds_snapshot_mean_month = ds_snapshot.interp(time=ds_mean_month.time, method='linear')
-                # Trim the snapshots to only keep the ones after the last time-mean
-                ds_snapshot = ds_snapshot.where(ds_snapshot.time > ds_mean_month.time[-1], drop=True)
-            else:
-                # Snapshots only
-                # Make sure 6-hourly frequency
-                if freq != 6:
-                    raise Exception('Unexpected frequency '+str(freq)+' for snapshots only')
-                # Now construct a new time axis to interpolate to: midpoints of 6-hourly snapshots
-                time_for_interp = (ds_snapshot.time[:-1] + datetime.timedelta(hours=freq//2)).data
-                time_for_interp = xr.DataArray(time_for_interp, coords={'time':time_for_interp})
-                # Trim to current month
-                time_for_interp = time_for_interp.where((time_for_interp.time.dt.year==year)*(time_for_interp.time.dt.month==month), drop=True)
-                # Now interpolate the snapshots to these time indices
-                ds_snapshot_mean_month = ds_snapshot.interp(time=time_for_interp, method='linear')
-                # Trim as above
-                ds_snapshot = ds_snapshot.where(ds_snapshot.time > time_for_interp[-1], drop=True)
+            # Time-mean array: simple
+            time_range = (ds_mean.time.dt.year==year)*(ds_mean.time.dt.month==month)
+            ds_mean_month = ds_mean.where(time_range, drop=True)
+            ds_mean = ds_mean.where(~time_range, drop=True)
+            # Snapshot array: first interpolate to time-mean axis (equivalent to midpoints of snapshots)
+            ds_snapshot_mean_month = ds_snapshot.interp(time=ds_mean_month.time, method='linear')
+            # Trim the snapshots to only keep the ones after the last time-mean
+            ds_snapshot = ds_snapshot.where(ds_snapshot.time > ds_mean_month.time[-1], drop=True)
             # Write each variable to a file with the correct naming convention
             for var in var_names:
                 out_file = out_dir+'/'+var+'_y'+str(year)+'m'+str(month).zfill(2)+'.nc'
                 print('Writing '+out_file)
-                if ds_mean_month is not None and var in ds_mean_month:
+                if var in ds_mean_month:
                     data = ds_mean_month[var]
                 else:
                     data = ds_snapshot_mean_month[var]
-                if data.sizes['time'] != 30*hours_per_day//freq:
+                if data.sizes['time'] != 30*hours_per_day/3:
                     raise Exception('Invalid length of time axis ('+str(data.sizes['time'])+' for file '+out_file)
                 data.to_netcdf(out_file)
