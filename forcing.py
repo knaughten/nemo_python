@@ -953,7 +953,7 @@ def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./', lat_max=-50, flood_f
                     data = data.where(data.latitude < lat_max + 1, drop=True)
                     if flood_fill:
                         # Fill land mask with nearest neighbours
-                        data = extend_into_mask(data, missing_val=missing_val, use_2d=True, num_iters=data.sizes['latitude'], log=False)
+                        data = extend_into_mask(data, missing_val=missing_val, use_2d=True, num_iters=data.sizes['latitude'])
                     if var == 'x_wind':
                         data = data.rename({'longitude':'longitude_u', 'latitude':'latitude_u'})
                     elif var == 'y_wind':
