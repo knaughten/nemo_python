@@ -817,7 +817,7 @@ def process_era5_forcing(variable, year_start=1979, year_end=2024, era5_folder='
 
 
 # Convert one suite of UKESM forcing (3-hourly, pp files, 9 variables) to NEMO forcing files.
-def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./', lat_max=-50):
+def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./', lat_max=-50, flood_fill=True, mask_file='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/masks_um_ukesm1.2.nc'):
 
     import iris
     import warnings
@@ -825,6 +825,9 @@ def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./', lat_max=-50):
     var_names = ['air_temperature', 'specific_humidity', 'air_pressure_at_sea_level', 'x_wind', 'y_wind', 'precipitation_flux', 'snowfall_flux', 'surface_downwelling_shortwave_flux_in_air', 'surface_downwelling_longwave_flux_in_air']
     var_names_snapshot = ['air_temperature', 'specific_humidity', 'air_pressure_at_sea_level']  # Variables which are only available as 3 hour snapshots, not time-means
     lat_buffer = 1
+    if flood_fill:
+        ds_masks = xr.open_dataset(mask_file)
+        missing_val = -9999
 
     if in_dir is None:
         in_dir = './'+suite+'/'
@@ -937,8 +940,20 @@ def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./', lat_max=-50):
                     with warnings.catch_warnings():
                         warnings.simplefilter('ignore')
                         data = xr.DataArray.from_iris(cube)
+                    if flood_fill:
+                        # Apply land mask
+                        if var == 'x_wind':
+                            mask_var = 'aum3.msk'
+                        elif var == 'y_wind':
+                            mask_var = 'avm3.msk'
+                        else:
+                            mask_var = 'atm3.msk'
+                        data = xr.where(ds_masks[mask_var]==0, data, missing_val)
                     # Trim latitude, with a 1-degree buffer
                     data = data.where(data.latitude < lat_max + 1, drop=True)
+                    if flood_fill:
+                        # Fill land mask with nearest neighbours
+                        data = extend_into_mask(data, missing_val=missing_val, use_2d=True, num_iters=data.sizes['latitude'], log=False)
                     if var == 'x_wind':
                         data = data.rename({'longitude':'longitude_u', 'latitude':'latitude_u'})
                     elif var == 'y_wind':
