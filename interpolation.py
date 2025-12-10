@@ -718,10 +718,10 @@ def extend_into_mask (data, missing_val=-9999, fill_val=np.nan, masked=False, us
         data_unmasked[data.mask] = missing_val
         data = data_unmasked
 
-    for iter in tqdm.tqdm(range(num_iters)):
+    for iter in range(num_iters): #tqdm.tqdm(range(num_iters)):
         sum_missing = np.sum(data==missing_val)
         if np.sum(data==missing_val) == 0: # stop looping if all missing values have been filled
-            print('Completed filling missing values')
+            #print('Completed filling missing values')
             break
         else:
             # Find the neighbours of each point, whether or not they are missing, and how many non-missing neighbours there are.

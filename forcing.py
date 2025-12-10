@@ -943,14 +943,16 @@ def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./', lat_max=-50, flood_f
                     if flood_fill:
                         # Apply land mask
                         if var == 'x_wind':
-                            mask_var = 'aum3.msk'
+                            mask_var = 'aum3'
                         elif var == 'y_wind':
-                            mask_var = 'avm3.msk'
+                            mask_var = 'avm3'
                         else:
-                            mask_var = 'atm3.msk'
-                        data = xr.where(ds_masks[mask_var]==0, data, missing_val)
+                            mask_var = 'atm3'
+                        mask = ds_masks[mask_var+'.msk'].rename({'y_'+mask_var:'latitude', 'x_'+mask_var:'longitude'})
+                        data = xr.where(mask==0, data, missing_val)
                     # Trim latitude, with a 1-degree buffer
-                    data = data.where(data.latitude < lat_max + 1, drop=True)
+                    data = data.where(data.latitude < lat_max + 1, drop=True).transpose('time','latitude','longitude')
+                    data.load()
                     if flood_fill:
                         # Fill land mask with nearest neighbours
                         data_filled = np.empty(data.shape)
