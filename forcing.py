@@ -824,6 +824,16 @@ def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./', lat_max=-50, flood_f
 
     var_names = ['air_temperature', 'specific_humidity', 'air_pressure_at_sea_level', 'x_wind', 'y_wind', 'precipitation_flux', 'snowfall_flux', 'surface_downwelling_shortwave_flux_in_air', 'surface_downwelling_longwave_flux_in_air']
     var_names_snapshot = ['air_temperature', 'specific_humidity', 'air_pressure_at_sea_level']  # Variables which are only available as 3 hour snapshots, not time-means
+    # Output files should have shorter variable names, as otherwise some of them overflow in NEMO
+    var_name_remapping = {'air_temperature' : 'tair',
+                          'specific_humidity' : 'qair',
+                          'air_pressure_at_sea_level' : 'pair',
+                          'x_wind' : 'uwind',
+                          'y_wind' : 'vwind',
+                          'precipitation_flux' : 'precip',
+                          'snowfall_flux' : 'snow',
+                          'surface_downwelling_shortwave_flux_in_air' : 'swrad',
+                          'surface_downwelling_longwave_flux_in_air' : 'lwrad'} 
     lat_buffer = 1
     if flood_fill:
         ds_masks = xr.open_dataset(mask_file)
@@ -994,12 +1004,14 @@ def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./', lat_max=-50, flood_f
             ds_snapshot = ds_snapshot.where(ds_snapshot.time > ds_mean_month.time[-1], drop=True)
             # Write each variable to a file with the correct naming convention
             for var in var_names:
-                out_file = out_dir+'/'+var+'_y'+str(year)+'m'+str(month).zfill(2)+'.nc'
+                var_new = var_name_remapping[var]
+                out_file = out_dir+'/'+var_new+'_y'+str(year)+'m'+str(month).zfill(2)+'.nc'
                 print('Writing '+out_file)
                 if var in ds_mean_month:
                     data = ds_mean_month[var]
                 else:
                     data = ds_snapshot_mean_month[var]
+                data = data.rename(var_new)
                 if data.sizes['time'] != 30*hours_per_day/3:
                     raise Exception('Invalid length of time axis ('+str(data.sizes['time'])+' for file '+out_file)
                 data.to_netcdf(out_file)
