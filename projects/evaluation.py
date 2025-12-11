@@ -930,7 +930,7 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
                     ds_tmp[var] = ds_tmp[var]*weights[t]
                 ds_tmp = ds_tmp.drop_vars({'time_counter', 'time_centered'})
                 if option == 'zonal_TS':
-                    # Zonal mean - keep it simple
+                    # Zonal mean - keep it simple - this is just for eyeball comparison with WOA, don't need to close a budget
                     x_name, y_name = xy_name(ds_tmp)
                     ds_tmp = ds_tmp.mean(dim=x_name).squeeze()                
                 if ds_accum is None:
@@ -958,7 +958,7 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
 
 
 # Plot bottom T and S compared to Shenjie's obs.
-def plot_bottom_TS (in_file='bottom_TS_avg.nc', obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_2D.nc', fig_name=None):
+def plot_evaluation_bottom_TS (in_file='bottom_TS_avg.nc', obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_2D.nc', fig_name=None):
 
     var_names_1 = ['tob', 'sob']
     var_names_2 = ['sbt', 'sbs']
