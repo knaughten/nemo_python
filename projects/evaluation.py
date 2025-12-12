@@ -939,8 +939,10 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
                 if option == 'zonal_TS':
                     # Zonal mean - keep it simple - this is just for eyeball comparison with WOA, don't need to close a budget
                     ds_tmp = ds_tmp.reset_coords()
+                    ds_tmp[lat_name] = ds_tmp[lat_name].where(ds_tmp[var_names[0]].sum(dim='deptht'))
                     x_name, y_name = xy_name(ds_tmp)
-                    ds_tmp = ds_tmp.mean(dim=x_name).squeeze()                
+                    ds_tmp = ds_tmp.mean(dim=x_name).squeeze()
+                    ds_tmp = ds_tmp.drop_vars({lon_name, 'bounds_'+lon_name})
                 if ds_accum is None:
                     ds_accum = ds_tmp
                 else:
@@ -1058,22 +1060,24 @@ def plot_evaluation_zonal_TS (in_file='zonal_TS_avg.nc', obs_file='/gws/ssde/j25
     lon_name, lat_name = latlon_name(ds_model)
     x_name, y_name = xy_name(ds_model)
     # Make latitude, now zonally averaged, a dimension
-    ds_model = ds_model.assign_coords({y_name:ds_model[lat_name].values}).rename_dims({y_name:lat_name})
+    ds_model = ds_model.swap_dims({y_name:lat_name})
 
     # Read observations and make sure naming conventions follow NEMO
-    ds_obs = xr.open_dataset(obs_file, decode_times=False).drop_vars({'time'}).rename_dims({'lat':lat_name, 'deptht':'depth'})
+    ds_obs = xr.open_dataset(obs_file, decode_times=False).drop_vars({'time'}).rename({'lat':lat_name, 'depth':'deptht'})
     for var_old, var_new in zip(var_names_obs, var_names):
         ds_obs = ds_obs.rename({var_old:var_new})
     # Now interpolate to model grid
     ds_obs_interp = ds_obs.interp_like(ds_model, method='linear')
 
+    # Prepare cell edges for plotting
+    grid_suffix = lat_name[len('nav_lat'):]
+    lat_edges = cfxr.bounds_to_vertices(ds_model['bounds_'+lat_name], 'nvertex'+grid_suffix).isel(deptht_vertices=0)
+    depth_edges = cfxr.bounds_to_vertices(ds_model['deptht_bounds'].mean(dim=lat_name), 'axis_nbounds')
+
     # Plot
     fig = plt.figure(figsize=(10,6))
     gs = plt.GridSpec(2,3)
     gs.update(left=0.08, right=0.92, bottom=0.05, top=0.9, wspace=0.1, hspace=0.3)
-    grid_suffix = lat_name[len('nav_lat'):]
-    lat_edges = cfxr.bounds_to_vertices(ds_model['bounds_'+lat_name], 'nvertex'+grid_suffix)
-    depth_edges = cfxr.bounds_to_vertices(ds_model['deptht_bounds'], 'axis_nbounds')
     for v in range(2):
         model_plot = ds_model[var_names[v]]
         obs_plot = ds_obs_interp[var_names[v]]
