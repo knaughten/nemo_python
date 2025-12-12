@@ -57,7 +57,11 @@ This will precompute three things:
 
 If you run this job script again after NEMO has run for longer, it will update the timeseries files from #1 as needed with any new NEMO files. However, it will delete the time-averaged files from #2 and #3, and remake them from scratch.
 
-Depending on how many years you're trying to process, this can be slow. It's probably best to set it off to finish overnight, but if you're in a hurry you could split up the three steps into different jobs to run simultaneously. The slowest step is the transport timeseries; to skip these, set the argument `transport=False` in the call to `update_timeseries_evaluation_NEMO_AIS` in `precompute_all.sh`.
+Depending on how many years you're trying to process, this can be slow. Here are some strategies to manage this:
+-Set it off to finish overnight
+-Split up the three steps into different jobs to run simultaneously
+-If you are processing a really long run and the timeseries don't finish precomputing within 24 hours, you can just resubmit the same job again to pick up where it left off
+-The slowest step is the transport timeseries; to skip these, set the argument `transport=False` in the call to `update_timeseries_evaluation_NEMO_AIS` in `precompute_all.sh`.
 
 # 3. Make the plots
 
