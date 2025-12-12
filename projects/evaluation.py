@@ -8,6 +8,7 @@ import gsw
 from ..utils import select_bottom, distance_along_transect, moving_average, polar_stereo, latlon_name, xy_name
 from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli_melt, adusumilli_std, transport_obs, transport_std, region_edges, rEarth, deg2rad, zhou_TS, zhou_TS_std
 from ..plots import circumpolar_plot, finished_plot, plot_ts_distribution, plot_transect
+from ..plot_utils import set_colours
 from ..interpolation import interp_latlon_cf, interp_latlon_cf_blocks
 from ..file_io import read_schmidtko, read_woa, read_dutrieux, read_zhou
 from ..grid import extract_var_region, transect_coords_from_latlon_waypoints, region_mask, build_shelf_mask
@@ -846,8 +847,6 @@ def preproc_shenjie (obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_cl
 # option: 'bottom_TS' (bottom T and S), 'zonal_TS' (zonal mean T and S)
 def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir=None, num_years=20, out_file='bottom_TS_avg.nc'):
 
-    import cf_xarray as cfxr
-
     if option == 'bottom_TS':
         var_names_1 = ['tob', 'sob']
         var_names_2 = ['sbt', 'sbs']
@@ -1043,6 +1042,8 @@ def precompute_woa_zonal_mean (in_dir='./', out_file='woa_zonal_mean.nc'):
 # Plot zonally-averaged T and S compared to WOA 2023.
 def plot_evaluation_zonal_TS (in_file='zonal_TS_avg.nc', obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/woa_zonal_mean.nc', fig_name=None):
 
+    import cf_xarray as cfxr
+
     var_names = ['thetao', 'so']
     var_names_obs = ['t', 's']
     var_titles = ['Conservative temperature ('+deg_string+'C)', 'Absolute salinity']
@@ -1070,6 +1071,9 @@ def plot_evaluation_zonal_TS (in_file='zonal_TS_avg.nc', obs_file='/gws/ssde/j25
     fig = plt.figure(figsize=(10,6))
     gs = plt.GridSpec(2,3)
     gs.update(left=0.08, right=0.92, bottom=0.05, top=0.9, wspace=0.1, hspace=0.3)
+    grid_suffix = lat_name[len('nav_lat'):]
+    lat_edges = cfxr.bounds_to_vertices(ds_model['bounds_'+lat_name], 'nvertex'+grid_suffix)
+    depth_edges = cfxr.bounds_to_vertices(ds_model['deptht_bounds'], 'axis_nbounds')
     for v in range(2):
         model_plot = ds_model[var_names[v]]
         obs_plot = ds_obs_interp[var_names[v]]
@@ -1077,7 +1081,14 @@ def plot_evaluation_zonal_TS (in_file='zonal_TS_avg.nc', obs_file='/gws/ssde/j25
         vmin_tmp = [vmin[v], vmin[v], -1*vdiff[v]]
         vmax_tmp = [vmax[v], vmax[v], vdiff[v]]
         for n in range(3):
+            cmap = set_colours(data_plot[n], ctype=ctype[n], vmin=vmin_tmp, vmax=vmax_tmp)
             ax = plt.subplot(gs[v,n])
-            img = ax.pcolormesh(ds_model[lat_name], ds_model['deptht'], 
+            img = ax.pcolormesh(lat_edges, depth_edges, data_plot[n], cmap=cmap)
+            ax.set_title(subtitles[n], fontsize=14)
+            if n != 1:
+                cax = fig.add_axes([0.02+0.45*n, 0.57-0.49*v, 0.02, 0.3])
+                plt.colorbar(img, cax=cax, extend='both')
+        plt.text(0.5, 0.99-0.48*v, var_titles[v], ha='center', va='top', transform=fig.transFigure, fontsize=16)
+    finished_plot(fig, fig_name=fig_name)
     
     
