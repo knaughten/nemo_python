@@ -601,13 +601,13 @@ def timeseries_types_evaluation ():
 
 # Precompute timeseries for evaluation deck from Birgit's NEMO config
 # eg for latest 'best' ERA5 case, uncompressed: in_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/birgit_baseline/"
-def update_timeseries_evaluation_NEMO_AIS (in_dir, out_dir='./'):
+def update_timeseries_evaluation_NEMO_AIS (in_dir, suite_id='AntArc', out_dir='./'):
 
     domain_cfg = '/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20250715.nc'
     timeseries_types = timeseries_types_evaluation()
 
     for gtype in timeseries_types:
-        update_simulation_timeseries('L121', timeseries_types[gtype], timeseries_file='timeseries_'+gtype+'.nc', timeseries_dir=out_dir, config='eANT025', sim_dir=in_dir, halo=False, gtype=gtype, domain_cfg=domain_cfg)
+        update_simulation_timeseries(suite_id, timeseries_types[gtype], timeseries_file='timeseries_'+gtype+'.nc', timeseries_dir=out_dir, config='eANT025', sim_dir=in_dir, halo=False, gtype=gtype, domain_cfg=domain_cfg)
 
 
 # As above, for UKESM1 suites
@@ -855,7 +855,7 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
 
     if config == 'NEMO_AIS':
         if suite_id is None:
-            suite_id = 'eANT025.L121'
+            suite_id = 'eANT025.AntArc'
         if in_dir is None:
             in_dir = './'
         file_head = suite_id+'_1m_'
