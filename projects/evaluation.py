@@ -933,7 +933,7 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
             # Process one month at a time: this is more memory efficient than the built in functions, if not more code efficient!
             for t in range(months_per_file):
                 ds_tmp = ds.isel(time_counter=t)
-                for var in var_names:
+                for var in ds_tmp:
                     ds_tmp[var] = ds_tmp[var]*weights[t]
                 ds_tmp = ds_tmp.drop_vars({'time_counter', 'time_centered'})
                 if option == 'zonal_TS':
