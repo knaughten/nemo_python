@@ -1057,14 +1057,12 @@ def precompute_woa_zonal_mean (in_dir='./', out_file='woa_zonal_mean.nc'):
 # Plot zonally-averaged T and S compared to WOA 2023.
 def plot_evaluation_zonal_TS (in_file='zonal_TS_avg.nc', obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/woa_zonal_mean.nc', fig_name=None):
 
-    import cf_xarray as cfxr
-
     var_names = ['thetao', 'so']
     var_names_obs = ['t', 's']
     var_titles = ['Conservative temperature ('+deg_string+'C)', 'Absolute salinity']
-    vmin = [-2.5, 34.4]
-    vmax = [2, 35]
-    vdiff = [1, 0.5]
+    vmin = [-2.5, 34.3]
+    vmax = [5, 35]
+    vdiff = [0.75, 0.25]
     subtitles = ['Model', 'Observations', 'Model bias']
     ctype = ['RdBu_r', 'RdBu_r', 'plusminus']
 
@@ -1092,9 +1090,9 @@ def plot_evaluation_zonal_TS (in_file='zonal_TS_avg.nc', obs_file='/gws/ssde/j25
     depth_edges = arr_edges(ds_model['deptht'])
 
     # Plot
-    fig = plt.figure(figsize=(10,7))
+    fig = plt.figure(figsize=(11,6.5))
     gs = plt.GridSpec(2,3)
-    gs.update(left=0.1, right=0.9, bottom=0.05, top=0.9, wspace=0.1, hspace=0.4)
+    gs.update(left=0.12, right=0.9, bottom=0.05, top=0.9, wspace=0.1, hspace=0.4)
     for v in range(2):
         model_plot = ds_model[var_names[v]]
         obs_plot = ds_obs_interp[var_names[v]]
@@ -1115,7 +1113,7 @@ def plot_evaluation_zonal_TS (in_file='zonal_TS_avg.nc', obs_file='/gws/ssde/j25
                 ax.set_ylabel('depth (km)')
             else:
                 ax.set_yticklabels([])
-        plt.text(0.5, 0.99-0.48*v, var_titles[v], ha='center', va='top', transform=fig.transFigure, fontsize=16)
+        plt.text(0.5, 0.99-0.5*v, var_titles[v], ha='center', va='top', transform=fig.transFigure, fontsize=16)
     finished_plot(fig, fig_name=fig_name)
     
     
