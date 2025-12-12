@@ -601,12 +601,17 @@ def timeseries_types_evaluation ():
 
 # Precompute timeseries for evaluation deck from Birgit's NEMO config
 # eg for latest 'best' ERA5 case, uncompressed: in_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/birgit_baseline/"
-def update_timeseries_evaluation_NEMO_AIS (in_dir, suite_id='AntArc', out_dir='./'):
+def update_timeseries_evaluation_NEMO_AIS (in_dir, suite_id='AntArc', out_dir='./', transport=True):
 
     domain_cfg = '/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20250715.nc'
     timeseries_types = timeseries_types_evaluation()
 
-    for gtype in timeseries_types:
+    if transport:
+        gtypes = timeseries_types
+    else:
+        gtypes = timeseries_types[:-1]
+
+    for gtype in gtypes:
         update_simulation_timeseries(suite_id, timeseries_types[gtype], timeseries_file='timeseries_'+gtype+'.nc', timeseries_dir=out_dir, config='eANT025', sim_dir=in_dir, halo=False, gtype=gtype, domain_cfg=domain_cfg)
 
 
@@ -644,6 +649,10 @@ def redo_dotson_cosgrove_timeseries (in_dir, out_dir='./'):
 
 
 def plot_evaluation_timeseries_shelf (timeseries_file='timeseries_T.nc', fig_name=None):
+
+    if not os.path.isfile(timeseries_file):
+        print('Warning: '+timeseries_file+' does not exist. Skipping plot.')
+        return
 
     regions = ['all', 'larsen', 'filchner_ronne', 'east_antarctica', 'amery', 'ross', 'west_antarctica', 'dotson_cosgrove']    
     var_names = ['massloss', 'shelf_bwtemp', 'shelf_bwsalt']
@@ -719,6 +728,10 @@ def plot_evaluation_timeseries_shelf (timeseries_file='timeseries_T.nc', fig_nam
 
 
 def plot_evaluation_timeseries_transport (timeseries_file='timeseries_U.nc', fig_name=None):
+
+    if not os.path.isfile(timeseries_file):
+        print('Warning: '+timeseries_file+' does not exist. Skipping plot.')
+        return
 
     var_names = ['drake_passage_transport', 'weddell_gyre_transport', 'ross_gyre_transport']
     var_titles = ['Drake Passage', 'Weddell Gyre', 'Ross Gyre']
@@ -971,6 +984,10 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
 # Plot bottom T and S compared to Shenjie's obs.
 def plot_evaluation_bottom_TS (in_file='bottom_TS_avg.nc', obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_2D.nc', fig_name=None):
 
+    if not os.path.isfile(in_file):
+        print('Warning: '+in_file+' does not exist. Skipping plot.')
+        return
+
     var_names_1 = ['tob', 'sob']
     var_names_2 = ['sbt', 'sbs']
     var_names_obs = ['ct_bottom', 'sa_bottom']
@@ -1056,6 +1073,10 @@ def precompute_woa_zonal_mean (in_dir='./', out_file='woa_zonal_mean.nc'):
 
 # Plot zonally-averaged T and S compared to WOA 2023.
 def plot_evaluation_zonal_TS (in_file='zonal_TS_avg.nc', obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/woa_zonal_mean.nc', fig_name=None):
+
+    if not os.path.isfile(in_file):
+        print('Warning: '+in_file+' does not exist. Skipping plot.')
+        return
 
     var_names = ['thetao', 'so']
     var_names_obs = ['t', 's']

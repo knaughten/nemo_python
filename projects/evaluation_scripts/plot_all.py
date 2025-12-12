@@ -2,3 +2,4 @@ from nemo_python.projects.evaluation import *
 plot_evaluation_timeseries_shelf(fig_name='evaluation_timeseries_shelf.png')
 plot_evaluation_timeseries_transport(fig_name='evaluation_timeseries_transport.png')
 plot_evaluation_bottom_TS(fig_name='evaluation_bottom_TS.png')
+plot_evaluation_zonal_TS(fig_name='evaluation_zonal_TS.png')
