@@ -914,7 +914,7 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
                 var_names = var_names_2                
         # Select only variables we want, and mask where identically zero
         lon_name, lat_name = latlon_name(ds)
-        ds = ds[var_names+[lon_name, lat_name, 'bounds_'+lon_name, 'bounds_'+lat_name]].where(ds[var_names[0]]!=0)
+        ds = ds[var_names+[lon_name, lat_name, 'bounds_'+lon_name, 'bounds_'+lat_name, 'deptht_bounds']].where(ds[var_names[0]]!=0)
         if eos == 'eos80' and option in ['bottom_TS', 'zonal_TS']:
             # Convert to TEOS-10
             pot_temp = ds[var_names[0]]
@@ -1054,4 +1054,30 @@ def plot_evaluation_zonal_TS (in_file='zonal_TS_avg.nc', obs_file='/gws/ssde/j25
 
     # Read precomputed model fields
     ds_model = xr.open_dataset(in_file)
-    ds_model = ds_
+    lon_name, lat_name = latlon_name(ds_model)
+    x_name, y_name = xy_name(ds_model)
+    # Make latitude, now zonally averaged, a dimension
+    ds_model = ds_model.assign_coords({y_name:ds_model[lat_name].values}).rename_dims({y_name:lat_name})
+
+    # Read observations and make sure naming conventions follow NEMO
+    ds_obs = xr.open_dataset(obs_file, decode_times=False).drop_vars({'time'}).rename_dims({'lat':lat_name, 'deptht':'depth'})
+    for var_old, var_new in zip(var_names_obs, var_names):
+        ds_obs = ds_obs.rename({var_old:var_new})
+    # Now interpolate to model grid
+    ds_obs_interp = ds_obs.interp_like(ds_model, method='linear')
+
+    # Plot
+    fig = plt.figure(figsize=(10,6))
+    gs = plt.GridSpec(2,3)
+    gs.update(left=0.08, right=0.92, bottom=0.05, top=0.9, wspace=0.1, hspace=0.3)
+    for v in range(2):
+        model_plot = ds_model[var_names[v]]
+        obs_plot = ds_obs_interp[var_names[v]]
+        data_plot = [model_plot, obs_plot, model_plot-obs_plot]
+        vmin_tmp = [vmin[v], vmin[v], -1*vdiff[v]]
+        vmax_tmp = [vmax[v], vmax[v], vdiff[v]]
+        for n in range(3):
+            ax = plt.subplot(gs[v,n])
+            img = ax.pcolormesh(ds_model[lat_name], ds_model['deptht'], 
+    
+    
