@@ -943,6 +943,7 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
                     x_name, y_name = xy_name(ds_tmp)
                     ds_tmp = ds_tmp.mean(dim=x_name).squeeze()
                     ds_tmp = ds_tmp.drop_vars({lon_name, 'bounds_'+lon_name})
+                    ds_tmp = ds_tmp.set_coords(lat_name)
                 if ds_accum is None:
                     ds_accum = ds_tmp
                 else:
