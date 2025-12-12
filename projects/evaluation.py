@@ -1028,25 +1028,27 @@ def precompute_woa_zonal_mean (in_dir='./', out_file='woa_zonal_mean.nc'):
     file_head = in_dir+'/'+'woa23_decav_'
     file_tail = '00_04.nc'
 
+    print('Reading data')
     ds_out = None
     for var in var_names:
-        print('Processing '+var)
         file_path = file_head + var + file_tail
         ds = xr.open_dataset(file_path, decode_times=False)
         data = ds[var+'_an'].squeeze()
         if ds_out is None:
-            ds_out = xr.Dataset({var:data_mean})
+            ds_out = xr.Dataset({var:data})
         else:
-            ds_out = ds.assign({var:data_mean})
+            ds_out = ds_out.assign({var:data})
         ds.close()
+    print('Converting to TEOS-10')
     # Now convert to TEOS-10
-    pot_temp = ds[var_names[0]]
-    prac_salt = ds[var_names[1]]
-    depth_3d = xr.broadcast(ds['depth'], pot_temp)
-    abs_salt = gsw.SA_from_SP(prac_salt, depth_3d, ds['lon'], ds['lat'])
+    pot_temp = ds_out[var_names[0]]
+    prac_salt = ds_out[var_names[1]]
+    depth_3d = xr.broadcast(ds_out['depth'], pot_temp)[0]
+    abs_salt = gsw.SA_from_SP(prac_salt, depth_3d, ds_out['lon'], ds_out['lat'])
     con_temp = gsw.CT_from_pt(abs_salt, pot_temp)
     ds_out[var_names[0]] = con_temp.assign_attrs(long_name='conservative temperature, TEOS-10')
-    ds_out[var_names[1]] = abs_salt.assign_attrs(long_name='absolute salinity, TEOS-10')    
+    ds_out[var_names[1]] = abs_salt.assign_attrs(long_name='absolute salinity, TEOS-10')
+    print('Calculating zonal mean')
     # WOA grid is regular 0.25 deg spacing, so zonal mean is simple
     ds_out = ds_out.mean(dim='lon').squeeze()
     ds_out.to_netcdf(out_file)
