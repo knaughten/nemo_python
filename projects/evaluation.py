@@ -8,7 +8,7 @@ import gsw
 from ..utils import select_bottom, distance_along_transect, moving_average, polar_stereo, latlon_name, xy_name
 from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli_melt, adusumilli_std, transport_obs, transport_std, region_edges, rEarth, deg2rad, zhou_TS, zhou_TS_std
 from ..plots import circumpolar_plot, finished_plot, plot_ts_distribution, plot_transect
-from ..plot_utils import set_colours
+from ..plot_utils import set_colours, latlon_axis
 from ..interpolation import interp_latlon_cf, interp_latlon_cf_blocks
 from ..file_io import read_schmidtko, read_woa, read_dutrieux, read_zhou
 from ..grid import extract_var_region, transect_coords_from_latlon_waypoints, region_mask, build_shelf_mask
@@ -1019,8 +1019,10 @@ def plot_evaluation_bottom_TS (in_file='bottom_TS_avg.nc', obs_file='/gws/ssde/j
     finished_plot(fig, fig_name=fig_name)
 
 
-# Precompute the zonal mean T and S over the Southern Ocean (to 50S) from WOA 2023.
+# Precompute the zonal mean T and S over the Southern Ocean (to 50S) from WOA 2023. Convert to TEOS-10 while we're at it.
 def precompute_woa_zonal_mean (in_dir='./', out_file='woa_zonal_mean.nc'):
+
+    import gsw
 
     var_names = ['t', 's']
     file_head = in_dir+'/'+'woa23_decav_'
@@ -1032,13 +1034,21 @@ def precompute_woa_zonal_mean (in_dir='./', out_file='woa_zonal_mean.nc'):
         file_path = file_head + var + file_tail
         ds = xr.open_dataset(file_path, decode_times=False)
         data = ds[var+'_an'].squeeze()
-        # WOA grid is regular 0.25 deg spacing, so zonal mean is simple
-        data_mean = data.mean(dim='lon').squeeze()
         if ds_out is None:
             ds_out = xr.Dataset({var:data_mean})
         else:
-            ds_out = ds_out.assign({var:data_mean})
+            ds_out = ds.assign({var:data_mean})
         ds.close()
+    # Now convert to TEOS-10
+    pot_temp = ds[var_names[0]]
+    prac_salt = ds[var_names[1]]
+    depth_3d = xr.broadcast(ds['depth'], pot_temp)
+    abs_salt = gsw.SA_from_SP(prac_salt, depth_3d, ds['lon'], ds['lat'])
+    con_temp = gsw.CT_from_pt(abs_salt, pot_temp)
+    ds_out[var_names[0]] = con_temp.assign_attrs(long_name='conservative temperature, TEOS-10')
+    ds_out[var_names[1]] = abs_salt.assign_attrs(long_name='absolute salinity, TEOS-10')    
+    # WOA grid is regular 0.25 deg spacing, so zonal mean is simple
+    ds_out = ds_out.mean(dim='lon').squeeze()
     ds_out.to_netcdf(out_file)
 
 
@@ -1062,6 +1072,8 @@ def plot_evaluation_zonal_TS (in_file='zonal_TS_avg.nc', obs_file='/gws/ssde/j25
     x_name, y_name = xy_name(ds_model)
     # Make latitude, now zonally averaged, a dimension
     ds_model = ds_model.swap_dims({y_name:lat_name})
+    # Remove masked latitudes at beginning and end
+    ds_model = ds_model.where(ds_model[lat_name].notnull(), drop=True)
 
     # Read observations and make sure naming conventions follow NEMO
     ds_obs = xr.open_dataset(obs_file, decode_times=False).drop_vars({'time'}).rename({'lat':lat_name, 'depth':'deptht'})
@@ -1071,14 +1083,16 @@ def plot_evaluation_zonal_TS (in_file='zonal_TS_avg.nc', obs_file='/gws/ssde/j25
     ds_obs_interp = ds_obs.interp_like(ds_model, method='linear')
 
     # Prepare cell edges for plotting
-    grid_suffix = lat_name[len('nav_lat'):]
-    lat_edges = cfxr.bounds_to_vertices(ds_model['bounds_'+lat_name], 'nvertex'+grid_suffix).isel(deptht_vertices=0)
-    depth_edges = cfxr.bounds_to_vertices(ds_model['deptht_bounds'].mean(dim=lat_name), 'axis_nbounds')
+    def arr_edges (arr):
+        data = arr.data
+        return np.concatenate(([2*data[0]-data[1]], 0.5*(data[:-1] + data[1:]), [2*data[-1]-data[-2]]))
+    lat_edges = arr_edges(ds_model[lat_name])
+    depth_edges = arr_edges(ds_model['deptht'])
 
     # Plot
-    fig = plt.figure(figsize=(10,6))
+    fig = plt.figure(figsize=(10,7))
     gs = plt.GridSpec(2,3)
-    gs.update(left=0.08, right=0.92, bottom=0.05, top=0.9, wspace=0.1, hspace=0.3)
+    gs.update(left=0.1, right=0.9, bottom=0.05, top=0.9, wspace=0.1, hspace=0.4)
     for v in range(2):
         model_plot = ds_model[var_names[v]]
         obs_plot = ds_obs_interp[var_names[v]]
@@ -1086,13 +1100,19 @@ def plot_evaluation_zonal_TS (in_file='zonal_TS_avg.nc', obs_file='/gws/ssde/j25
         vmin_tmp = [vmin[v], vmin[v], -1*vdiff[v]]
         vmax_tmp = [vmax[v], vmax[v], vdiff[v]]
         for n in range(3):
-            cmap = set_colours(data_plot[n], ctype=ctype[n], vmin=vmin_tmp, vmax=vmax_tmp)
+            cmap = set_colours(data_plot[n], ctype=ctype[n], vmin=vmin_tmp[n], vmax=vmax_tmp[n])[0]
             ax = plt.subplot(gs[v,n])
-            img = ax.pcolormesh(lat_edges, depth_edges, data_plot[n], cmap=cmap)
+            img = ax.pcolormesh(lat_edges, depth_edges*1e-3, data_plot[n], cmap=cmap, vmin=vmin_tmp[n], vmax=vmax_tmp[n])
+            ax.set_ylim(ax.get_ylim()[::-1])
             ax.set_title(subtitles[n], fontsize=14)
             if n != 1:
                 cax = fig.add_axes([0.02+0.45*n, 0.57-0.49*v, 0.02, 0.3])
                 plt.colorbar(img, cax=cax, extend='both')
+            latlon_axis(ax, 'lat', 'x')
+            if n == 0:
+                ax.set_ylabel('depth (km)')
+            else:
+                ax.set_yticklabels([])
         plt.text(0.5, 0.99-0.48*v, var_titles[v], ha='center', va='top', transform=fig.transFigure, fontsize=16)
     finished_plot(fig, fig_name=fig_name)
     
