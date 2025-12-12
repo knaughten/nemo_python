@@ -5,7 +5,7 @@
 #SBATCH -o %x.%j.o
 #SBATCH -e %x.%j.e
 #SBATCH --time=24:00:00
-#SBATCH --mem=16GB
+#SBATCH --mem=64GB
 
 # Timeseries - update existing files, or calculate from scratch
 python -c "from nemo_python.projects.evaluation import *; update_timeseries_evaluation_NEMO_AIS('./')"

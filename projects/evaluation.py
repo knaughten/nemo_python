@@ -887,6 +887,14 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
     nemo_files.sort()
     # Select the last num_years
     num_t = int(num_years*months_per_year/months_per_file)
+    if num_t > len(nemo_files):
+        # Not enough years
+        # Figure out the number of complete years
+        num_years = int(len(nemo_files)*months_per_file/months_per_year)
+        if num_years == 0:
+            raise Exception('Less than 1 year of simulation completed. Cannot calculate averages')
+        print('Warning: reducing num_years to '+str(num_years)+' as simulation is too short.')
+        num_t = int(num_years*months_per_year/months_per_file)
     nemo_files =  nemo_files[-num_t:]
 
     # Now read one file at a time
@@ -931,6 +939,7 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
                 ds_tmp = ds_tmp.drop_vars({'time_counter', 'time_centered'})
                 if option == 'zonal_TS':
                     # Zonal mean - keep it simple - this is just for eyeball comparison with WOA, don't need to close a budget
+                    ds_tmp = ds_tmp.reset_coords()
                     x_name, y_name = xy_name(ds_tmp)
                     ds_tmp = ds_tmp.mean(dim=x_name).squeeze()                
                 if ds_accum is None:
@@ -1029,3 +1038,20 @@ def precompute_woa_zonal_mean (in_dir='./', out_file='woa_zonal_mean.nc'):
             ds_out = ds_out.assign({var:data_mean})
         ds.close()
     ds_out.to_netcdf(out_file)
+
+
+# Plot zonally-averaged T and S compared to WOA 2023.
+def plot_evaluation_zonal_TS (in_file='zonal_TS_avg.nc', obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/woa_zonal_mean.nc', fig_name=None):
+
+    var_names = ['thetao', 'so']
+    var_names_obs = ['t', 's']
+    var_titles = ['Conservative temperature ('+deg_string+'C)', 'Absolute salinity']
+    vmin = [-2.5, 34.4]
+    vmax = [2, 35]
+    vdiff = [1, 0.5]
+    subtitles = ['Model', 'Observations', 'Model bias']
+    ctype = ['RdBu_r', 'RdBu_r', 'plusminus']
+
+    # Read precomputed model fields
+    ds_model = xr.open_dataset(in_file)
+    ds_model = ds_
