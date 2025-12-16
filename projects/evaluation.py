@@ -926,11 +926,9 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
                 var_names = var_names_2                
         # Select only variables we want, and mask where identically zero
         lon_name, lat_name = latlon_name(ds)
-        var_list = var_names+[lon_name, lat_name, 'bounds_'+lon_name, 'bounds_'+lat_name]
-        if option == 'zonal_TS':
-            var_list += ['deptht_bounds']
-        ds = ds.rename({'x_grid_T_inner':'x_grid_T', 'y_grid_T_inner':'y_grid_T'})
-        ds = ds[var_list].where(ds[var_names[0]]!=0)
+        ds_var = ds[var_names].where(ds[var_names[0]]!=0)
+        # Add in some grid variables
+        ds = ds_var.merge(ds[lon_name, lat_name, 'bounds_'+lon_name, 'bounds_'+lat_name]
         if eos == 'eos80' and option in ['bottom_TS', 'zonal_TS']:
             # Convert to TEOS-10
             pot_temp = ds[var_names[0]]
@@ -1008,7 +1006,7 @@ def plot_evaluation_bottom_TS (in_file='bottom_TS_avg.nc', obs_file='/gws/ssde/j
         var_names = var_names_1
     else:
         var_names = var_names_2
-    ds_model = ds_model.rename({'x_grid_T':'x', 'y_grid_T':'y'})
+    ds_model = ds_model.rename({'x_grid_T_inner':'x', 'y_grid_T_inner':'y'})
     ds_model = ds_model.assign({'ocean_mask':ds_model[var_names[0]].notnull()})
 
     # Read observations and interpolate to model grid
