@@ -928,7 +928,7 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
         lon_name, lat_name = latlon_name(ds)
         ds_var = ds[var_names].where(ds[var_names[0]]!=0)
         # Add in some grid variables
-        ds = ds_var.merge(ds[lon_name, lat_name, 'bounds_'+lon_name, 'bounds_'+lat_name]
+        ds = ds_var.merge(ds[lon_name, lat_name, 'bounds_'+lon_name, 'bounds_'+lat_name])
         if eos == 'eos80' and option in ['bottom_TS', 'zonal_TS']:
             # Convert to TEOS-10
             pot_temp = ds[var_names[0]]
