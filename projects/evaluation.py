@@ -926,7 +926,10 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
                 var_names = var_names_2                
         # Select only variables we want, and mask where identically zero
         lon_name, lat_name = latlon_name(ds)
-        ds = ds[var_names+[lon_name, lat_name, 'bounds_'+lon_name, 'bounds_'+lat_name, 'deptht_bounds']].where(ds[var_names[0]]!=0)
+        var_list = var_names+[lon_name, lat_name, 'bounds_'+lon_name, 'bounds_'+lat_name]
+        if option == 'zonal_TS':
+            var_list += ['deptht_bounds']
+        ds = ds[var_list].where(ds[var_names[0]]!=0)
         if eos == 'eos80' and option in ['bottom_TS', 'zonal_TS']:
             # Convert to TEOS-10
             pot_temp = ds[var_names[0]]
