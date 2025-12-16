@@ -968,7 +968,9 @@ def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./', lat_max=-50, flood_f
                     if 'time' in data.dims:
                         data = data.transpose('time','latitude','longitude')
                     else:
-                        data = data.expand_dims(dim='time')                    
+                        data = data.expand_dims(dim='time')
+                    # Make sure longitude is in the range -180 to 180
+                    data['longitude'] = fix_lon_range(data['longitude'])
                     data.load()
                     if flood_fill:
                         # Fill land mask with nearest neighbours
