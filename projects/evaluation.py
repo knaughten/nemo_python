@@ -724,7 +724,7 @@ def plot_evaluation_timeseries_shelf (timeseries_file='timeseries_T.nc', fig_nam
                 else:
                     depth_label = ''
                 plt.text(0.05, 0.95, depth_label, fontsize=8, ha='left', va='top', transform=ax.transAxes)
-    finished_plot(fig, fig_name=fig_name)
+    finished_plot(fig, fig_name=fig_name, dpi=300)
 
 
 def plot_evaluation_timeseries_transport (timeseries_file='timeseries_U.nc', fig_name=None):
@@ -760,7 +760,7 @@ def plot_evaluation_timeseries_transport (timeseries_file='timeseries_U.nc', fig
             ax.set_ylabel('Transport (Sv)')
         ax.grid(linestyle='dotted')
         ax.tick_params(axis='x', labelrotation=90)
-    finished_plot(fig, fig_name=fig_name)
+    finished_plot(fig, fig_name=fig_name, dpi=300)
         
 
 # Calculate the observed mean and uncertainty of T and S on the shelf averaged over each region, from the Zhou 2025 climatology.
@@ -1037,7 +1037,7 @@ def plot_evaluation_bottom_TS (in_file='bottom_TS_avg.nc', obs_file='/gws/ssde/j
                 cax = fig.add_axes([0.02+0.45*n, 0.57-0.49*v, 0.02, 0.3])
                 plt.colorbar(img, cax=cax, extend='both')
         plt.text(0.5, 0.99-0.48*v, var_titles[v], ha='center', va='top', transform=fig.transFigure, fontsize=16)
-    finished_plot(fig, fig_name=fig_name)
+    finished_plot(fig, fig_name=fig_name, dpi=300)
 
 
 # Precompute the zonal mean T and S over the Southern Ocean (to 50S) from WOA 2023. Convert to TEOS-10 while we're at it.
@@ -1139,6 +1139,6 @@ def plot_evaluation_zonal_TS (in_file='zonal_TS_avg.nc', obs_file='/gws/ssde/j25
             else:
                 ax.set_yticklabels([])
         plt.text(0.5, 0.99-0.5*v, var_titles[v], ha='center', va='top', transform=fig.transFigure, fontsize=16)
-    finished_plot(fig, fig_name=fig_name)
+    finished_plot(fig, fig_name=fig_name, dpi=300)
     
     
