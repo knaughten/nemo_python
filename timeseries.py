@@ -33,6 +33,8 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
             ds_nemo = ds_nemo.rename(name_remapping)
         except: # if it doesn't seem to need to be renamed, continue looping through
             pass
+
+    x_name, y_name = xy_name(ds_nemo)
     
     # Parse variable name
     factor = 1
@@ -170,11 +172,11 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
     if var == 'drake_passage_transport' and 'e2u' not in ds_nemo:
         # Need to add e2u from domain_cfg
         ds_domcfg = xr.open_dataset(domain_cfg, decode_times=time_coder).squeeze()
-        if ds_nemo.sizes['y'] < ds_domcfg.sizes['y']:
+        if ds_nemo.sizes[y_name] < ds_domcfg.sizes[x_name]:
             # The NEMO dataset was trimmed (eg by MOOSE for UKESM) to the southernmost latitudes. Do the same for domain_cfg.
-            ds_domcfg = ds_domcfg.isel(y=slice(0, ds_nemo.sizes['y']))
+            ds_domcfg = ds_domcfg.isel(y_name=slice(0, ds_nemo.sizes[y_name]))
         if halo:
-            ds_domcfg = ds_domcfg.isel(x=slice(1,-1))
+            ds_domcfg = ds_domcfg.isel(x_name=slice(1,-1))
         ds_nemo = ds_nemo.assign({'e2u':ds_domcfg['e2u']})
 
     if var.endswith('_thermocline'):
@@ -238,7 +240,6 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         for v in ['thkcello', 'e3t']:
             if v in ds_nemo:
                 return v
-    x_name, y_name = xy_name(ds_nemo)
 
     if option == 'area_int':
         # Area integral
@@ -285,9 +286,9 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         ds_domcfg = xr.open_dataset(domain_cfg, decode_times=time_coder).squeeze()
         if ds_nemo.sizes[y_name] < ds_domcfg.sizes[y_name]:
             # The NEMO dataset was trimmed (eg by MOOSE for UKESM) to the southernmost latitudes. Do the same for domain_cfg.
-            ds_domcfg = ds_domcfg.isel(y=slice(0, ds_nemo.sizes[y_name]))
+            ds_domcfg = ds_domcfg.isel(y_name=slice(0, ds_nemo.sizes[y_name]))
         if halo:
-            ds_domcfg = ds_domcfg.isel(x=slice(1,-1))
+            ds_domcfg = ds_domcfg.isel(x_name=slice(1,-1))
         data = gyre_transport(region, ds_nemo, ds_nemo, ds_domcfg, periodic=periodic, halo=halo)
        
     data *= factor
@@ -347,9 +348,10 @@ def precompute_timeseries (ds_nemo, timeseries_types, timeseries_file, halo=True
                            domain_cfg='/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc',
                            name_remapping='', nemo_mesh='', pp=False):
 
+    x_name, y_name = xy_name(ds_nemo)
     if halo and not pp:
         # Remove the halo
-        ds_nemo = ds_nemo.isel(x=slice(1,-1))
+        ds_nemo = ds_nemo.isel(x_name=slice(1,-1))
 
     # Calculate each timeseries and save to a Dataset
     ds_new = None
@@ -397,8 +399,9 @@ def precompute_hovmollers (ds_nemo, hovmoller_types, hovmoller_file, halo=True):
     titles = ['Temperature', 'Salinity']
     units = [deg_string+'C', gkg_string]
 
+    x_name, y_name = xy_name(ds_nemo)
     if halo:
-        ds_nemo = ds_nemo.isel(x=slice(1,-1))
+        ds_nemo = ds_nemo.isel(x_name=slice(1,-1))
 
     # Decode hovmoller_types
     regions = []
@@ -418,8 +421,7 @@ def precompute_hovmollers (ds_nemo, hovmoller_types, hovmoller_file, halo=True):
         if v in ds_nemo:
             area_name = v
             break
-    x_name, y_name = xy_name(ds_nemo)
-
+    
     ds_new = None
     for region in regions:
         # Get mask
