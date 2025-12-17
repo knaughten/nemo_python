@@ -645,7 +645,14 @@ def redo_dotson_cosgrove_timeseries (in_dir, out_dir='./'):
     ds_new = xr.open_dataset(out_dir+'/'+timeseries_file_new)
     for var in ds_new:
         ds_old[var] = ds_new[var]
-    overwrite_file(ds_old, out_dir+'/'+timeseries_file_old)    
+    overwrite_file(ds_old, out_dir+'/'+timeseries_file_old)
+
+
+# Precompute some Hovmollers
+def update_hovmollers_evaluation_NEMO_AIS (in_dir, suite_id='AntArc', out_dir='./'):
+
+    hovmoller_types = ['dotson_cosgrove_shelf_'+var for var in ['temp', 'salt']]
+    update_simulation_timeseries(suite_id, hovmoller_types, timeseries_file='hovmollers.nc', timeseries_dir=out_dir, config='eANT025', sim_dir=in_dir, halo=False, gtype='T')
 
 
 def plot_evaluation_timeseries_shelf (timeseries_file='timeseries_T.nc', fig_name=None):

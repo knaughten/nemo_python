@@ -388,10 +388,84 @@ def precompute_timeseries (ds_nemo, timeseries_types, timeseries_file, halo=True
     overwrite_file(ds_new, timeseries_file)
 
 
+# Like precompute_timeseries, but for Hovmollers (area-averaged over given region, retain the depth dimension).
+# hovmoller_types is a list with encoding <region>_<var>, eg dotson_cosgrove_shelf_temp. Currently only temp and salt are supported.
+def precompute_hovmollers (ds_nemo, hovmoller_types, hovmoller_file, halo=True):
+
+    var_names = ['temp', 'salt']
+    nemo_vars = ['thetao', 'so']
+    titles = ['Temperature', 'Salinity']
+    units = [deg_string+'C', gkg_string]
+
+    if halo:
+        ds_nemo = ds_nemo.isel(x=slice(1,-1))
+
+    # Decode hovmoller_types
+    regions = []
+    for ht in hovmoller_types:
+        found = False
+        for var in var_names:
+            if var in ht:
+                found = True
+                region = ht[:ht.index('_'+var)]
+                if region not in regions:
+                    regions.append(region)
+                break
+        if not found:
+            raise Exception('Invalid variable '+ht)
+
+    for v in ['area', 'area_grid_T']:
+        if v in ds_nemo:
+            area_name = v
+            break
+    x_name, y_name = xy_name(ds_nemo)
+
+    ds_new = None
+    for region in regions:
+        # Get mask
+        if region.endswith('cavity'):
+            region0 = region[:region.index('_cavity')]
+            region_type = 'cavity'
+        elif 'shelf' in region:
+            region0 = region[:region.index('_shelf')]
+            region_type = 'shelf'
+        else:
+            region0 = region
+            region_type = 'all'
+        if region0 in region_points and region_type == 'cavity':
+            mask, ds_nemo, region_name = single_cavity_mask(region0, ds_nemo, return_name=True)
+        else:
+            mask, ds_nemo, region_name = region_mask(region0, ds_nemo, option=region_type, return_name=True)
+        # Prepare area integrand
+        dA = ds_nemo[area_name]*mask
+        # Now loop over NEMO variables
+        for v in range(len(var_names)):
+            var_full = region+'_'+var_names[v]
+            if var_full not in hovmoller_types:
+                continue
+            data = (ds_nemo[nemo_vars[v]]*dA).sum(dim=[x_name, y_name])/dA.sum(dim=[x_name, y_name])
+            data = data.assign_attrs(long_name=titles[v]+' for '+region_name, units=units[v])
+            # Add to dataset
+            if ds_new is None:
+                ds_new = xr.Dataset({var_full:data})
+            else:
+                ds_new = ds_new.assign({var_full:data})
+
+    if os.path.isfile(hovmoller_file):
+        # Concatenate with existing data
+        ds_old = xr.open_dataset(hovmoller_file, decode_times=time_coder)
+        ds_new.load()
+        ds_new = xr.concat([ds_old, ds_new], dim='time_centered')
+        ds_old.close()
+
+    overwrite_file(ds_new, hovmoller_file)
+    
+
 # Precompute timeseries from the given simulation, either from the beginning (timeseries_file does not exist) or picking up where it left off (timeseries_file does exist). Considers all NEMO output files stamped with suite_id in the given directory sim_dir on the given grid (gtype='T', 'U', etc), and assumes the timeseries file is in that directory too (unless timeseries_dir is set).
+# If hovmoller=True, will precompute Hovmoller variables with preserved depth dimension (see precompute_hovmollers above)
 def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='timeseries.nc', timeseries_dir=None, config='', 
                                   sim_dir='./', freq='m', halo=True, periodic=True, gtype='T', name_remapping='', nemo_mesh='',
-                                  domain_cfg='/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc', compressed=False):
+                                  domain_cfg='/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc', compressed=False, hovmoller=False):
     import re
     from datetime import datetime
 
@@ -506,6 +580,8 @@ def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='t
                 ds_SBC_tmp = ds_SBC.isel(time_counter=slice(t,t+1))
                 ds_SBC_tmp.load()
                 ds_tmp = ds_tmp.merge(ds_SBC_tmp)
+            if hovmoller:
+                precompute_hovmollers(ds_tmp, timeseries_types, f'{timeseries_dir}/{timeseries_file}', halo=halo)
             precompute_timeseries(ds_tmp, timeseries_types, f'{timeseries_dir}/{timeseries_file}', halo=halo, periodic=periodic, domain_cfg=domain_cfg, name_remapping=name_remapping, nemo_mesh=nemo_mesh)
         ds_nemo.close()
 
