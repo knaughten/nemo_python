@@ -971,8 +971,6 @@ def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./', lat_max=-50, flood_f
                         data = data.expand_dims(dim='time')
                     # Make sure longitude is in the range -180 to 180
                     data['longitude'] = fix_lon_range(data['longitude'])
-                    # Drop unused coordinates which may confuse NEMO
-                    data = data.drop_attrs()
                     data.load()
                     if flood_fill:
                         # Fill land mask with nearest neighbours
@@ -1006,6 +1004,9 @@ def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./', lat_max=-50, flood_f
             ds_snapshot_mean_month = ds_snapshot.interp(time=ds_mean_month.time, method='linear')
             # Trim the snapshots to only keep the ones after the last time-mean
             ds_snapshot = ds_snapshot.where(ds_snapshot.time > ds_mean_month.time[-1], drop=True)
+            # Drop unused coordinates which may confuse NEMO
+            ds_mean_month = ds_mean_month.drop_vars({'forecast_reference_time', 'forecast_period'})
+            ds_snapshot_mean_month = ds_snapshot_mean_month.drop_vars({'forecast_reference_time', 'forecast_period'})
             # Write each variable to a file with the correct naming convention
             for var in var_names:
                 var_new = var_name_remapping[var]
