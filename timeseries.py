@@ -4,7 +4,7 @@ import os
 import glob
 from .constants import region_points, region_names, rho_fw, rho_ice, sec_per_year, deg_string, gkg_string, drake_passage_lon0, drake_passage_lat_bounds
 from .utils import add_months, closest_point, month_convert, bwsalt_abs, xy_name
-from .grid import single_cavity_mask, region_mask, calc_geometry
+from .grid import single_cavity_mask, region_mask, calc_geometry, make_mask_3d
 from .diagnostics import transport, gyre_transport, thermocline
 time_coder = xr.coders.CFDatetimeCoder(use_cftime=True)
 
@@ -439,8 +439,7 @@ def precompute_hovmollers (ds_nemo, hovmoller_types, hovmoller_file, halo=True):
         else:
             mask, ds_nemo, region_name = region_mask(region0, ds_nemo, option=region_type, return_name=True)
         # Extend to 3D with depth-dependent land mask applied
-        land_mask_3d = xr.where(ds_nemo[var_names[0]].isel(time_counter=0)==0, 0, 1).squeeze()
-        mask_3d = xr.broadcast(mask, land_mask_3d)*land_mask_3d
+        mask_3d = make_mask_3d(mask, ds_nemo)
         # Prepare area integrand in 3D
         dA_3d = xr.broadcast(ds_nemo[area_name], mask_3d)*mask_3d
         # Now loop over NEMO variables
