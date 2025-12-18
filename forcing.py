@@ -964,13 +964,13 @@ def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./', lat_max=-50, flood_f
                         mask = ds_masks[mask_var+'.msk'].rename({'y_'+mask_var:'latitude', 'x_'+mask_var:'longitude'})
                         data = xr.where(mask==0, data, missing_val)
                     # Trim latitude, with a 1-degree buffer
-                    data = data.where(data.latitude < lat_max + 1, drop=True)
+                    #data = data.where(data.latitude < lat_max + 1, drop=True)
                     if 'time' in data.dims:
                         data = data.transpose('time','latitude','longitude')
                     else:
                         data = data.expand_dims(dim='time')
                     # Make sure longitude is in the range -180 to 180
-                    data['longitude'] = fix_lon_range(data['longitude'])
+                    #data['longitude'] = fix_lon_range(data['longitude'])
                     data.load()
                     if flood_fill:
                         # Fill land mask with nearest neighbours

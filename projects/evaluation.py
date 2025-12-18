@@ -902,6 +902,8 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
                 if months_per_file not in [1, months_per_year]:
                     raise Exception('Invalid months_per_file = '+str(months_per_file))
                 ds.close()
+    if len(nemo_files) == 0:
+        raise Exception('No valid files found. Check if suite_id='+suite_id+' is correct.')
     # Sort chronologically
     nemo_files.sort()
     # Select the last num_years
