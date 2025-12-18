@@ -531,7 +531,7 @@ def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='t
         file_pattern = f'{file_head}{date_code[0]}?{date_code[1]}*{file_tail}'
         if file_pattern not in nemo_files:
             nemo_files.append(file_pattern)
-    if len(nemo_files) == 0:
+    if len(nemo_files) == 0 and not update:
         raise Exception('No valid files found. Check if suite_id='+suite_id+' is correct.')
     # Now sort alphabetically - i.e. by ascending date code
     nemo_files.sort()
@@ -586,7 +586,8 @@ def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='t
                 ds_tmp = ds_tmp.merge(ds_SBC_tmp)
             if hovmoller:
                 precompute_hovmollers(ds_tmp, timeseries_types, f'{timeseries_dir}/{timeseries_file}', halo=halo)
-            precompute_timeseries(ds_tmp, timeseries_types, f'{timeseries_dir}/{timeseries_file}', halo=halo, periodic=periodic, domain_cfg=domain_cfg, name_remapping=name_remapping, nemo_mesh=nemo_mesh)
+            else:
+                precompute_timeseries(ds_tmp, timeseries_types, f'{timeseries_dir}/{timeseries_file}', halo=halo, periodic=periodic, domain_cfg=domain_cfg, name_remapping=name_remapping, nemo_mesh=nemo_mesh)
         ds_nemo.close()
 
 

@@ -875,10 +875,10 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
 
     if config == 'NEMO_AIS':
         if suite_id is None:
-            suite_id = 'eANT025.AntArc'
+            suite_id = 'AntArc'
         if in_dir is None:
             in_dir = './'
-        file_head = suite_id+'_1m_'
+        file_head = 'eANT025.'+suite_id+'_1m_'
         file_tail = '_grid_T.nc'
         eos = 'teos10'
     elif config == 'UKESM1':
