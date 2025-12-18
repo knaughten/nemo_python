@@ -332,7 +332,7 @@ def region_mask (region, ds, option='all', return_name=False):
 def make_mask_3d (mask, ds):
 
     land_mask_3d = build_mask_3d(ds)
-    return xr.broadcast(mask, land_mask_3d)*land_mask_3d    
+    return xr.broadcast(mask, land_mask_3d)[0]*land_mask_3d    
 
 
 # Build and return a T grid mask for coastal points: open-ocean points with at least one neighbour that is land or ice shelf.

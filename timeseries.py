@@ -392,7 +392,7 @@ def precompute_timeseries (ds_nemo, timeseries_types, timeseries_file, halo=True
 
 # Like precompute_timeseries, but for Hovmollers (area-averaged over given region, retain the depth dimension).
 # hovmoller_types is a list with encoding <region>_<var>, eg dotson_cosgrove_shelf_temp. Currently only temp and salt are supported.
-def precompute_hovmollers (ds_nemo, hovmoller_types, hovmoller_file, halo=True):
+def precompute_hovmollers (ds_nemo, hovmoller_types, hovmoller_file, halo=False):
 
     var_names = ['temp', 'salt']
     nemo_vars = ['thetao', 'so']
@@ -441,7 +441,7 @@ def precompute_hovmollers (ds_nemo, hovmoller_types, hovmoller_file, halo=True):
         # Extend to 3D with depth-dependent land mask applied
         mask_3d = make_mask_3d(mask, ds_nemo)
         # Prepare area integrand in 3D
-        dA_3d = xr.broadcast(ds_nemo[area_name], mask_3d)*mask_3d
+        dA_3d = xr.broadcast(ds_nemo[area_name], mask_3d)[0]*mask_3d
         # Now loop over NEMO variables
         for v in range(len(var_names)):
             var_full = region+'_'+var_names[v]
