@@ -753,9 +753,15 @@ def plot_evaluation_timeseries_transport (timeseries_file='timeseries_U.nc', fig
     for v in range(num_var):
         ax = plt.subplot(gs[0,v])
         time = ds['time_centered']
-        ax.plot(time, ds[var_names[v]], color='DarkGrey', linewidth=1)
+        try:
+            ax.plot(time, ds[var_names[v]], color='DarkGrey', linewidth=1)
+        except(TypeError):
+            ax.plot_date(time, ds[var], '-', color='DarkGrey', linewidth=1)
         data_smoothed = moving_average(ds[var_names[v]], smooth)
-        ax.plot(data_smoothed.time_centered, data_smoothed, color='black', linewidth=1.5)
+        try:
+            ax.plot(data_smoothed.time_centered, data_smoothed, color='black', linewidth=1.5)
+        except(TypeError):
+            ax.plot_date(data_smoothed.time_centered, data_smoothed, '-', color='black', linewidth=1.5)
         region = var_names[v][:var_names[v].index('_transport')]
         obs_mean = transport_obs[region]
         obs_std = transport_std[region]
