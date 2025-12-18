@@ -4002,7 +4002,7 @@ def merge_rerun_suite (suite_old, suite_new, base_dir='./', vaf=False):
         ds_old.close()
         ds_new.close()
         print('Overwriting '+file_new)
-        overwrite_file(ds_merge, file_new)
+        overwrite_file(ds_merge, file_new, unlimited_dims=time_coord)
 
 
 # Compare the global mean SAT at the time of Ross recovery between a particularly badly affected problem suite, and a re-run suite.

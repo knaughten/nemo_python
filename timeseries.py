@@ -336,9 +336,9 @@ def calc_timeseries_um (var, file_path):
 
 # Helper function to overwrite file
 # Make a temporary file and then rename it to the old file. This is safer than doing it in one line with .to_netcdf, because if that returns an error the original file will be deleted and data will be lost.
-def overwrite_file (ds_new, timeseries_file):
+def overwrite_file (ds_new, timeseries_file, unlimited_dims='time_centered'):
     timeseries_file_tmp = timeseries_file.replace('.nc', '_tmp.nc')
-    ds_new.to_netcdf(timeseries_file_tmp, mode='w')
+    ds_new.to_netcdf(timeseries_file_tmp, mode='w', unlimited_dims=unlimited_dims)
     os.rename(timeseries_file_tmp, timeseries_file)
     ds_new.close()
 
