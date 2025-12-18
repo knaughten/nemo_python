@@ -16,7 +16,7 @@ def build_mask_3d (ds):
     mask_3d = None
     for var in ['thetao', 'so']:
         if var in ds:
-            mask_3d = xr.where(ds[var]==0, 0, 1).squeeze()
+            mask_3d = xr.where(ds[var].isel(time_counter=0)==0, 0, 1).squeeze()
             break
     if mask_3d is None:
         raise Exception('No known 3D masked variable is present. Add another variable to the code?')
