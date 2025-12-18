@@ -172,11 +172,11 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
     if var == 'drake_passage_transport' and 'e2u' not in ds_nemo:
         # Need to add e2u from domain_cfg
         ds_domcfg = xr.open_dataset(domain_cfg, decode_times=time_coder).squeeze()
-        if ds_nemo.sizes[y_name] < ds_domcfg.sizes[x_name]:
+        if ds_nemo.sizes[y_name] < ds_domcfg.sizes[y_name]:
             # The NEMO dataset was trimmed (eg by MOOSE for UKESM) to the southernmost latitudes. Do the same for domain_cfg.
-            ds_domcfg = ds_domcfg.isel(y_name=slice(0, ds_nemo.sizes[y_name]))
+            ds_domcfg = ds_domcfg.isel({y_name:slice(0, ds_nemo.sizes[y_name])})
         if halo:
-            ds_domcfg = ds_domcfg.isel(x_name=slice(1,-1))
+            ds_domcfg = ds_domcfg.isel({x_name:slice(1,-1)})
         ds_nemo = ds_nemo.assign({'e2u':ds_domcfg['e2u']})
 
     if var.endswith('_thermocline'):
@@ -286,9 +286,9 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         ds_domcfg = xr.open_dataset(domain_cfg, decode_times=time_coder).squeeze()
         if ds_nemo.sizes[y_name] < ds_domcfg.sizes[y_name]:
             # The NEMO dataset was trimmed (eg by MOOSE for UKESM) to the southernmost latitudes. Do the same for domain_cfg.
-            ds_domcfg = ds_domcfg.isel(y_name=slice(0, ds_nemo.sizes[y_name]))
+            ds_domcfg = ds_domcfg.isel({y_name:slice(0, ds_nemo.sizes[y_name])})
         if halo:
-            ds_domcfg = ds_domcfg.isel(x_name=slice(1,-1))
+            ds_domcfg = ds_domcfg.isel({x_name:slice(1,-1)})
         data = gyre_transport(region, ds_nemo, ds_nemo, ds_domcfg, periodic=periodic, halo=halo)
        
     data *= factor
@@ -351,7 +351,7 @@ def precompute_timeseries (ds_nemo, timeseries_types, timeseries_file, halo=True
     x_name, y_name = xy_name(ds_nemo)
     if halo and not pp:
         # Remove the halo
-        ds_nemo = ds_nemo.isel(x_name=slice(1,-1))
+        ds_nemo = ds_nemo.isel({x_name:slice(1,-1)})
 
     # Calculate each timeseries and save to a Dataset
     ds_new = None
@@ -401,7 +401,7 @@ def precompute_hovmollers (ds_nemo, hovmoller_types, hovmoller_file, halo=False)
 
     x_name, y_name = xy_name(ds_nemo)
     if halo:
-        ds_nemo = ds_nemo.isel(x_name=slice(1,-1))
+        ds_nemo = ds_nemo.isel({x_name:slice(1,-1)})
 
     # Decode hovmoller_types
     regions = []
