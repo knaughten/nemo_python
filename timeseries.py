@@ -452,6 +452,8 @@ def precompute_hovmollers (ds_nemo, hovmoller_types, hovmoller_file, halo=True):
                 ds_new = xr.Dataset({var_full:data})
             else:
                 ds_new = ds_new.assign({var_full:data})
+    # Use time_centered as the dimension
+    ds_new = ds_new.swap_dims({'time_counter':'time_centered'})
 
     if os.path.isfile(hovmoller_file):
         # Concatenate with existing data
