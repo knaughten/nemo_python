@@ -424,7 +424,7 @@ def precompute_hovmollers (ds_nemo, hovmoller_types, hovmoller_file, halo=True):
     
     ds_new = None
     for region in regions:
-        # Get mask
+        # Get 2D mask
         if region.endswith('cavity'):
             region0 = region[:region.index('_cavity')]
             region_type = 'cavity'
@@ -438,14 +438,17 @@ def precompute_hovmollers (ds_nemo, hovmoller_types, hovmoller_file, halo=True):
             mask, ds_nemo, region_name = single_cavity_mask(region0, ds_nemo, return_name=True)
         else:
             mask, ds_nemo, region_name = region_mask(region0, ds_nemo, option=region_type, return_name=True)
-        # Prepare area integrand
-        dA = ds_nemo[area_name]*mask
+        # Extend to 3D with depth-dependent land mask applied
+        land_mask_3d = xr.where(ds_nemo[var_names[0]].isel(time_counter=0)==0, 0, 1).squeeze()
+        mask_3d = xr.broadcast(mask, land_mask_3d)*land_mask_3d
+        # Prepare area integrand in 3D
+        dA_3d = xr.broadcast(ds_nemo[area_name], mask_3d)*mask_3d
         # Now loop over NEMO variables
         for v in range(len(var_names)):
             var_full = region+'_'+var_names[v]
             if var_full not in hovmoller_types:
                 continue
-            data = (ds_nemo[nemo_vars[v]]*dA).sum(dim=[x_name, y_name])/dA.sum(dim=[x_name, y_name])
+            data = (ds_nemo[nemo_vars[v]]*dA_3d).sum(dim=[x_name, y_name])/dA_3d.sum(dim=[x_name, y_name])
             data = data.assign_attrs(long_name=titles[v]+' for '+region_name, units=units[v])
             # Add to dataset
             if ds_new is None:
