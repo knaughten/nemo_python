@@ -867,7 +867,7 @@ def preproc_shenjie (obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_cl
             mask = ds[region+'_shelf_mask']
             area = (dA*mask).where(var_2D.notnull())
             var_avg = (var_2D*area).sum()/area.sum()
-            print(region+' ('+depth_name+'): '+str(var_avg.item()))
+            print(region+' (bottom)'): '+str(var_avg.item()))
         # Now casts
         for region in regions_casts:
             mask = ds[region+'_shelf_mask']
