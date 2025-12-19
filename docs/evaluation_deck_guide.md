@@ -2,7 +2,7 @@
 
 Here are instructions for how to generate a bunch of figures to evaluate the simulated Southern Ocean and Antarctic continental shelf against observations. This currently includes:
 
-1. a 24-panelled timeseries plot showing ice shelf basal melting, bottom temperature, and bottom salinity in 8 regions of the continental shelf. Grey lines are monthly model output, black lines are the 2-year running mean, and the blue dashed lines and shaded regions are observational estimates including uncertainty (Adusumilli 2020 for basal melting, Zhou 2025 for T and S):
+1. a 24-panelled timeseries plot showing ice shelf basal melting, bottom temperature, and bottom salinity in 7 regions of the continental shelf; plus basal melting and vertical casts of temperature and salinity for the Dotson to Cosgrove region (inner Amundsen Sea). Grey lines are monthly model output, black lines are the 2-year running mean, and the blue dashed lines and shaded regions are observational estimates including uncertainty (Adusumilli 2020 for basal melting, Zhou 2025 for T and S):
 
 ![](evaluation_timeseries_shelf.png)
 
@@ -49,13 +49,14 @@ In `<nemo_output_dir>`, submit a job script to the SLURM queue:
 
      sbatch precompute_all.sh
 
-This will precompute three things:
+This will precompute four things:
 
 1. Timeseries from the model output (producing files `timeseries_T.nc` and `timeseries_U.nc`)
-2. Bottom temperature and salinity time-averaged over the last 20 years of simulation (producing `bottom_TS_avg.nc`)
-3. Zonally averaged temperature and salinity time-averaged over the last 20 years of simulation (producing `zonal_TS_avg.nc`)
+2. Hovmollers (depth versus time) of T and S area-averaged over one region (producing `hovmollers.nc`)
+3. Bottom temperature and salinity time-averaged over the last 20 years of simulation (producing `bottom_TS_avg.nc`)
+4. Zonally averaged temperature and salinity time-averaged over the last 20 years of simulation (producing `zonal_TS_avg.nc`)
 
-If you run this job script again after NEMO has run for longer, it will update the timeseries files from #1 as needed with any new NEMO files. However, it will delete the time-averaged files from #2 and #3, and remake them from scratch.
+If you run this job script again after NEMO has run for longer, it will update the time-dependent files from #1 and #2 as needed with any new NEMO files. However, it will delete the time-averaged files from #3 and #4, and remake them from scratch.
 
 Depending on how many years you're trying to process, this can be slow. Here are some strategies to manage this:
 - Set it off to finish overnight

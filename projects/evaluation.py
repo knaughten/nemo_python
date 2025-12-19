@@ -584,7 +584,7 @@ def timeseries_types_evaluation ():
 
     regions = ['all', 'larsen', 'filchner_ronne', 'east_antarctica', 'amery', 'ross', 'west_antarctica', 'dotson_cosgrove']    
     var_names = ['massloss', 'shelf_bwtemp', 'shelf_bwsalt']
-    var_names_ASE = ['massloss', 'shelf_temp_btw_200_700m', 'shelf_salt_btw_200_700m']
+    var_names_ASE = ['massloss'] #, 'shelf_temp_btw_200_700m', 'shelf_salt_btw_200_700m']
     timeseries_types_T = []
     for region in regions:
         if region == 'dotson_cosgrove':
