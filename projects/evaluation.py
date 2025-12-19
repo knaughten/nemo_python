@@ -776,13 +776,13 @@ def plot_evaluation_timeseries_transport (timeseries_file='timeseries_U.nc', fig
     finished_plot(fig, fig_name=fig_name, dpi=300)
         
 
-# Calculate the observed mean and uncertainty of T and S on the shelf averaged over each region, from the Zhou 2025 climatology.
-def preproc_shenjie (obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology.nc', bathy_file='shenjie_climatology_bottom_TS.nc', out_file='OI_climatology_2D.nc'):
+# Calculate the observed mean and uncertainty of T and S on the shelf averaged over each region, from the Zhou 2025 climatology. Print the results. Also save vertical casts for some regions (in a 1D NetCDF file), and the map of bottom T and S (in a 2D NetCDF file).
+def preproc_shenjie (obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology.nc', bathy_file='/gws/ssde/j25b/terrafirma/kaight/input_data/shenjie_climatology_bottom_TS.nc', out_file='OI_climatology_2D.nc', out_file_casts='OI_climatology_casts.nc'):
 
     regions_bottom = ['all', 'larsen', 'filchner_ronne', 'east_antarctica', 'amery', 'ross', 'west_antarctica']
-    regions_mid = ['dotson_cosgrove']
-    depth_bounds = [200, 700]
-    bottom_thickness = 150 
+    regions_casts = ['dotson_cosgrove']
+    bottom_thickness = 150
+    var_names = ['ct', 'ct_mse', 'sa', 'sa_mse']
 
     ds = xr.open_dataset(obs_file).squeeze().transpose('nz', 'ny', 'nx')
 
@@ -793,13 +793,13 @@ def preproc_shenjie (obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_cl
     # Build shelf mask
     ds_bathy = build_shelf_mask(ds_bathy)[1]
     # Now mask land (and cavities) - crucially after shelf mask constructed otherwise the Brunt overhang disconnects it
-    ds_bathy['shelf_mask'] = xr.where(ds['ct'].isel(nz=0).notnull(), ds_bathy['shelf_mask'], 0)
+    ds_bathy['shelf_mask'] = xr.where(ds[var_names[0]].isel(nz=0).notnull(), ds_bathy['shelf_mask'], 0)
     # Copy the two variables we need over to the main dataset
     ds = ds.assign({'bathymetry':ds_bathy['bathymetry'], 'shelf_mask':ds_bathy['shelf_mask']})
     ds_bathy.close()
     
     # Precompute the region masks
-    for region in regions_bottom+regions_mid:
+    for region in regions_bottom+regions_casts:
         if region == 'east_antarctica':
             # Do this one at the end
             continue
@@ -835,37 +835,52 @@ def preproc_shenjie (obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_cl
     dz = z_edges[1:] - z_edges[:-1]
     dz = xr.DataArray(dz, coords={'nz':ds['nz']})
 
+    # 3D land mask
+    land_mask_3d = xr.where(ds[var_names[0]].notnull(), 1, 0)
     # Mask for bottom layer: within 150 m of bathymetry (assume pressure in dbar = depth in m)
     bathy = ds['bathymetry']
-    bottom_mask = xr.where((z<bathy)*(z>bathy-bottom_thickness)*ds['ct'].notnull(), 1, 0)
-    # Mask for 200-700m depth range
-    mid_mask = xr.where((z>depth_bounds[0])*(z<depth_bounds[1])*ds['ct'].notnull(), 1, 0)
+    bottom_mask = xr.where((z<bathy)*(z>bathy-bottom_thickness)*land_mask_3d, 1, 0)
 
     # Loop over variables we care about
     ds_out = None
-    for var in ['ct', 'ct_mse', 'sa', 'sa_mse']:
+    ds_casts = None
+    for var in var_names:
         print('\n'+var)
-        ds[var].load()
-        for depth_mask, regions, depth_name in zip([bottom_mask, mid_mask], [regions_bottom, regions_mid], ['bottom', '200-700m']):
-            if 'mse' in var:
-                # Extra mask on uncertainty variables
-                depth_mask_tmp = depth_mask.where(ds[var]!=1e10)
+        data = ds[var]
+        data.load()
+        if 'mse' in var:
+            # Extra mask on uncertainty variables
+            data = data.where(data!=1e10)
+            bottom_mask_tmp = bottom_mask.where(data!=1e10)
+        else:
+            bottom_mask_tmp = bottom_mask
+        # First calculate bottom values area-averaged over given regions
+        # Vertically average over depth range
+        var_2D = (data*dz*bottom_mask_tmp).sum(dim='nz')/(dz*bottom_mask_tmp).sum(dim='nz')
+        if ds_out is None:
+            ds_out = xr.Dataset({var+'_bottom':var_2D})
+            for varg in ['latitude', 'longitude']:
+                ds_out = ds_out.assign({varg:ds[varg].squeeze()})
+        else:
+            ds_out = ds_out.assign({var+'_bottom':var_2D})
+        for region in regions_bottom:
+            mask = ds[region+'_shelf_mask']
+            area = (dA*mask).where(var_2D.notnull())
+            var_avg = (var_2D*area).sum()/area.sum()
+            print(region+' ('+depth_name+'): '+str(var_avg.item()))
+        # Now casts
+        for region in regions_casts:
+            mask = ds[region+'_shelf_mask']
+            mask_3d = xr.broadcast(mask, land_mask_3d)[0]*land_mask_3d
+            dA_3d = xr.broadcast(dA, mask_3d)[0]
+            area_3d = (dA_3d*mask_3d).where(data.notnull())
+            var_cast = (data*area_3d).sum(dim='nz')/area_3d.sum(dim='nz')
+            if ds_casts is None:
+                ds_casts = xr.Dataset({var+'_cast_'+region:var_cast})
             else:
-                depth_mask_tmp = depth_mask
-            # Vertically average over depth range
-            var_2D = (ds[var]*dz*depth_mask_tmp).sum(dim='nz')/(dz*depth_mask_tmp).sum(dim='nz')
-            if ds_out is None:
-                ds_out = xr.Dataset({var+'_'+depth_name:var_2D})
-                for varg in ['latitude', 'longitude']:
-                    ds_out = ds_out.assign({varg:ds[varg].squeeze()})
-            else:
-                ds_out = ds_out.assign({var+'_'+depth_name:var_2D})
-            for region in regions:
-                mask = ds[region+'_shelf_mask']
-                area = (dA*mask).where(var_2D.notnull())
-                var_avg = (var_2D*area).sum()/area.sum()
-                print(region+' ('+depth_name+'): '+str(var_avg.item()))
-    ds_out.to_netcdf(out_file)    
+                ds_casts = ds_casts.assign({var+'_cast_'+region:var_cast})
+    ds_out.to_netcdf(out_file)
+    ds_casts.to_netcdf(out_file_casts)
 
 
 # Precompute variables averaged over the last part of the simulation (default 20 years). Convert to TEOS-10 if it's not already.
