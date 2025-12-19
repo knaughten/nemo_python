@@ -655,15 +655,16 @@ def update_hovmollers_evaluation_NEMO_AIS (in_dir, suite_id='AntArc', out_dir='.
     update_simulation_timeseries(suite_id, hovmoller_types, timeseries_file='hovmollers.nc', timeseries_dir=out_dir, config='eANT025', sim_dir=in_dir, halo=False, gtype='T', hovmoller=True)
 
 
-def plot_evaluation_timeseries_shelf (timeseries_file='timeseries_T.nc', fig_name=None):
+def plot_evaluation_timeseries_shelf (timeseries_file='timeseries_T.nc', hovmoller_file='hovmollers.nc', fig_name=None):
 
-    if not os.path.isfile(timeseries_file):
-        print('Warning: '+timeseries_file+' does not exist. Skipping plot.')
-        return
+    for fname in [timeseries_file, hovmoller_file]:
+        if not os.path.isfile(fname):
+            print('Warning: '+fname+' does not exist. Skipping plot.')
+            return
 
     regions = ['all', 'larsen', 'filchner_ronne', 'east_antarctica', 'amery', 'ross', 'west_antarctica', 'dotson_cosgrove']    
     var_names = ['massloss', 'shelf_bwtemp', 'shelf_bwsalt']
-    var_names_ASE = ['massloss', 'shelf_temp_btw_200_700m', 'shelf_salt_btw_200_700m']
+    var_names_ASE = ['massloss', 'shelf_temp', 'shelf_salt']
     var_titles = ['Basal mass loss\n(Gt/y)', 'Temperature ('+deg_string+')\n on continental shelf', 'Salinity on\n continental shelf']
     num_regions = len(regions)
     num_var = len(var_names)
@@ -683,37 +684,45 @@ def plot_evaluation_timeseries_shelf (timeseries_file='timeseries_T.nc', fig_nam
             var = regions[n]+'_'
             if regions[n] == 'dotson_cosgrove':
                 var += var_names_ASE[v]
+                hovmoller = v > 0
             else:
                 var += var_names[v]
-            # Plot data; monthly in thin grey, 2-year running mean in thicker black
-            time = ds['time_centered']
-            try:
-                ax.plot(time, ds[var], color='DarkGrey', linewidth=1)
-            except(TypeError):
-                ax.plot_date(time, ds[var], '-', color='DarkGrey', linewidth=1)
-            data_smoothed = moving_average(ds[var], smooth)
-            try:
-                ax.plot(data_smoothed.time_centered, data_smoothed,  color='black', linewidth=1.5)
-            except(TypeError):
-                ax.plot_date(data_smoothed.time_centered, data_smoothed, '-', color='black', linewidth=1.5)
-            # Plot obs; central estimate in dashed blue, uncertainty range in shaded blue
-            if 'massloss' in var:
-                obs_mean = adusumilli_melt[regions[n]]
-                obs_std = adusumilli_std[regions[n]]                
+                hovmoller = False
+            if not hovmoller:
+                # Simple timeseries
+                # Plot data; monthly in thin grey, 2-year running mean in thicker black
+                time = ds['time_centered']
+                try:
+                    ax.plot(time, ds[var], color='DarkGrey', linewidth=1)
+                except(TypeError):
+                    ax.plot_date(time, ds[var], '-', color='DarkGrey', linewidth=1)
+                data_smoothed = moving_average(ds[var], smooth)
+                try:
+                    ax.plot(data_smoothed.time_centered, data_smoothed,  color='black', linewidth=1.5)
+                except(TypeError):
+                    ax.plot_date(data_smoothed.time_centered, data_smoothed, '-', color='black', linewidth=1.5)
+                # Plot obs; central estimate in dashed blue, uncertainty range in shaded blue
+                if 'massloss' in var:
+                    obs_mean = adusumilli_melt[regions[n]]
+                    obs_std = adusumilli_std[regions[n]]                
+                else:
+                    if 'temp' in var:
+                        m = 0
+                    elif 'salt' in var:
+                        m = 1
+                    obs_mean = zhou_TS[regions[n]][m]
+                    obs_std = zhou_TS_std[regions[n]][m]
+                ax.axhline(obs_mean, color='blue', linestyle='dashed', linewidth=1)
+                ax.axhspan(obs_mean-obs_std, obs_mean+obs_std, color='DodgerBlue', alpha=0.1)
+                ax.set_xlim([time[0], time[-1]])
+                if n%rows == rows-1:
+                    ax.tick_params(axis='x', labelrotation=90)
+                else:
+                    ax.set_xticklabels([])
             else:
-                if 'temp' in var:
-                    m = 0
-                elif 'salt' in var:
-                    m = 1
-                obs_mean = zhou_TS[regions[n]][m]
-                obs_std = zhou_TS_std[regions[n]][m]
-            ax.axhline(obs_mean, color='blue', linestyle='dashed', linewidth=1)
-            ax.axhspan(obs_mean-obs_std, obs_mean+obs_std, color='DodgerBlue', alpha=0.1)
-            ax.set_xlim([time[0], time[-1]])
-            if n%rows == rows-1:
-                ax.tick_params(axis='x', labelrotation=90)
-            else:
-                ax.set_xticklabels([])
+                # Plot annually-averaged casts in thin grey, and full time-average in thicker black
+                pass
+                
             ax.grid(linestyle='dotted')
             ax.tick_params(axis='both', labelsize=7)
             if n%(rows) == 0:
@@ -726,8 +735,6 @@ def plot_evaluation_timeseries_shelf (timeseries_file='timeseries_T.nc', fig_nam
                 # Label depth
                 if n == 0:
                     depth_label = '(bottom)'
-                elif n == num_regions - 1:
-                    depth_label = '(200-700m)'
                 else:
                     depth_label = ''
                 plt.text(0.05, 0.95, depth_label, fontsize=8, ha='left', va='top', transform=ax.transAxes)
@@ -874,9 +881,9 @@ def preproc_shenjie (obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_cl
             mask_3d = xr.broadcast(mask, land_mask_3d)[0]*land_mask_3d
             dA_3d = xr.broadcast(dA, mask_3d)[0]
             area_3d = (dA_3d*mask_3d).where(data.notnull())
-            var_cast = (data*area_3d).sum(dim='nz')/area_3d.sum(dim='nz')
+            var_cast = (data*area_3d).sum(dim=['nx','ny'])/area_3d.sum(dim=['nx','ny'])
             if ds_casts is None:
-                ds_casts = xr.Dataset({var+'_cast_'+region:var_cast})
+                ds_casts = xr.Dataset({var+'_cast_'+region:var_cast, 'pressure':ds['pressure'].squeeze()})
             else:
                 ds_casts = ds_casts.assign({var+'_cast_'+region:var_cast})
     ds_out.to_netcdf(out_file)
