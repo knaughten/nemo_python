@@ -655,7 +655,7 @@ def update_hovmollers_evaluation_NEMO_AIS (in_dir, suite_id='AntArc', out_dir='.
     update_simulation_timeseries(suite_id, hovmoller_types, timeseries_file='hovmollers.nc', timeseries_dir=out_dir, config='eANT025', sim_dir=in_dir, halo=False, gtype='T', hovmoller=True)
 
 
-def plot_evaluation_timeseries_shelf (timeseries_file='timeseries_T.nc', hovmoller_file='hovmollers.nc', fig_name=None):
+def plot_evaluation_timeseries_shelf (timeseries_file='timeseries_T.nc', hovmoller_file='hovmollers.nc', obs_file_casts='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_casts.nc', fig_name=None):
 
     for fname in [timeseries_file, hovmoller_file]:
         if not os.path.isfile(fname):
@@ -665,13 +665,23 @@ def plot_evaluation_timeseries_shelf (timeseries_file='timeseries_T.nc', hovmoll
     regions = ['all', 'larsen', 'filchner_ronne', 'east_antarctica', 'amery', 'ross', 'west_antarctica', 'dotson_cosgrove']    
     var_names = ['massloss', 'shelf_bwtemp', 'shelf_bwsalt']
     var_names_ASE = ['massloss', 'shelf_temp', 'shelf_salt']
-    var_titles = ['Basal mass loss\n(Gt/y)', 'Temperature ('+deg_string+')\n on continental shelf', 'Salinity on\n continental shelf']
+    var_names_obs = [None, 'ct', 'sa']
+    units = ['Gt/y', deg_string+'C', gkg_string]
+    var_titles = ['Basal mass loss\n('+units[0]+')', 'Temperature ('+units[1]+')\n on continental shelf', 'Salinity on\n continental shelf']
     num_regions = len(regions)
     num_var = len(var_names)
     smooth = 2*months_per_year
 
+    # Open files
     ds = xr.open_dataset(timeseries_file)
-    
+    ds_hov = xr.open_dataset(hovmoller_file)
+    ds_obs = xr.open_dataset(obs_file_casts)
+    # Calculate annual means of Hovmollers
+    ds_hov_annual = ds_hov.groupby('time_centered.year').mean('time_centered')
+    # Also full time-mean
+    ds_hov_tavg = ds_hov.mean('time_centered')    
+
+    # Make plot
     fig = plt.figure(figsize=(14,7))
     rows = num_regions//2
     columns = num_var*4*2 + 2
@@ -693,9 +703,10 @@ def plot_evaluation_timeseries_shelf (timeseries_file='timeseries_T.nc', hovmoll
                 # Plot data; monthly in thin grey, 2-year running mean in thicker black
                 time = ds['time_centered']
                 try:
-                    ax.plot(time, ds[var], color='DarkGrey', linewidth=1)
+                    ax.plot(time, ds[var], color='DarkGrey', linewidth=0.5)
                 except(TypeError):
-                    ax.plot_date(time, ds[var], '-', color='DarkGrey', linewidth=1)
+                    # The above fails with 360-day years
+                    ax.plot_date(time, ds[var], '-', color='DarkGrey', linewidth=0.5)
                 data_smoothed = moving_average(ds[var], smooth)
                 try:
                     ax.plot(data_smoothed.time_centered, data_smoothed,  color='black', linewidth=1.5)
@@ -721,8 +732,24 @@ def plot_evaluation_timeseries_shelf (timeseries_file='timeseries_T.nc', hovmoll
                     ax.set_xticklabels([])
             else:
                 # Plot annually-averaged casts in thin grey, and full time-average in thicker black
-                pass
-                
+                depth = ds_hov_annual['deptht']
+                depth_masked = depth.where(ds_hov_tavg[var].notnull())
+                for t in range(ds_hov_annual.sizes['year']):
+                    ax.plot(ds_hov_annual[var].isel(year=t), depth, color='DarkGrey', linewidth=0.5)
+                ax.plot(ds_hov_tavg[var], depth, color='black', linewidth=1.5)
+                # Plot obs
+                obs_mean = ds_obs[var_names_obs[v]+'_cast_'+regions[n]]
+                obs_err = ds_obs[var_names_obs[v]+'_mse_cast_'+regions[n]]
+                obs_min = obs_mean-obs_err
+                obs_max = obs_mean+obs_err
+                obs_depth = ds_obs['pressure']
+                ax.fill_betweenx(obs_depth, obs_min, obs_max, color='DodgerBlue', alpha=0.1)
+                ax.plot(obs_mean, obs_depth, color='blue', linestyle='dashed', linewidth=1)
+                ax.set_ylim([depth_masked.max(), depth_masked.min()])
+                if v == 2:
+                    ax.set_yticklabels([])
+                    ax.set_ylabel('depth (m)')
+                ax.set_xlabel(units[v])
             ax.grid(linestyle='dotted')
             ax.tick_params(axis='both', labelsize=7)
             if n%(rows) == 0:
@@ -735,9 +762,14 @@ def plot_evaluation_timeseries_shelf (timeseries_file='timeseries_T.nc', hovmoll
                 # Label depth
                 if n == 0:
                     depth_label = '(bottom)'
+                    xpos = 0.05
+                elif hovmoller:
+                    depth_label = '(cast)'
+                    xpos = 0.7
                 else:
                     depth_label = ''
-                plt.text(0.05, 0.95, depth_label, fontsize=8, ha='left', va='top', transform=ax.transAxes)
+                    xpos = 0
+                plt.text(xpos, 0.95, depth_label, fontsize=8, ha='left', va='top', transform=ax.transAxes)
     finished_plot(fig, fig_name=fig_name, dpi=300)
 
 
