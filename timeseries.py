@@ -4,7 +4,7 @@ import os
 import glob
 from .constants import region_points, region_names, rho_fw, rho_ice, sec_per_year, deg_string, gkg_string, drake_passage_lon0, drake_passage_lat_bounds
 from .utils import add_months, closest_point, month_convert, bwsalt_abs, xy_name
-from .grid import single_cavity_mask, region_mask, calc_geometry
+from .grid import single_cavity_mask, region_mask, calc_geometry, make_mask_3d
 from .diagnostics import transport, gyre_transport, thermocline
 time_coder = xr.coders.CFDatetimeCoder(use_cftime=True)
 
@@ -33,6 +33,8 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
             ds_nemo = ds_nemo.rename(name_remapping)
         except: # if it doesn't seem to need to be renamed, continue looping through
             pass
+
+    x_name, y_name = xy_name(ds_nemo)
     
     # Parse variable name
     factor = 1
@@ -170,11 +172,11 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
     if var == 'drake_passage_transport' and 'e2u' not in ds_nemo:
         # Need to add e2u from domain_cfg
         ds_domcfg = xr.open_dataset(domain_cfg, decode_times=time_coder).squeeze()
-        if ds_nemo.sizes['y'] < ds_domcfg.sizes['y']:
+        if ds_nemo.sizes[y_name] < ds_domcfg.sizes[y_name]:
             # The NEMO dataset was trimmed (eg by MOOSE for UKESM) to the southernmost latitudes. Do the same for domain_cfg.
-            ds_domcfg = ds_domcfg.isel(y=slice(0, ds_nemo.sizes['y']))
+            ds_domcfg = ds_domcfg.isel({y_name:slice(0, ds_nemo.sizes[y_name])})
         if halo:
-            ds_domcfg = ds_domcfg.isel(x=slice(1,-1))
+            ds_domcfg = ds_domcfg.isel({x_name:slice(1,-1)})
         ds_nemo = ds_nemo.assign({'e2u':ds_domcfg['e2u']})
 
     if var.endswith('_thermocline'):
@@ -238,7 +240,6 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         for v in ['thkcello', 'e3t']:
             if v in ds_nemo:
                 return v
-    x_name, y_name = xy_name(ds_nemo)
 
     if option == 'area_int':
         # Area integral
@@ -285,9 +286,9 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         ds_domcfg = xr.open_dataset(domain_cfg, decode_times=time_coder).squeeze()
         if ds_nemo.sizes[y_name] < ds_domcfg.sizes[y_name]:
             # The NEMO dataset was trimmed (eg by MOOSE for UKESM) to the southernmost latitudes. Do the same for domain_cfg.
-            ds_domcfg = ds_domcfg.isel(y=slice(0, ds_nemo.sizes[y_name]))
+            ds_domcfg = ds_domcfg.isel({y_name:slice(0, ds_nemo.sizes[y_name])})
         if halo:
-            ds_domcfg = ds_domcfg.isel(x=slice(1,-1))
+            ds_domcfg = ds_domcfg.isel({x_name:slice(1,-1)})
         data = gyre_transport(region, ds_nemo, ds_nemo, ds_domcfg, periodic=periodic, halo=halo)
        
     data *= factor
@@ -335,9 +336,9 @@ def calc_timeseries_um (var, file_path):
 
 # Helper function to overwrite file
 # Make a temporary file and then rename it to the old file. This is safer than doing it in one line with .to_netcdf, because if that returns an error the original file will be deleted and data will be lost.
-def overwrite_file (ds_new, timeseries_file):
+def overwrite_file (ds_new, timeseries_file, unlimited_dims='time_centered'):
     timeseries_file_tmp = timeseries_file.replace('.nc', '_tmp.nc')
-    ds_new.to_netcdf(timeseries_file_tmp, mode='w')
+    ds_new.to_netcdf(timeseries_file_tmp, mode='w', unlimited_dims=unlimited_dims)
     os.rename(timeseries_file_tmp, timeseries_file)
     ds_new.close()
 
@@ -347,9 +348,10 @@ def precompute_timeseries (ds_nemo, timeseries_types, timeseries_file, halo=True
                            domain_cfg='/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc',
                            name_remapping='', nemo_mesh='', pp=False):
 
+    x_name, y_name = xy_name(ds_nemo)
     if halo and not pp:
         # Remove the halo
-        ds_nemo = ds_nemo.isel(x=slice(1,-1))
+        ds_nemo = ds_nemo.isel({x_name:slice(1,-1)})
 
     # Calculate each timeseries and save to a Dataset
     ds_new = None
@@ -388,10 +390,88 @@ def precompute_timeseries (ds_nemo, timeseries_types, timeseries_file, halo=True
     overwrite_file(ds_new, timeseries_file)
 
 
+# Like precompute_timeseries, but for Hovmollers (area-averaged over given region, retain the depth dimension).
+# hovmoller_types is a list with encoding <region>_<var>, eg dotson_cosgrove_shelf_temp. Currently only temp and salt are supported.
+def precompute_hovmollers (ds_nemo, hovmoller_types, hovmoller_file, halo=False):
+
+    var_names = ['temp', 'salt']
+    nemo_vars = ['thetao', 'so']
+    titles = ['Temperature', 'Salinity']
+    units = [deg_string+'C', gkg_string]
+
+    x_name, y_name = xy_name(ds_nemo)
+    if halo:
+        ds_nemo = ds_nemo.isel({x_name:slice(1,-1)})
+
+    # Decode hovmoller_types
+    regions = []
+    for ht in hovmoller_types:
+        found = False
+        for var in var_names:
+            if var in ht:
+                found = True
+                region = ht[:ht.index('_'+var)]
+                if region not in regions:
+                    regions.append(region)
+                break
+        if not found:
+            raise Exception('Invalid variable '+ht)
+
+    for v in ['area', 'area_grid_T']:
+        if v in ds_nemo:
+            area_name = v
+            break
+    
+    ds_new = None
+    for region in regions:
+        # Get 2D mask
+        if region.endswith('cavity'):
+            region0 = region[:region.index('_cavity')]
+            region_type = 'cavity'
+        elif 'shelf' in region:
+            region0 = region[:region.index('_shelf')]
+            region_type = 'shelf'
+        else:
+            region0 = region
+            region_type = 'all'
+        if region0 in region_points and region_type == 'cavity':
+            mask, ds_nemo, region_name = single_cavity_mask(region0, ds_nemo, return_name=True)
+        else:
+            mask, ds_nemo, region_name = region_mask(region0, ds_nemo, option=region_type, return_name=True)
+        # Extend to 3D with depth-dependent land mask applied
+        mask_3d = make_mask_3d(mask, ds_nemo)
+        # Prepare area integrand in 3D
+        dA_3d = xr.broadcast(ds_nemo[area_name], mask_3d)[0]*mask_3d
+        # Now loop over NEMO variables
+        for v in range(len(var_names)):
+            var_full = region+'_'+var_names[v]
+            if var_full not in hovmoller_types:
+                continue
+            data = (ds_nemo[nemo_vars[v]]*dA_3d).sum(dim=[x_name, y_name])/dA_3d.sum(dim=[x_name, y_name])
+            data = data.assign_attrs(long_name=titles[v]+' for '+region_name, units=units[v])
+            # Add to dataset
+            if ds_new is None:
+                ds_new = xr.Dataset({var_full:data})
+            else:
+                ds_new = ds_new.assign({var_full:data})
+    # Use time_centered as the dimension
+    ds_new = ds_new.swap_dims({'time_counter':'time_centered'})
+
+    if os.path.isfile(hovmoller_file):
+        # Concatenate with existing data
+        ds_old = xr.open_dataset(hovmoller_file, decode_times=time_coder)
+        ds_new.load()
+        ds_new = xr.concat([ds_old, ds_new], dim='time_centered')
+        ds_old.close()
+
+    overwrite_file(ds_new, hovmoller_file)
+    
+
 # Precompute timeseries from the given simulation, either from the beginning (timeseries_file does not exist) or picking up where it left off (timeseries_file does exist). Considers all NEMO output files stamped with suite_id in the given directory sim_dir on the given grid (gtype='T', 'U', etc), and assumes the timeseries file is in that directory too (unless timeseries_dir is set).
+# If hovmoller=True, will precompute Hovmoller variables with preserved depth dimension (see precompute_hovmollers above)
 def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='timeseries.nc', timeseries_dir=None, config='', 
                                   sim_dir='./', freq='m', halo=True, periodic=True, gtype='T', name_remapping='', nemo_mesh='',
-                                  domain_cfg='/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc', compressed=False):
+                                  domain_cfg='/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc', compressed=False, hovmoller=False):
     import re
     from datetime import datetime
 
@@ -454,7 +534,9 @@ def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='t
         # Now construct wildcard string and add to list if it's not already there
         file_pattern = f'{file_head}{date_code[0]}?{date_code[1]}*{file_tail}'
         if file_pattern not in nemo_files:
-            nemo_files.append(file_pattern)        
+            nemo_files.append(file_pattern)
+    if len(nemo_files) == 0 and not update:
+        raise Exception('No valid files found. Check if suite_id='+suite_id+' is correct.')
     # Now sort alphabetically - i.e. by ascending date code
     nemo_files.sort()
 
@@ -506,7 +588,10 @@ def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='t
                 ds_SBC_tmp = ds_SBC.isel(time_counter=slice(t,t+1))
                 ds_SBC_tmp.load()
                 ds_tmp = ds_tmp.merge(ds_SBC_tmp)
-            precompute_timeseries(ds_tmp, timeseries_types, f'{timeseries_dir}/{timeseries_file}', halo=halo, periodic=periodic, domain_cfg=domain_cfg, name_remapping=name_remapping, nemo_mesh=nemo_mesh)
+            if hovmoller:
+                precompute_hovmollers(ds_tmp, timeseries_types, f'{timeseries_dir}/{timeseries_file}', halo=halo)
+            else:
+                precompute_timeseries(ds_tmp, timeseries_types, f'{timeseries_dir}/{timeseries_file}', halo=halo, periodic=periodic, domain_cfg=domain_cfg, name_remapping=name_remapping, nemo_mesh=nemo_mesh)
         ds_nemo.close()
 
 

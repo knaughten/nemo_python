@@ -8,6 +8,7 @@ import gsw
 from ..utils import select_bottom, distance_along_transect, moving_average, polar_stereo, latlon_name, xy_name
 from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli_melt, adusumilli_std, transport_obs, transport_std, region_edges, rEarth, deg2rad, zhou_TS, zhou_TS_std
 from ..plots import circumpolar_plot, finished_plot, plot_ts_distribution, plot_transect
+from ..plot_utils import set_colours, latlon_axis
 from ..interpolation import interp_latlon_cf, interp_latlon_cf_blocks
 from ..file_io import read_schmidtko, read_woa, read_dutrieux, read_zhou
 from ..grid import extract_var_region, transect_coords_from_latlon_waypoints, region_mask, build_shelf_mask
@@ -583,7 +584,7 @@ def timeseries_types_evaluation ():
 
     regions = ['all', 'larsen', 'filchner_ronne', 'east_antarctica', 'amery', 'ross', 'west_antarctica', 'dotson_cosgrove']    
     var_names = ['massloss', 'shelf_bwtemp', 'shelf_bwsalt']
-    var_names_ASE = ['massloss', 'shelf_temp_btw_200_700m', 'shelf_salt_btw_200_700m']
+    var_names_ASE = ['massloss'] #, 'shelf_temp_btw_200_700m', 'shelf_salt_btw_200_700m']
     timeseries_types_T = []
     for region in regions:
         if region == 'dotson_cosgrove':
@@ -600,13 +601,18 @@ def timeseries_types_evaluation ():
 
 # Precompute timeseries for evaluation deck from Birgit's NEMO config
 # eg for latest 'best' ERA5 case, uncompressed: in_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/birgit_baseline/"
-def update_timeseries_evaluation_NEMO_AIS (in_dir, out_dir='./'):
+def update_timeseries_evaluation_NEMO_AIS (in_dir, suite_id='AntArc', out_dir='./', transport=True):
 
     domain_cfg = '/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20250715.nc'
     timeseries_types = timeseries_types_evaluation()
 
-    for gtype in timeseries_types:
-        update_simulation_timeseries('L121', timeseries_types[gtype], timeseries_file='timeseries_'+gtype+'.nc', timeseries_dir=out_dir, config='eANT025', sim_dir=in_dir, halo=False, gtype=gtype, domain_cfg=domain_cfg)
+    if transport:
+        gtypes = timeseries_types
+    else:
+        gtypes = timeseries_types[:-1]
+
+    for gtype in gtypes:
+        update_simulation_timeseries(suite_id, timeseries_types[gtype], timeseries_file='timeseries_'+gtype+'.nc', timeseries_dir=out_dir, config='eANT025', sim_dir=in_dir, halo=False, gtype=gtype, domain_cfg=domain_cfg)
 
 
 # As above, for UKESM1 suites
@@ -639,21 +645,43 @@ def redo_dotson_cosgrove_timeseries (in_dir, out_dir='./'):
     ds_new = xr.open_dataset(out_dir+'/'+timeseries_file_new)
     for var in ds_new:
         ds_old[var] = ds_new[var]
-    overwrite_file(ds_old, out_dir+'/'+timeseries_file_old)    
+    overwrite_file(ds_old, out_dir+'/'+timeseries_file_old)
 
 
-def plot_evaluation_timeseries_shelf (timeseries_file='timeseries_T.nc', fig_name=None):
+# Precompute some Hovmollers
+def update_hovmollers_evaluation_NEMO_AIS (in_dir, suite_id='AntArc', out_dir='./'):
+
+    hovmoller_types = ['dotson_cosgrove_shelf_'+var for var in ['temp', 'salt']]
+    update_simulation_timeseries(suite_id, hovmoller_types, timeseries_file='hovmollers.nc', timeseries_dir=out_dir, config='eANT025', sim_dir=in_dir, halo=False, gtype='T', hovmoller=True)
+
+
+def plot_evaluation_timeseries_shelf (timeseries_file='timeseries_T.nc', hovmoller_file='hovmollers.nc', obs_file_casts='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_casts.nc', fig_name=None):
+
+    for fname in [timeseries_file, hovmoller_file]:
+        if not os.path.isfile(fname):
+            print('Warning: '+fname+' does not exist. Skipping plot.')
+            return
 
     regions = ['all', 'larsen', 'filchner_ronne', 'east_antarctica', 'amery', 'ross', 'west_antarctica', 'dotson_cosgrove']    
     var_names = ['massloss', 'shelf_bwtemp', 'shelf_bwsalt']
-    var_names_ASE = ['massloss', 'shelf_temp_btw_200_700m', 'shelf_salt_btw_200_700m']
-    var_titles = ['Basal mass loss\n(Gt/y)', 'Temperature ('+deg_string+')\n on continental shelf', 'Salinity on\n continental shelf']
+    var_names_ASE = ['massloss', 'shelf_temp', 'shelf_salt']
+    var_names_obs = [None, 'ct', 'sa']
+    units = ['Gt/y', deg_string+'C', gkg_string]
+    var_titles = ['Basal mass loss\n('+units[0]+')', 'Temperature ('+units[1]+')\n on continental shelf', 'Salinity on\n continental shelf']
     num_regions = len(regions)
     num_var = len(var_names)
     smooth = 2*months_per_year
 
+    # Open files
     ds = xr.open_dataset(timeseries_file)
-    
+    ds_hov = xr.open_dataset(hovmoller_file)
+    ds_obs = xr.open_dataset(obs_file_casts)
+    # Calculate annual means of Hovmollers
+    ds_hov_annual = ds_hov.groupby('time_centered.year').mean('time_centered')
+    # Also full time-mean
+    ds_hov_tavg = ds_hov.mean('time_centered')    
+
+    # Make plot
     fig = plt.figure(figsize=(14,7))
     rows = num_regions//2
     columns = num_var*4*2 + 2
@@ -666,37 +694,62 @@ def plot_evaluation_timeseries_shelf (timeseries_file='timeseries_T.nc', fig_nam
             var = regions[n]+'_'
             if regions[n] == 'dotson_cosgrove':
                 var += var_names_ASE[v]
+                hovmoller = v > 0
             else:
                 var += var_names[v]
-            # Plot data; monthly in thin grey, 2-year running mean in thicker black
-            time = ds['time_centered']
-            try:
-                ax.plot(time, ds[var], color='DarkGrey', linewidth=1)
-            except(TypeError):
-                ax.plot_date(time, ds[var], '-', color='DarkGrey', linewidth=1)
-            data_smoothed = moving_average(ds[var], smooth)
-            try:
-                ax.plot(data_smoothed.time_centered, data_smoothed,  color='black', linewidth=1.5)
-            except(TypeError):
-                ax.plot_date(data_smoothed.time_centered, data_smoothed, '-', color='black', linewidth=1.5)
-            # Plot obs; central estimate in dashed blue, uncertainty range in shaded blue
-            if 'massloss' in var:
-                obs_mean = adusumilli_melt[regions[n]]
-                obs_std = adusumilli_std[regions[n]]                
+                hovmoller = False
+            if not hovmoller:
+                # Simple timeseries
+                # Plot data; monthly in thin grey, 2-year running mean in thicker black
+                time = ds['time_centered']
+                try:
+                    ax.plot(time, ds[var], color='DarkGrey', linewidth=0.5)
+                except(TypeError):
+                    # The above fails with 360-day years
+                    ax.plot_date(time, ds[var], '-', color='DarkGrey', linewidth=0.5)
+                data_smoothed = moving_average(ds[var], smooth)
+                try:
+                    ax.plot(data_smoothed.time_centered, data_smoothed,  color='black', linewidth=1.5)
+                except(TypeError):
+                    ax.plot_date(data_smoothed.time_centered, data_smoothed, '-', color='black', linewidth=1.5)
+                # Plot obs; central estimate in dashed blue, uncertainty range in shaded blue
+                if 'massloss' in var:
+                    obs_mean = adusumilli_melt[regions[n]]
+                    obs_std = adusumilli_std[regions[n]]                
+                else:
+                    if 'temp' in var:
+                        m = 0
+                    elif 'salt' in var:
+                        m = 1
+                    obs_mean = zhou_TS[regions[n]][m]
+                    obs_std = zhou_TS_std[regions[n]][m]
+                ax.axhline(obs_mean, color='blue', linestyle='dashed', linewidth=1)
+                ax.axhspan(obs_mean-obs_std, obs_mean+obs_std, color='DodgerBlue', alpha=0.1)
+                ax.set_xlim([time[0], time[-1]])
+                if n%rows == rows-1:
+                    ax.tick_params(axis='x', labelrotation=90)
+                else:
+                    ax.set_xticklabels([])
             else:
-                if 'temp' in var:
-                    m = 0
-                elif 'salt' in var:
-                    m = 1
-                obs_mean = zhou_TS[regions[n]][m]
-                obs_std = zhou_TS_std[regions[n]][m]
-            ax.axhline(obs_mean, color='blue', linestyle='dashed', linewidth=1)
-            ax.axhspan(obs_mean-obs_std, obs_mean+obs_std, color='DodgerBlue', alpha=0.1)
-            ax.set_xlim([time[0], time[-1]])
-            if n%rows == rows-1:
-                ax.tick_params(axis='x', labelrotation=90)
-            else:
-                ax.set_xticklabels([])
+                # Plot annually-averaged casts in thin grey, and full time-average in thicker black
+                depth = ds_hov_annual['deptht']
+                depth_masked = depth.where(ds_hov_tavg[var].notnull())
+                for t in range(ds_hov_annual.sizes['year']):
+                    ax.plot(ds_hov_annual[var].isel(year=t), depth, color='DarkGrey', linewidth=0.5)
+                ax.plot(ds_hov_tavg[var], depth, color='black', linewidth=1.5)
+                # Plot obs
+                obs_mean = ds_obs[var_names_obs[v]+'_cast_'+regions[n]]
+                obs_err = ds_obs[var_names_obs[v]+'_mse_cast_'+regions[n]]
+                obs_min = obs_mean-obs_err
+                obs_max = obs_mean+obs_err
+                obs_depth = ds_obs['pressure']
+                ax.fill_betweenx(obs_depth, obs_min, obs_max, color='DodgerBlue', alpha=0.1)
+                ax.plot(obs_mean, obs_depth, color='blue', linestyle='dashed', linewidth=1)
+                ax.set_ylim([depth_masked.max(), depth_masked.min()])
+                if v == 2:
+                    ax.set_yticklabels([])
+                    ax.set_ylabel('depth (m)')
+                ax.set_xlabel(units[v])
             ax.grid(linestyle='dotted')
             ax.tick_params(axis='both', labelsize=7)
             if n%(rows) == 0:
@@ -709,15 +762,22 @@ def plot_evaluation_timeseries_shelf (timeseries_file='timeseries_T.nc', fig_nam
                 # Label depth
                 if n == 0:
                     depth_label = '(bottom)'
-                elif n == num_regions - 1:
-                    depth_label = '(200-700m)'
+                    xpos = 0.05
+                elif hovmoller:
+                    depth_label = '(cast)'
+                    xpos = 0.7
                 else:
                     depth_label = ''
-                plt.text(0.05, 0.95, depth_label, fontsize=8, ha='left', va='top', transform=ax.transAxes)
-    finished_plot(fig, fig_name=fig_name)
+                    xpos = 0
+                plt.text(xpos, 0.95, depth_label, fontsize=8, ha='left', va='top', transform=ax.transAxes)
+    finished_plot(fig, fig_name=fig_name, dpi=300)
 
 
 def plot_evaluation_timeseries_transport (timeseries_file='timeseries_U.nc', fig_name=None):
+
+    if not os.path.isfile(timeseries_file):
+        print('Warning: '+timeseries_file+' does not exist. Skipping plot.')
+        return
 
     var_names = ['drake_passage_transport', 'weddell_gyre_transport', 'ross_gyre_transport']
     var_titles = ['Drake Passage', 'Weddell Gyre', 'Ross Gyre']
@@ -732,9 +792,15 @@ def plot_evaluation_timeseries_transport (timeseries_file='timeseries_U.nc', fig
     for v in range(num_var):
         ax = plt.subplot(gs[0,v])
         time = ds['time_centered']
-        ax.plot(time, ds[var_names[v]], color='DarkGrey', linewidth=1)
+        try:
+            ax.plot(time, ds[var_names[v]], color='DarkGrey', linewidth=1)
+        except(TypeError):
+            ax.plot_date(time, ds[var_names[v]], '-', color='DarkGrey', linewidth=1)
         data_smoothed = moving_average(ds[var_names[v]], smooth)
-        ax.plot(data_smoothed.time_centered, data_smoothed, color='black', linewidth=1.5)
+        try:
+            ax.plot(data_smoothed.time_centered, data_smoothed, color='black', linewidth=1.5)
+        except(TypeError):
+            ax.plot_date(data_smoothed.time_centered, data_smoothed, '-', color='black', linewidth=1.5)
         region = var_names[v][:var_names[v].index('_transport')]
         obs_mean = transport_obs[region]
         obs_std = transport_std[region]
@@ -746,16 +812,16 @@ def plot_evaluation_timeseries_transport (timeseries_file='timeseries_U.nc', fig
             ax.set_ylabel('Transport (Sv)')
         ax.grid(linestyle='dotted')
         ax.tick_params(axis='x', labelrotation=90)
-    finished_plot(fig, fig_name=fig_name)
+    finished_plot(fig, fig_name=fig_name, dpi=300)
         
 
-# Calculate the observed mean and uncertainty of T and S on the shelf averaged over each region, from the Zhou 2025 climatology.
-def preproc_shenjie (obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology.nc', bathy_file='shenjie_climatology_bottom_TS.nc', out_file='OI_climatology_2D.nc'):
+# Calculate the observed mean and uncertainty of T and S on the shelf averaged over each region, from the Zhou 2025 climatology. Print the results. Also save vertical casts for some regions (in a 1D NetCDF file), and the map of bottom T and S (in a 2D NetCDF file).
+def preproc_shenjie (obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology.nc', bathy_file='/gws/ssde/j25b/terrafirma/kaight/input_data/shenjie_climatology_bottom_TS.nc', out_file='OI_climatology_2D.nc', out_file_casts='OI_climatology_casts.nc'):
 
     regions_bottom = ['all', 'larsen', 'filchner_ronne', 'east_antarctica', 'amery', 'ross', 'west_antarctica']
-    regions_mid = ['dotson_cosgrove']
-    depth_bounds = [200, 700]
-    bottom_thickness = 150 
+    regions_casts = ['dotson_cosgrove']
+    bottom_thickness = 150
+    var_names = ['ct', 'ct_mse', 'sa', 'sa_mse']
 
     ds = xr.open_dataset(obs_file).squeeze().transpose('nz', 'ny', 'nx')
 
@@ -766,13 +832,13 @@ def preproc_shenjie (obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_cl
     # Build shelf mask
     ds_bathy = build_shelf_mask(ds_bathy)[1]
     # Now mask land (and cavities) - crucially after shelf mask constructed otherwise the Brunt overhang disconnects it
-    ds_bathy['shelf_mask'] = xr.where(ds['ct'].isel(nz=0).notnull(), ds_bathy['shelf_mask'], 0)
+    ds_bathy['shelf_mask'] = xr.where(ds[var_names[0]].isel(nz=0).notnull(), ds_bathy['shelf_mask'], 0)
     # Copy the two variables we need over to the main dataset
     ds = ds.assign({'bathymetry':ds_bathy['bathymetry'], 'shelf_mask':ds_bathy['shelf_mask']})
     ds_bathy.close()
     
     # Precompute the region masks
-    for region in regions_bottom+regions_mid:
+    for region in regions_bottom+regions_casts:
         if region == 'east_antarctica':
             # Do this one at the end
             continue
@@ -808,45 +874,58 @@ def preproc_shenjie (obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_cl
     dz = z_edges[1:] - z_edges[:-1]
     dz = xr.DataArray(dz, coords={'nz':ds['nz']})
 
+    # 3D land mask
+    land_mask_3d = xr.where(ds[var_names[0]].notnull(), 1, 0)
     # Mask for bottom layer: within 150 m of bathymetry (assume pressure in dbar = depth in m)
     bathy = ds['bathymetry']
-    bottom_mask = xr.where((z<bathy)*(z>bathy-bottom_thickness)*ds['ct'].notnull(), 1, 0)
-    # Mask for 200-700m depth range
-    mid_mask = xr.where((z>depth_bounds[0])*(z<depth_bounds[1])*ds['ct'].notnull(), 1, 0)
+    bottom_mask = xr.where((z<bathy)*(z>bathy-bottom_thickness)*land_mask_3d, 1, 0)
 
     # Loop over variables we care about
     ds_out = None
-    for var in ['ct', 'ct_mse', 'sa', 'sa_mse']:
+    ds_casts = None
+    for var in var_names:
         print('\n'+var)
-        ds[var].load()
-        for depth_mask, regions, depth_name in zip([bottom_mask, mid_mask], [regions_bottom, regions_mid], ['bottom', '200-700m']):
-            if 'mse' in var:
-                # Extra mask on uncertainty variables
-                depth_mask_tmp = depth_mask.where(ds[var]!=1e10)
+        data = ds[var]
+        data.load()
+        if 'mse' in var:
+            # Extra mask on uncertainty variables
+            data = data.where(data!=1e10)
+            bottom_mask_tmp = bottom_mask.where(data!=1e10)
+        else:
+            bottom_mask_tmp = bottom_mask
+        # First calculate bottom values area-averaged over given regions
+        # Vertically average over depth range
+        var_2D = (data*dz*bottom_mask_tmp).sum(dim='nz')/(dz*bottom_mask_tmp).sum(dim='nz')
+        if ds_out is None:
+            ds_out = xr.Dataset({var+'_bottom':var_2D})
+            for varg in ['latitude', 'longitude']:
+                ds_out = ds_out.assign({varg:ds[varg].squeeze()})
+        else:
+            ds_out = ds_out.assign({var+'_bottom':var_2D})
+        for region in regions_bottom:
+            mask = ds[region+'_shelf_mask']
+            area = (dA*mask).where(var_2D.notnull())
+            var_avg = (var_2D*area).sum()/area.sum()
+            print(region+' (bottom): '+str(var_avg.item()))
+        # Now casts
+        for region in regions_casts:
+            mask = ds[region+'_shelf_mask']
+            mask_3d = xr.broadcast(mask, land_mask_3d)[0]*land_mask_3d
+            dA_3d = xr.broadcast(dA, mask_3d)[0]
+            area_3d = (dA_3d*mask_3d).where(data.notnull())
+            var_cast = (data*area_3d).sum(dim=['nx','ny'])/area_3d.sum(dim=['nx','ny'])
+            if ds_casts is None:
+                ds_casts = xr.Dataset({var+'_cast_'+region:var_cast, 'pressure':ds['pressure'].squeeze()})
             else:
-                depth_mask_tmp = depth_mask
-            # Vertically average over depth range
-            var_2D = (ds[var]*dz*depth_mask_tmp).sum(dim='nz')/(dz*depth_mask_tmp).sum(dim='nz')
-            if ds_out is None:
-                ds_out = xr.Dataset({var+'_'+depth_name:var_2D})
-                for varg in ['latitude', 'longitude']:
-                    ds_out = ds_out.assign({varg:ds[varg].squeeze()})
-            else:
-                ds_out = ds_out.assign({var+'_'+depth_name:var_2D})
-            for region in regions:
-                mask = ds[region+'_shelf_mask']
-                area = (dA*mask).where(var_2D.notnull())
-                var_avg = (var_2D*area).sum()/area.sum()
-                print(region+' ('+depth_name+'): '+str(var_avg.item()))
-    ds_out.to_netcdf(out_file)    
+                ds_casts = ds_casts.assign({var+'_cast_'+region:var_cast})
+    ds_out.to_netcdf(out_file)
+    ds_casts.to_netcdf(out_file_casts)
 
 
 # Precompute variables averaged over the last part of the simulation (default 20 years). Convert to TEOS-10 if it's not already.
 # config can be NEMO_AIS or UKESM1
 # option: 'bottom_TS' (bottom T and S), 'zonal_TS' (zonal mean T and S)
 def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir=None, num_years=20, out_file='bottom_TS_avg.nc'):
-
-    import cf_xarray as cfxr
 
     if option == 'bottom_TS':
         var_names_1 = ['tob', 'sob']
@@ -856,10 +935,10 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
 
     if config == 'NEMO_AIS':
         if suite_id is None:
-            suite_id = 'eANT025.L121'
+            suite_id = 'AntArc'
         if in_dir is None:
             in_dir = './'
-        file_head = suite_id+'_1m_'
+        file_head = 'eANT025.'+suite_id+'_1m_'
         file_tail = '_grid_T.nc'
         eos = 'teos10'
     elif config == 'UKESM1':
@@ -883,10 +962,20 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
                 if months_per_file not in [1, months_per_year]:
                     raise Exception('Invalid months_per_file = '+str(months_per_file))
                 ds.close()
+    if len(nemo_files) == 0:
+        raise Exception('No valid files found. Check if suite_id='+suite_id+' is correct.')
     # Sort chronologically
     nemo_files.sort()
     # Select the last num_years
     num_t = int(num_years*months_per_year/months_per_file)
+    if num_t > len(nemo_files):
+        # Not enough years
+        # Figure out the number of complete years
+        num_years = int(len(nemo_files)*months_per_file/months_per_year)
+        if num_years == 0:
+            raise Exception('Less than 1 year of simulation completed. Cannot calculate averages')
+        print('Warning: reducing num_years to '+str(num_years)+' as simulation is too short.')
+        num_t = int(num_years*months_per_year/months_per_file)
     nemo_files =  nemo_files[-num_t:]
 
     # Now read one file at a time
@@ -906,7 +995,9 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
                 var_names = var_names_2                
         # Select only variables we want, and mask where identically zero
         lon_name, lat_name = latlon_name(ds)
-        ds = ds[var_names+[lon_name, lat_name, 'bounds_'+lon_name, 'bounds_'+lat_name]].where(ds[var_names[0]]!=0)
+        ds_var = ds[var_names].where(ds[var_names[0]]!=0)
+        # Add in some grid variables
+        ds = ds_var.merge(ds[[lon_name, lat_name, 'bounds_'+lon_name, 'bounds_'+lat_name]])
         if eos == 'eos80' and option in ['bottom_TS', 'zonal_TS']:
             # Convert to TEOS-10
             pot_temp = ds[var_names[0]]
@@ -926,13 +1017,17 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
             # Process one month at a time: this is more memory efficient than the built in functions, if not more code efficient!
             for t in range(months_per_file):
                 ds_tmp = ds.isel(time_counter=t)
-                for var in var_names:
+                for var in ds_tmp:
                     ds_tmp[var] = ds_tmp[var]*weights[t]
                 ds_tmp = ds_tmp.drop_vars({'time_counter', 'time_centered'})
                 if option == 'zonal_TS':
-                    # Zonal mean - keep it simple
+                    # Zonal mean - keep it simple - this is just for eyeball comparison with WOA, don't need to close a budget
+                    ds_tmp = ds_tmp.reset_coords()
+                    ds_tmp[lat_name] = ds_tmp[lat_name].where(ds_tmp[var_names[0]].sum(dim='deptht'))
                     x_name, y_name = xy_name(ds_tmp)
-                    ds_tmp = ds_tmp.mean(dim=x_name).squeeze()                
+                    ds_tmp = ds_tmp.mean(dim=x_name).squeeze()
+                    ds_tmp = ds_tmp.drop_vars({lon_name, 'bounds_'+lon_name})
+                    ds_tmp = ds_tmp.set_coords(lat_name)
                 if ds_accum is None:
                     ds_accum = ds_tmp
                 else:
@@ -958,7 +1053,11 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
 
 
 # Plot bottom T and S compared to Shenjie's obs.
-def plot_bottom_TS (in_file='bottom_TS_avg.nc', obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_2D.nc', fig_name=None):
+def plot_evaluation_bottom_TS (in_file='bottom_TS_avg.nc', obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_2D.nc', fig_name=None):
+
+    if not os.path.isfile(in_file):
+        print('Warning: '+in_file+' does not exist. Skipping plot.')
+        return
 
     var_names_1 = ['tob', 'sob']
     var_names_2 = ['sbt', 'sbs']
@@ -1005,27 +1104,108 @@ def plot_bottom_TS (in_file='bottom_TS_avg.nc', obs_file='/gws/ssde/j25b/terrafi
                 cax = fig.add_axes([0.02+0.45*n, 0.57-0.49*v, 0.02, 0.3])
                 plt.colorbar(img, cax=cax, extend='both')
         plt.text(0.5, 0.99-0.48*v, var_titles[v], ha='center', va='top', transform=fig.transFigure, fontsize=16)
-    finished_plot(fig, fig_name=fig_name)
+    finished_plot(fig, fig_name=fig_name, dpi=300)
 
 
-# Precompute the zonal mean T and S over the Southern Ocean (to 50S) from WOA 2023.
+# Precompute the zonal mean T and S over the Southern Ocean (to 50S) from WOA 2023. Convert to TEOS-10 while we're at it.
 def precompute_woa_zonal_mean (in_dir='./', out_file='woa_zonal_mean.nc'):
+
+    import gsw
 
     var_names = ['t', 's']
     file_head = in_dir+'/'+'woa23_decav_'
     file_tail = '00_04.nc'
 
+    print('Reading data')
     ds_out = None
     for var in var_names:
-        print('Processing '+var)
         file_path = file_head + var + file_tail
         ds = xr.open_dataset(file_path, decode_times=False)
         data = ds[var+'_an'].squeeze()
-        # WOA grid is regular 0.25 deg spacing, so zonal mean is simple
-        data_mean = data.mean(dim='lon').squeeze()
         if ds_out is None:
-            ds_out = xr.Dataset({var:data_mean})
+            ds_out = xr.Dataset({var:data})
         else:
-            ds_out = ds_out.assign({var:data_mean})
+            ds_out = ds_out.assign({var:data})
         ds.close()
+    print('Converting to TEOS-10')
+    # Now convert to TEOS-10
+    pot_temp = ds_out[var_names[0]]
+    prac_salt = ds_out[var_names[1]]
+    depth_3d = xr.broadcast(ds_out['depth'], pot_temp)[0]
+    abs_salt = gsw.SA_from_SP(prac_salt, depth_3d, ds_out['lon'], ds_out['lat'])
+    con_temp = gsw.CT_from_pt(abs_salt, pot_temp)
+    ds_out[var_names[0]] = con_temp.assign_attrs(long_name='conservative temperature, TEOS-10')
+    ds_out[var_names[1]] = abs_salt.assign_attrs(long_name='absolute salinity, TEOS-10')
+    print('Calculating zonal mean')
+    # WOA grid is regular 0.25 deg spacing, so zonal mean is simple
+    ds_out = ds_out.mean(dim='lon').squeeze()
     ds_out.to_netcdf(out_file)
+
+
+# Plot zonally-averaged T and S compared to WOA 2023.
+def plot_evaluation_zonal_TS (in_file='zonal_TS_avg.nc', obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/woa_zonal_mean.nc', fig_name=None):
+
+    if not os.path.isfile(in_file):
+        print('Warning: '+in_file+' does not exist. Skipping plot.')
+        return
+
+    var_names = ['thetao', 'so']
+    var_names_obs = ['t', 's']
+    var_titles = ['Conservative temperature ('+deg_string+'C)', 'Absolute salinity']
+    vmin = [-2.5, 34.3]
+    vmax = [5, 35]
+    vdiff = [0.75, 0.25]
+    subtitles = ['Model', 'Observations', 'Model bias']
+    ctype = ['RdBu_r', 'RdBu_r', 'plusminus']
+
+    # Read precomputed model fields
+    ds_model = xr.open_dataset(in_file)
+    lon_name, lat_name = latlon_name(ds_model)
+    x_name, y_name = xy_name(ds_model)
+    # Make latitude, now zonally averaged, a dimension
+    ds_model = ds_model.swap_dims({y_name:lat_name})
+    # Remove masked latitudes at beginning and end
+    ds_model = ds_model.where(ds_model[lat_name].notnull(), drop=True)
+
+    # Read observations and make sure naming conventions follow NEMO
+    ds_obs = xr.open_dataset(obs_file, decode_times=False).drop_vars({'time'}).rename({'lat':lat_name, 'depth':'deptht'})
+    for var_old, var_new in zip(var_names_obs, var_names):
+        ds_obs = ds_obs.rename({var_old:var_new})
+    # Now interpolate to model grid
+    ds_obs_interp = ds_obs.interp_like(ds_model, method='linear')
+
+    # Prepare cell edges for plotting
+    def arr_edges (arr):
+        data = arr.data
+        return np.concatenate(([2*data[0]-data[1]], 0.5*(data[:-1] + data[1:]), [2*data[-1]-data[-2]]))
+    lat_edges = arr_edges(ds_model[lat_name])
+    depth_edges = arr_edges(ds_model['deptht'])
+
+    # Plot
+    fig = plt.figure(figsize=(11,6.5))
+    gs = plt.GridSpec(2,3)
+    gs.update(left=0.12, right=0.9, bottom=0.05, top=0.9, wspace=0.1, hspace=0.4)
+    for v in range(2):
+        model_plot = ds_model[var_names[v]]
+        obs_plot = ds_obs_interp[var_names[v]]
+        data_plot = [model_plot, obs_plot, model_plot-obs_plot]
+        vmin_tmp = [vmin[v], vmin[v], -1*vdiff[v]]
+        vmax_tmp = [vmax[v], vmax[v], vdiff[v]]
+        for n in range(3):
+            cmap = set_colours(data_plot[n], ctype=ctype[n], vmin=vmin_tmp[n], vmax=vmax_tmp[n])[0]
+            ax = plt.subplot(gs[v,n])
+            img = ax.pcolormesh(lat_edges, depth_edges*1e-3, data_plot[n], cmap=cmap, vmin=vmin_tmp[n], vmax=vmax_tmp[n])
+            ax.set_ylim(ax.get_ylim()[::-1])
+            ax.set_title(subtitles[n], fontsize=14)
+            if n != 1:
+                cax = fig.add_axes([0.02+0.45*n, 0.57-0.49*v, 0.02, 0.3])
+                plt.colorbar(img, cax=cax, extend='both')
+            latlon_axis(ax, 'lat', 'x')
+            if n == 0:
+                ax.set_ylabel('depth (km)')
+            else:
+                ax.set_yticklabels([])
+        plt.text(0.5, 0.99-0.5*v, var_titles[v], ha='center', va='top', transform=fig.transFigure, fontsize=16)
+    finished_plot(fig, fig_name=fig_name, dpi=300)
+    
+    

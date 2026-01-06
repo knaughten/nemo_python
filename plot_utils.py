@@ -162,19 +162,33 @@ def lat_label (x, max_decimals=0):
 
 
 # Now, give the lon and lat axes nice labels.
+def latlon_axis (ax, option, dim, max_decimals=0):
+
+    if dim == 'x':
+        ticks = ax.get_xticks()
+    elif dim == 'y':
+        ticks = ax.get_yticks()
+    else:
+        raise Exception('dim must be x or y')
+    labels = []
+    for t in ticks:
+        if option == 'lon':
+            label = lon_label(t, max_decimals=max_decimals)
+        elif option == 'lat':
+            label = lat_label(t, max_decimals=max_decimals)
+        else:
+            raise Exception('option must be lon or lat')
+        labels.append(label)
+    if dim == 'x':
+        ax.set_xticklabels(labels)
+    elif dim == 'y':
+        ax.set_yticklabels(labels)
+        
+
 def latlon_axes (ax, max_decimals=0):
 
-    lon_ticks = ax.get_xticks()
-    lat_ticks = ax.get_yticks()
-    lon_labels = []
-    for x in lon_ticks:
-        lon_labels.append(lon_label(x, max_decimals=max_decimals))
-    ax.set_xticklabels(lon_labels)
-    lat_labels = []
-    for y in lat_ticks:
-        lat_labels.append(lat_label(y, max_decimals=max_decimals))
-    ax.set_yticklabels(lat_labels)
-            
+    latlon_axis(ax, 'lon', 'x', max_decimals=max_decimals)
+    latlon_axis(ax, 'lat', 'y', max_decimals=max_decimals)
             
 
     

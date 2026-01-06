@@ -161,17 +161,17 @@ def remove_disconnected (mask, point0):
 # Choose the right latitude and longitude name for the given dataset (sometimes it's stamped with the grid)
 def latlon_name (ds):
 
-    if 'nav_lon' in ds:
+    if 'nav_lat' in ds:
         return 'nav_lon', 'nav_lat'
-    elif 'nav_lon_grid_T' in ds:
+    elif 'nav_lat_grid_T' in ds:
         return 'nav_lon_grid_T', 'nav_lat_grid_T'
-    elif 'nav_lon_grid_V' in ds:
+    elif 'nav_lat_grid_V' in ds:
         return 'nav_lon_grid_V', 'nav_lat_grid_V'
-    elif 'nav_lon_grid_U' in ds:
+    elif 'nav_lat_grid_U' in ds:
         return 'nav_lon_grid_U', 'nav_lat_grid_U'
-    elif 'lon' in ds:
+    elif 'lat' in ds:
         return 'lon', 'lat'
-    elif 'longitude' in ds:
+    elif 'latitude' in ds:
         return 'longitude', 'latitude'
     else:
         raise Exception('No valid lat or lon coordinate')
@@ -179,15 +179,15 @@ def latlon_name (ds):
 
 def xy_name (ds):
 
-    if 'x' in ds.dims:
+    if 'y' in ds.dims:
         return 'x', 'y'
-    elif 'x_grid_T' in ds.dims:
+    elif 'y_grid_T' in ds.dims:
         return 'x_grid_T', 'y_grid_T'
-    elif 'x_grid_V' in ds.dims:
+    elif 'y_grid_V' in ds.dims:
         return 'x_grid_V', 'y_grid_V'
-    elif 'x_grid_U' in ds.dims:
+    elif 'y_grid_U' in ds.dims:
         return 'x_grid_U', 'y_grid_U'
-    elif 'nx' in ds.dims:
+    elif 'ny' in ds.dims:
         return 'nx', 'ny'
     else:
         raise Exception('No valid x or y coordinate')

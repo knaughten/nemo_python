@@ -6,13 +6,11 @@ gravity = 9.81
 rho_fw = 1e3
 # Density of ice
 rho_ice = 917.
-# Seconds per hour
+# Time constants
 sec_per_hour = 60*60.
-# Seconds per day
-sec_per_day = 24*sec_per_hour
-# Seconds per year
+hours_per_day = 24
+sec_per_day = hours_per_day*sec_per_hour
 sec_per_year = 365.25*sec_per_day
-# Months per year
 months_per_year = 12
 # Celsius to Kelvins intercept
 temp_C2K = 273.15
@@ -173,7 +171,7 @@ cesm2_ensemble_members = ['1011.001','1031.002','1051.003','1071.004','1091.005'
                          [f'1301.0{i:02}' for i in range(11,16)]
 
 # Dictionary of Zhou 2025 climatology estimates of T and S averaged over specific regions (precomputed in preproc_shenjie() in projects/evaluations.py)
-# All for the bottom layer of the continental shelf, except for Dotson-Cosgrove which is 200-700m.
+# All for the bottom layer of the continental shelf
 zhou_TS = {
     'all' : [-0.6695410873659793, 34.7070703798599],
     'larsen' : [-0.6843050331926526, 34.73308806280401],
@@ -182,7 +180,6 @@ zhou_TS = {
     'amery' : [-1.4495089071871263, 34.65103271002805],
     'ross' : [-1.1322646855683065, 34.81849241788611],
     'west_antarctica' : [0.383067473733724, 34.6659031916278],
-    'dotson_cosgrove' : [-0.7030431065989824, 34.483341406677425],
 }
 zhou_TS_std = {
     'all' : [0.09508299993613939, 0.0188970712676857],
@@ -192,7 +189,6 @@ zhou_TS_std = {
     'amery' : [0.012225988410520623, 0.0027396559156980136],
     'ross' : [0.11995641697684434, 0.016356051884604095],
     'west_antarctica' : [0.07672359188845057, 0.023906759361352944],
-    'dotson_cosgrove' : [0.052133951510618795, 0.02832698806463065],
 }
 
 # Dictionary of Adusumilli 2020 satellite estimates of melt rates for specific ice shelves and regions, over 1994-2018.

@@ -10,18 +10,25 @@ from .interpolation import neighbours
 from .constants import region_edges, region_edges_flag, region_names, region_points, shelf_lat, shelf_depth, shelf_point0, region_bounds, region_bathy_bounds
 from .utils import remove_disconnected, closest_point, latlon_name, xy_name
 
+# Helper function to get a 3D land mask from a NEMO output file, using either thetao or so.
+def build_mask_3d (ds):
+
+    mask_3d = None
+    for var in ['thetao', 'so']:
+        if var in ds:
+            mask_3d = xr.where(ds[var].isel(time_counter=0)==0, 0, 1).squeeze()
+            break
+    if mask_3d is None:
+        raise Exception('No known 3D masked variable is present. Add another variable to the code?')
+    return mask_3d
+    
+
 # Helper function to calculate a bunch of grid variables (bathymetry, draft, ocean mask, ice shelf mask) from a NEMO output file, only using thkcello/e3t and the mask on a 3D data variable (current options are to look for thetao and so).
 # This varies a little if the sea surface height changes, so not perfect, but it does take partial cells into account.
 # If keep_time_dim, will preserve any time dimension even if it's of size 1 (useful for timeseries)
 def calc_geometry (ds, keep_time_dim=False):
 
-    mask_3d = None
-    for var in ['thetao', 'so']:
-        if var in ds:
-            mask_3d = xr.where(ds[var]==0, 0, 1).squeeze()
-            break
-    if mask_3d is None:
-        raise Exception('No known 3D masked variable is present. Add another variable to the code?')
+    mask_3d = build_mask_3d(ds)
     # 2D ocean cells are unmasked at some depth
     ocean_mask = mask_3d.sum(dim='deptht')>0
     # 2D ice shelf cells are ocean cells which are masked at the surface
@@ -319,6 +326,13 @@ def region_mask (region, ds, option='all', return_name=False):
         return mask, ds, title
     else:
         return mask, ds
+
+
+# Make any 2D mask 3D, masking out any points which are land or ice shelf (varying with depth). Pass a dataset containing thetao or so on the same grid.
+def make_mask_3d (mask, ds):
+
+    land_mask_3d = build_mask_3d(ds)
+    return xr.broadcast(mask, land_mask_3d)[0]*land_mask_3d    
 
 
 # Build and return a T grid mask for coastal points: open-ocean points with at least one neighbour that is land or ice shelf.

@@ -8,9 +8,6 @@ import cftime
 import tqdm
 import gsw
 from .interpolation import interp_latlon_cf, neighbours, neighbours_z, extend_into_mask
-import sys
-sys.path.append('/home/users/birgal/')
-from nemo_python_git.utils import convert_to_teos10
 from .utils import fix_lon_range
 
 
@@ -191,6 +188,10 @@ def vertical_interp(interp_info, in_file, out_file, ln_obcs=False, bdy_ind=-2):
     return
 
 def ics_obcs_horizontal_interp(interp_info, in_file, out_file, ln_obcs=False, bdy_ind=-2):
+
+    import sys
+    sys.path.append('/home/users/birgal/')
+    from nemo_python_git.utils import convert_to_teos10
     
     # Load files:
     nemo_coord_file   = xr.open_dataset(f"{interp_info['nemo_coord']}").squeeze()
