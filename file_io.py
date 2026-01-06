@@ -285,20 +285,22 @@ def find_processed_cesm2_file(expt, var_name, ensemble_member, year, freq='daily
     if highres:
         file_dir = f'{base_dir}{expt}/processed_highres/ens{ensemble_member}/'
         file_list = glob.glob(f'{file_dir}CESM2-{expt}_ens{ensemble_member}_eANT025_{freq}_{var_name}_y*')
-        file_path = f'{file_dir}CESM2-{expt}_ens{ensemble_member}_eANT025_{freq}_{var_name}_y{year}.nc'
     else:
         file_dir = f'{base_dir}{expt}/processed/ens{ensemble_member}/'
         file_list = glob.glob(f'{file_dir}CESM2-{expt}_ens{ensemble_member}_{freq}_{var_name}_y*')
-        file_path = f'{file_dir}CESM2-{expt}_ens{ensemble_member}_{freq}_{var_name}_y{year}.nc'
 
     found_date = False
+    file_path  = []
     for file in file_list:
-        file_year = datetime.strptime((file.split(f'_{var_name}_y')[1]).split('.nc')[0], '%Y').year
+        file_year = datetime.strptime((file.split(f'_{var_name}_y')[1])[0:4], '%Y').year
         if (year == file_year): # found the file we're looking for
             found_date = True
-            break
+            file_path.append(file)
 
     if not found_date:
         raise Exception(f'File for {var_name}, {ensemble_member} requested year ({year}) not found, double-check that it exists?')
     
-    return file_path
+    if len(file_path)==1:
+        return file_path[0]
+    else:
+        return file_path
