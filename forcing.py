@@ -491,7 +491,7 @@ def era5_time_mean_forcing(variable, year_start=1979, year_end=2024, freq='daily
                         era5_ds = np.arctan2(era5_v, era5_u).rename(variable).groupby('time.month').mean(dim='time').to_dataset()
                 else:
                     era5_ds = xr.open_dataset(f'{era5_folder_in}{variable}_y{year}.nc')[varname].sortby('lat').sel(lat=lat_slice)
-                    era5_ds = era5_ds.resample(time='3h').mean().groupby('time.month').to_dataset()
+                    era5_ds = era5_ds.resample(time='3h').mean().groupby('time.month').mean(dim='time').to_dataset()
                
                 era5_ds.to_netcdf(f'{era5_folder_out}ERA5_{variable}_{freq}_monthly_mean_y{year}.nc')
  
@@ -557,7 +557,7 @@ def cesm2_ensemble_time_mean_forcing(expt, variable, out_dir, year_start=1979, y
 def cesm2_all_variables_ensemble_mean(expt, out_dir, year_start=1979, year_end=2024, ensemble_members=cesm2_ensemble_members):
 
     for variable in ['TREFHT','QREFHT','FSDS','FLDS','PRECT','PRECS', 'PSL', 'wind_speed', 'wind_angle']: 
-        if variable in ['wind_speed','wind_angle']:
+        if variable in ['wind_speed','wind_angle','UBOT','VBOT']:
             freq='3-hourly'
         else:
             freq='daily'
@@ -591,7 +591,7 @@ def calc_bias_correction(source, variable, expt='LE2', year_start=1979, year_end
 
         # Load regridded ERA5 climatology
         CESM2_to_ERA5_varnames = {'TREFHT':'t2m','FSDS':'msdwswrf','FLDS':'msdwlwrf','QREFHT':'sph2m', 'PRECS':'msr', 'PRECT':'mtpr', \
-                                  'PSL':'msl', 'wind_speed':'wind_speed', 'wind_angle':'wind_angle'}
+                'PSL':'msl', 'wind_speed':'wind_speed', 'wind_angle':'wind_angle', 'UBOT':'u10', 'VBOT':'v10'}
         filevarname = CESM2_to_ERA5_varnames[variable]
         if variable=='QREFHT':
            varname='specific_humidity' # file with dewpoint temperature converted to specific humidity
@@ -600,7 +600,7 @@ def calc_bias_correction(source, variable, expt='LE2', year_start=1979, year_end
         ERA5_climatology = xr.open_dataset(f'{era5_folder}ERA5_eANT025_{filevarname}_{freq}_{year_start}-{year_end}_mean_monthly.nc').rename({varname:variable})
  
         # thermo(dynamic) correction
-        if variable in ['TREFHT','QREFHT','FLDS','FSDS','PRECS','PRECT','wind_speed','wind_angle','PSL']:
+        if variable in ['TREFHT','QREFHT','FLDS','FSDS','PRECS','PRECT','wind_speed','wind_angle','PSL','UBOT','VBOT']:
             if monthly:
                 out_file = f'{out_folder}{source}-{expt}_{variable}_{freq}_bias_corr_monthly.nc'
             else:
@@ -626,22 +626,27 @@ def calc_bias_correction(source, variable, expt='LE2', year_start=1979, year_end
 # - (optional) monthly    : boolean indicating whether bias correction fields are monthly or not
 # - (optional) dist_coast : 
 # - (optional) coastal_correction_limit : float indicating the distance from the coastline (in km) considered for the coastal wind angle correction
-def thermo_dynamic_correction(source_mean, ERA5_mean, variable, out_file, fill_land=True, monthly=False, 
+def thermo_dynamic_correction(source_mean, ERA5_mean, variable, out_file, fill_land=True, monthly=False, coastal=False, 
                               dist_coast='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/distance_coast-20250715.nc', coastal_correction_limit=400):
-    if variable=='wind_speed':
+    if variable in ['wind_speed','UBOT','VBOT']:
         print('Correcting dynamics')
         bias = ERA5_mean / source_mean
     elif variable=='wind_angle':
         print('Correcting dynamics') 
-        # open file with distance from coastline for the configuration
-        distcoast = xr.open_dataset(dist_coast)
-        # apply correction to distance within coastal_correction_limit (excluding south america)
-        region_to_correct = (distcoast.distance_coast < coastal_correction_limit)*(distcoast.nav_lat <-59)
+        
         angle_bias = ERA5_mean - source_mean
-        angle_bias = xr.where(region_to_correct, angle_bias, 0)
-        angle_bias = xr.where(distcoast.distance_coast ==0, 0, angle_bias) # mask land
-        # apply a cosine taper to the angle bias to gradually transition from strength 1 to 0
-        bias = xr.where(region_to_correct, angle_bias*np.cos((np.pi/2)*(distcoast.distance_coast/coastal_correction_limit)), 0)
+        
+        if coastal: # apply angle correction only within a certain distance of the coastline
+            # open file with distance from coastline for the configuration
+            distcoast = xr.open_dataset(dist_coast)
+            # apply correction to distance within coastal_correction_limit (excluding south america)
+            region_to_correct = (distcoast.distance_coast < coastal_correction_limit)*(distcoast.nav_lat <-59)
+            angle_bias = xr.where(region_to_correct, angle_bias, 0)
+            angle_bias = xr.where(distcoast.distance_coast ==0, 0, angle_bias) # mask land
+            # apply a cosine taper to the angle bias to gradually transition from strength 1 to 0
+            bias = xr.where(region_to_correct, angle_bias*np.cos((np.pi/2)*(distcoast.distance_coast/coastal_correction_limit)), 0)
+        else:
+            bias = angle_bias
     else:
         print('Correcting thermodynamics')
         # Calculate difference:
@@ -682,6 +687,8 @@ def apply_bias_correction(variable, ens, expt='LE2', start_year=1900, end_year=2
     from tqdm import tqdm
     print(f'Processing {variable} files for ensemble member {ens} from {start_year}-{end_year} with bias correction file from {freq} means')
 
+    time_coder = xr.coders.CFDatetimeCoder(use_cftime=True)
+
     out_dir = f'{out_dir}ens{ens}/'
     bias_ds = xr.open_dataset(f'{bias_dir}CESM2-LE2_{variable}_{freq}_bias_corr_monthly.nc')[variable]
     if variable=='wind_speed': # also load wind angle bias correction file
@@ -705,53 +712,74 @@ def apply_bias_correction(variable, ens, expt='LE2', start_year=1900, end_year=2
         if variable=='wind_speed':
             file_pathx = find_processed_cesm2_file(expt, 'UBOT', ens, year, freq='3-hourly', highres=highres)
             file_pathy = find_processed_cesm2_file(expt, 'VBOT', ens, year, freq='3-hourly', highres=highres)
-            dsx = xr.open_dataset(file_pathx, use_cftime=True, chunks='auto')
-            dsy = xr.open_dataset(file_pathy, use_cftime=True, chunks='auto')
-            theta   = np.arctan2(dsy.VBOT, dsx.UBOT)
-            speed   = np.hypot(dsx.UBOT, dsy.VBOT)
-            #theta_corrected = theta + bias_ds_angle # correct wind angle
-            theta_corrected = theta.groupby(f'time_counter.month').apply(add_angle)
-            angle_u = np.cos(theta_corrected) * speed
-            angle_v = np.sin(theta_corrected) * speed
-            if monthly:
-                dsx['UBOT'] = angle_u.groupby('time_counter.month').apply(apply_multiplier)
-                dsy['VBOT'] = angle_v.groupby('time_counter.month').apply(apply_multiplier)
-            else:
-                dsx['UBOT'] = angle_u * bias_ds.mean(dim='month')
-                dsy['VBOT'] = angle_v * bias_ds.mean(dim='month')
-               
-            dsx.to_netcdf(f"{out_dir}CESM2-{expt}_ens{ens}_{'eANT025_' if highres else ''}{freq}_UBOT_bias_corr_{'monthly_' if monthly else ''}2D_y{year}.nc", \
-                    unlimited_dims=['time_counter'])
-            dsy.to_netcdf(f"{out_dir}CESM2-{expt}_ens{ens}_{'eANT025_' if highres else ''}{freq}_VBOT_bias_corr_{'monthly_' if monthly else ''}2D_y{year}.nc", \
-                    unlimited_dims=['time_counter'])
+            if isinstance(file_pathx, str):
+                file_pathx = [file_pathx]; file_pathy = [file_pathy]
+
+            for filex, filey in zip(file_pathx,file_pathy):
+                dsx = xr.open_dataset(filex, decode_times=time_coder)
+                dsy = xr.open_dataset(filey, decode_times=time_coder)
+                if monthly:
+                    dsx['UBOT'] = dsx.UBOT.groupby('time_counter.month').apply(apply_multiplier)
+                    dsy['VBOT'] = dsy.VBOT.groupby('time_counter.month').apply(apply_multiplier)
+                else:
+                    dsx['UBOT'] = dsx.UBOT * bias_ds.mean(dim='month')
+                    dsy['VBOT'] = dsy.VBOT * bias_ds.mean(dim='month')
+              
+                if np.unique(dsx.time_counter.dt.month.values).size==1:
+                    month = dsx.time_counter.dt.month.isel(time_counter=0).values
+                    dsx.to_netcdf(f"{out_dir}CESM2-{expt}_ens{ens}_{'eANT025_' if highres else ''}{freq}_UBOT_bias_corr_{'monthly_' if monthly else ''}2D_y{year}m{month:02}.nc", \
+                            unlimited_dims=['time_counter'])
+                    dsy.to_netcdf(f"{out_dir}CESM2-{expt}_ens{ens}_{'eANT025_' if highres else ''}{freq}_VBOT_bias_corr_{'monthly_' if monthly else ''}2D_y{year}m{month:02}.nc", \
+                            unlimited_dims=['time_counter'])
+                else:
+                    dsx.to_netcdf(f"{out_dir}CESM2-{expt}_ens{ens}_{'eANT025_' if highres else ''}{freq}_UBOT_bias_corr_{'monthly_' if monthly else ''}2D_y{year}.nc", 
+                            unlimited_dims=['time_counter'])
+                    dsy.to_netcdf(f"{out_dir}CESM2-{expt}_ens{ens}_{'eANT025_' if highres else ''}{freq}_VBOT_bias_corr_{'monthly_' if monthly else ''}2D_y{year}.nc", \
+                            unlimited_dims=['time_counter'])
 
         # every other variable has an addition spatial bias field correction
         else:
-            file_path = find_processed_cesm2_file(expt, variable, ens, year, freq='daily', highres=highres)
-            ds = xr.open_dataset(file_path, use_cftime=True)
-            if not highres:
-                ds = ds.rename({'time':'time_counter'})
+            file_path = find_processed_cesm2_file(expt, variable, ens, year, freq=freq, highres=highres)
+            if isinstance(file_path,str):
+                file_path = [file_path]
 
-            if monthly:
-                ds[variable] = ds[variable].groupby(f'time_counter.month').apply(add_bias)
-            else:
-                ds[variable] += bias_corr[variable].mean(dim='month')
+            for file in file_path:
+                ds = xr.open_dataset(file, decode_times=time_coder)             
+                if not highres:
+                    ds = ds.rename({'time':'time_counter'})
 
-            if variable=='PRECS':
-                # prevent the snowfall rate from exceeding the total precipitation rate
-                # read in bias-corrected PRECT file
-                try:
-                    ds_PRECT = xr.open_dataset(f"{out_dir}CESM2-{expt}_ens{ens}_{'eANT025_' if highres else ''}{freq}_PRECT_bias_corr_{'monthly_' if monthly else ''}y{year}.nc", use_cftime=True)
-                except:
-                    raise Exception('Need to bias correct PRECT before PRECS for consistency of precipitation rates')
+                if variable in ['UBOT','VBOT']:
+                    if monthly:
+                        ds[variable] = ds[variable].groupby(f'time_counter.month').apply(apply_multiplier)
+                    else:
+                        ds[variable] = ds[variable] * bias_ds.mean(dim='month')
+                else:
+                    if monthly:
+                        ds[variable] = ds[variable].groupby(f'time_counter.month').apply(add_bias)
+                    else:
+                        ds[variable] += bias_corr[variable].mean(dim='month')
+
+                if variable=='PRECS':
+                    # prevent the snowfall rate from exceeding the total precipitation rate
+                    # read in bias-corrected PRECT file
+                    try:
+                        ds_PRECT = xr.open_dataset(f"{out_dir}CESM2-{expt}_ens{ens}_{'eANT025_' if highres else ''}{freq}_PRECT_bias_corr_{'monthly_' if monthly else ''}y{year}.nc", decode_times=time_coder)
+                    except:
+                        raise Exception('Need to bias correct PRECT before PRECS for consistency of precipitation rates')
                 
-                # set the snowfall rate equal to the total precipitation rate if it is higher than it, otherwise leave as is
-                ds['PRECS'] = xr.where(ds['PRECS'] > ds_PRECT['PRECT'], ds_PRECT['PRECT'], ds['PRECS'])
+                    # set the snowfall rate equal to the total precipitation rate if it is higher than it, otherwise leave as is
+                    ds['PRECS'] = xr.where(ds['PRECS'] > ds_PRECT['PRECT'], ds_PRECT['PRECT'], ds['PRECS'])
 
-            if variable in ['PRECS', 'PRECT', 'FLDS', 'FSDS', 'QREFHT']:                    
-                ds[variable] = xr.where(ds[variable] < 0, 0, ds[variable]) # should not be negative as a result of bias correction
+                if variable in ['PRECS', 'PRECT', 'FLDS', 'FSDS', 'QREFHT']:                    
+                    ds[variable] = xr.where(ds[variable] < 0, 0, ds[variable]) # should not be negative as a result of bias correction
 
-            ds.to_netcdf(f"{out_dir}CESM2-{expt}_ens{ens}_{'eANT025_' if highres else ''}{freq}_{variable}_bias_corr_{'monthly_' if monthly else ''}y{year}.nc")
+                if np.unique(ds.time_counter.dt.month.values).size==1:
+                    month = ds.time_counter.dt.month.isel(time_counter=0).values
+                    ds.to_netcdf(f"{out_dir}CESM2-{expt}_ens{ens}_{'eANT025_' if highres else ''}{freq}_{variable}_bias_corr_{'monthly_' if monthly else ''}y{year}m{month:02}.nc", \
+                            unlimited_dims=['time_counter'])
+                else:
+                    ds.to_netcdf(f"{out_dir}CESM2-{expt}_ens{ens}_{'eANT025_' if highres else ''}{freq}_{variable}_bias_corr_{'monthly_' if monthly else ''}y{year}.nc", \
+                            unlimited_dims=['time_counter'])
 
     return
 
@@ -796,7 +824,7 @@ def process_era5_forcing(variable, year_start=1979, year_end=2024, era5_folder='
                     pass
                 
                 variable = filename.split('raw/')[1].split('_')[0]
-                if variable in ['msdwlwrf','msdwswrf','t2m','sph2m','d2m','msl','msr','mtpr','t2m']: 
+                if variable in ['msdwlwrf','msdwswrf','t2m','sph2m','d2m','msl','msr','mtpr','t2m','u10','v10']: 
                     print(f'Filling land for variable {variable} year {year}')
                     if variable=='sph2m':
                         varname='specific_humidity'
