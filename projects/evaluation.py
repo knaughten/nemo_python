@@ -957,7 +957,7 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
         if f.startswith(file_head) and f.endswith(file_tail):
             nemo_files.append(in_dir+'/'+f)
             if months_per_file is None:
-                ds = xr.open_dataset(f)
+                ds = xr.open_dataset(in_dir+'/'+f)
                 months_per_file = ds.sizes['time_counter']
                 if months_per_file not in [1, months_per_year]:
                     raise Exception('Invalid months_per_file = '+str(months_per_file))
