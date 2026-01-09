@@ -998,6 +998,9 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
     for file_path in nemo_files:
         print('Processing '+file_path)
         ds = xr.open_dataset(file_path, decode_times=time_coder)
+        if config == 'UKESM1' and ds['nav_lat'].max() > 0:
+            # Need to drop everything except the Southern Ocean
+            ds = ds.isel(nav_lat=slice(0,114))
         if eos == 'eos80' and option in ['bottom_TS', 'zonal_TS'] and depth_3d is None:
             depth_3d = xr.broadcast(ds['deptht'], ds['so'])[0].where(ds['so']!=0)
             depth_bottom =  depth_3d.max(dim='deptht')
@@ -1092,8 +1095,6 @@ def plot_evaluation_bottom_TS (in_file='bottom_TS_avg.nc', obs_file='/gws/ssde/j
     if 'x_grid_T_inner' in ds_model.dims:
         ds_model = ds_model.rename({'x_grid_T_inner':'x', 'y_grid_T_inner':'y'})
     ds_model = ds_model.assign({'ocean_mask':ds_model[var_names[0]].notnull()})
-    # Throw away northern hemisphere
-    ds_model = ds_model.where(ds_model['nav_lat']<0)
 
     # Read observations and interpolate to model grid
     ds_obs = xr.open_dataset(obs_file)
