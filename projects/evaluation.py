@@ -14,6 +14,8 @@ from ..file_io import read_schmidtko, read_woa, read_dutrieux, read_zhou
 from ..grid import extract_var_region, transect_coords_from_latlon_waypoints, region_mask, build_shelf_mask
 from ..timeseries import update_simulation_timeseries, overwrite_file
 
+time_coder = xr.coders.CFDatetimeCoder(use_cftime=True)
+
 # Compare the bottom temperature and salinity in NEMO (time-averaged over the given xarray Dataset) to observations: Schmidtko on the continental shelf, World Ocean Atlas 2018 in the deep ocean.
 def bottom_TS_vs_obs (nemo, time_ave=True,
                       schmidtko_file='/gws/ssde/j25b/terrafirma/kaight/input_data/schmidtko_TS.txt', 
@@ -685,9 +687,9 @@ def plot_evaluation_timeseries_shelf (timeseries_file='timeseries_T.nc', hovmoll
     smooth = 2*months_per_year
 
     # Open files
-    ds = xr.open_dataset(timeseries_file)
-    ds_hov = xr.open_dataset(hovmoller_file)
-    ds_obs = xr.open_dataset(obs_file_casts)
+    ds = xr.open_dataset(timeseries_file, decode_times=time_coder)
+    ds_hov = xr.open_dataset(hovmoller_file, decode_times=time_coder)
+    ds_obs = xr.open_dataset(obs_file_casts, decode_times=time_coder)
     # Calculate annual means of Hovmollers
     ds_hov_annual = ds_hov.groupby('time_centered.year').mean('time_centered')
     # Also full time-mean
@@ -796,7 +798,7 @@ def plot_evaluation_timeseries_transport (timeseries_file='timeseries_U.nc', fig
     num_var = len(var_names)
     smooth = 2*months_per_year
 
-    ds = xr.open_dataset(timeseries_file)
+    ds = xr.open_dataset(timeseries_file, decode_times=time_coder)
 
     fig = plt.figure(figsize=(10,3))
     gs = plt.GridSpec(1, num_var)
@@ -969,7 +971,7 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
         if f.startswith(file_head) and f.endswith(file_tail):
             nemo_files.append(in_dir+'/'+f)
             if months_per_file is None:
-                ds = xr.open_dataset(in_dir+'/'+f)
+                ds = xr.open_dataset(in_dir+'/'+f, decode_times=time_coder)
                 months_per_file = ds.sizes['time_counter']
                 if months_per_file not in [1, months_per_year]:
                     raise Exception('Invalid months_per_file = '+str(months_per_file))
@@ -995,7 +997,7 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
     depth_3d = None
     for file_path in nemo_files:
         print('Processing '+file_path)
-        ds = xr.open_dataset(file_path)
+        ds = xr.open_dataset(file_path, decode_times=time_coder)
         if eos == 'eos80' and option in ['bottom_TS', 'zonal_TS'] and depth_3d is None:
             depth_3d = xr.broadcast(ds['deptht'], ds['so'])[0].where(ds['so']!=0)
             depth_bottom =  depth_3d.max(dim='deptht')
@@ -1082,12 +1084,13 @@ def plot_evaluation_bottom_TS (in_file='bottom_TS_avg.nc', obs_file='/gws/ssde/j
     ctype = ['RdBu_r', 'RdBu_r', 'plusminus']
 
     # Read precomputed model fields
-    ds_model = xr.open_dataset(in_file)
+    ds_model = xr.open_dataset(in_file, decode_times=time_coder)
     if var_names_1[0] in ds_model:
         var_names = var_names_1
     else:
         var_names = var_names_2
-    ds_model = ds_model.rename({'x_grid_T_inner':'x', 'y_grid_T_inner':'y'})
+    if 'x_grid_T_inner' in ds_model.dims:
+        ds_model = ds_model.rename({'x_grid_T_inner':'x', 'y_grid_T_inner':'y'})
     ds_model = ds_model.assign({'ocean_mask':ds_model[var_names[0]].notnull()})
 
     # Read observations and interpolate to model grid
@@ -1171,7 +1174,7 @@ def plot_evaluation_zonal_TS (in_file='zonal_TS_avg.nc', obs_file='/gws/ssde/j25
     ctype = ['RdBu_r', 'RdBu_r', 'plusminus']
 
     # Read precomputed model fields
-    ds_model = xr.open_dataset(in_file)
+    ds_model = xr.open_dataset(in_file, decode_times=time_coder)
     lon_name, lat_name = latlon_name(ds_model)
     x_name, y_name = xy_name(ds_model)
     # Make latitude, now zonally averaged, a dimension
