@@ -656,6 +656,17 @@ def update_hovmollers_evaluation_NEMO_AIS (in_dir, suite_id='AntArc', out_dir='.
     update_simulation_timeseries(suite_id, hovmoller_types, timeseries_file='hovmollers.nc', timeseries_dir=out_dir, config='eANT025', sim_dir=in_dir, halo=False, gtype='T', hovmoller=True)
 
 
+def update_hovmollers_evaluation_UKESM1 (suite_id, base_dir='./', in_dir=None, out_dir=None):
+
+    hovmoller_types = ['dotson_cosgrove_shelf_'+var for var in ['temp', 'salt']]
+    if in_dir is None:
+        in_dir = base_dir+'/'+suite_id+'/'
+    if out_dir is None:
+        out_dir = in_dir
+
+    update_simulation_timeseries(suite_id, hovmoller_types, timeseries_file='hovmollers.nc', timeseries_dir=out_dir, sim_dir=in_dir, halo=True, gtype='T', hovmoller=True)
+
+
 def plot_evaluation_timeseries_shelf (timeseries_file='timeseries_T.nc', hovmoller_file='hovmollers.nc', obs_file_casts='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_casts.nc', fig_name=None):
 
     for fname in [timeseries_file, hovmoller_file]:

@@ -12,10 +12,11 @@
 if [ ! -d ${SUITE} ]; then
     mkdir ${SUITE}
 fi
-update_timeseries_evaluation_UKESM1
 
 # Timeseries and Hovmollers - update existing files, or calculate from scratch
-python -c "from nemo_python.projects.evaluation import *; update_timeseries_evaluation_NEMO_AIS('./')"
+python -c "from nemo_python.projects.evaluation import *; update_timeseries_evaluation_UKESM1('"${SUITE}"', in_dir='/gws/ssde/j25b/terrafirma/tarlge/ukesm_monitoring/data/u-"${SUITE}"', out_dir='"${SUITE}"')"
+
+
 python -c "from nemo_python.projects.evaluation import *; update_hovmollers_evaluation_NEMO_AIS('./')"
 
 # Time-averaged fields - remove if they exist, then calculate from scratch
