@@ -655,7 +655,7 @@ def bwsalt_abs (ds_nemo):
 # Select the correct variable for area in the dataset
 def area_name (ds, gtype='T'):
 
-    var_names = ['area' + 'area_grid_'+gtype]
+    var_names = ['area', 'area_grid_'+gtype]
     for v in var_names:
         if v in ds:
             return v
@@ -665,7 +665,7 @@ def area_name (ds, gtype='T'):
 # Same for cell thickness
 def dz_name (ds, gtype='T'):
 
-    var_names = ['thkcello' + 'e3'+gtype.lower()]
+    var_names = ['thkcello', 'e3'+gtype.lower()]
     for v in var_names:
         if v in ds:
             return v
