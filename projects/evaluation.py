@@ -623,7 +623,7 @@ def update_timeseries_evaluation_UKESM1 (suite_id, base_dir='./', in_dir=None, o
     if in_dir is None:
         in_dir = base_dir+'/'+suite_id+'/'
     if out_dir is None:
-        out_dir = sim_dir        
+        out_dir = in_dir        
 
     gtypes = ['T']
     if compute_u:
