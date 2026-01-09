@@ -7,6 +7,13 @@
 #SBATCH --time=24:00:00
 #SBATCH --mem=64GB
 
+# Must pass --export=SUITE=<suite_id>
+
+if [ ! -d ${SUITE} ]; then
+    mkdir ${SUITE}
+fi
+update_timeseries_evaluation_UKESM1
+
 # Timeseries and Hovmollers - update existing files, or calculate from scratch
 python -c "from nemo_python.projects.evaluation import *; update_timeseries_evaluation_NEMO_AIS('./')"
 python -c "from nemo_python.projects.evaluation import *; update_hovmollers_evaluation_NEMO_AIS('./')"

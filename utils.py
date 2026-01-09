@@ -665,7 +665,7 @@ def area_name (ds, gtype='T'):
 # Same for cell thickness
 def dz_name (ds, gtype='T'):
 
-    var_names = ['thkcello', 'e3'+gtype.lower()]
+    var_names = ['thkcell'+gtype.lower()+'o', 'thkcello', 'e3'+gtype.lower()]
     for v in var_names:
         if v in ds:
             return v

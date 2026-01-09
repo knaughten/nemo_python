@@ -1,22 +1,8 @@
 import xarray as xr
 import numpy as np
-from .utils import closest_point, remove_disconnected, rotate_vector, xy_name
+from .utils import closest_point, remove_disconnected, rotate_vector, xy_name, dz_name
 from .constants import ross_gyre_point0, region_bounds
 from .interpolation import interp_grid
-
-# Choose variable to represent dz; 3 choices depending on grid type
-def choose_dz (ds, gtype):
-    if gtype not in ['U', 'V']:
-        raise Exception('Invalid gtype')
-    if 'thkcello' in ds:
-        dz = ds['thkcello']
-    elif 'e3u' in ds and gtype=='U':
-        dz = ds['e3u']
-    elif 'e3v' in ds and gtype=='V':
-        dz = ds['e3v']
-    else:
-        raise Exception('No option for dz')
-    return dz
         
 
 # Calculate zonal or meridional transport across the given section. The code will choose a constant slice in x or y corresponding to a constant value of latitude or longitude - so maybe not appropriate in highly rotated regions.
@@ -27,7 +13,7 @@ def transport (ds, lon0=None, lat0=None, lon_bounds=None, lat_bounds=None):
 
     if lon0 is not None and lat_bounds is not None and lat0 is None and lon_bounds is None:
         # Zonal transport across line of constant longitude
-        dz = choose_dz(ds, 'U')
+        dz = ds[dz_name(ds, gtype='U')]
         [j_start, i_start] = closest_point(ds, [lon0, lat_bounds[0]])
         [j_end, i_end] = closest_point(ds, [lon0, lat_bounds[1]])
         # Want a single value for i
@@ -43,7 +29,7 @@ def transport (ds, lon0=None, lat0=None, lon_bounds=None, lat_bounds=None):
         return integrand.sum(dim={'depthu', 'y'})*1e-6
     elif lat0 is not None and lon_bounds is not None and lon0 is None and lat_bounds is None:
         # Meridional transport across line of constant latitude
-        dz = choose_dz(ds, 'V')
+        dz = ds[dz_name(ds, gtype='V')]
         [j_start, i_start] = closest_point(ds, [lon_bounds[0], lat0])
         [j_end, i_end] = closest_point(ds, [lon_bounds[1], lat0])
         if j_start == j_end:
@@ -59,8 +45,8 @@ def transport (ds, lon0=None, lat0=None, lon_bounds=None, lat_bounds=None):
 def barotropic_streamfunction (ds_u, ds_v, ds_domcfg, periodic=True, halo=True):
 
     # Definite integral over depth
-    udz = (ds_u['uo']*choose_dz(ds_u, 'U')).sum(dim='depthu')
-    vdz = (ds_v['vo']*choose_dz(ds_v, 'V')).sum(dim='depthv')
+    udz = (ds_u['uo']*ds_u[dz_name(ds_u, gtype='U')]).sum(dim='depthu')
+    vdz = (ds_v['vo']*ds_v[dz_name(ds_v, gtype='V')]).sum(dim='depthv')
     # Interpolate to t-grid
     udz_t = interp_grid(udz, 'u', 't', periodic=periodic, halo=halo)
     vdz_t = interp_grid(vdz, 'v', 't', periodic=periodic, halo=halo)
