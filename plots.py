@@ -115,8 +115,12 @@ def circumpolar_plot (data, grid, pole='S', cice=False, ax=None, make_cbar=True,
         lon_edges = extend_grid_edges(grid['glamf'], 'f', periodic=True)
         lat_edges = extend_grid_edges(grid['gphif'], 'f', periodic=True)
     elif lat_name == 'nav_lat':
-        lon_edges = cfxr.bounds_to_vertices(grid['bounds_lon'], 'nvertex')
-        lat_edges = cfxr.bounds_to_vertices(grid['bounds_lat'], 'nvertex')
+        try:
+            lon_edges = cfxr.bounds_to_vertices(grid['bounds_lon'], 'nvertex')
+            lat_edges = cfxr.bounds_to_vertices(grid['bounds_lat'], 'nvertex')
+        except(KeyError):
+            lon_edges = cfxr.bounds_to_vertices(grid['bounds_nav_lon'], 'nvertex')
+            lat_edges = cfxr.bounds_to_vertices(grid['bounds_nav_lat'], 'nvertex')
     elif lat_name == 'TLAT':
         lon_edges = cfxr.bounds_to_vertices(grid['lont_bounds'], 'nvertices')
         lat_edges = cfxr.bounds_to_vertices(grid['latt_bounds'], 'nvertices')
