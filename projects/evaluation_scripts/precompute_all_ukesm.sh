@@ -19,5 +19,5 @@ for f in bottom_TS_avg.nc zonal_TS_avg.nc; do
 	rm $f
     fi
 done
-python -c "from nemo_python.projects.evaluation import *; precompute_avg(option='bottom_TS', out_file='bottom_TS_avg.nc')"
-python -c "from nemo_python.projects.evaluation import *; precompute_avg(option='zonal_TS', out_file='zonal_TS_avg.nc')"
+python -c "from nemo_python.projects.evaluation import *; precompute_avg(option='bottom_TS', config='UKESM1', suite_id='"${SUITE}"', in_dir='./', out_file='bottom_TS_avg.nc')"
+python -c "from nemo_python.projects.evaluation import *; precompute_avg(option='zonal_TS', config='UKESM1', suite_id='"${SUITE}"', in_dir='./', out_file='zonal_TS_avg.nc')"
