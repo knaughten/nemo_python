@@ -1092,6 +1092,8 @@ def plot_evaluation_bottom_TS (in_file='bottom_TS_avg.nc', obs_file='/gws/ssde/j
     if 'x_grid_T_inner' in ds_model.dims:
         ds_model = ds_model.rename({'x_grid_T_inner':'x', 'y_grid_T_inner':'y'})
     ds_model = ds_model.assign({'ocean_mask':ds_model[var_names[0]].notnull()})
+    # Throw away northern hemisphere
+    ds_model = ds_model.where(ds_model['nav_lat']<0)
 
     # Read observations and interpolate to model grid
     ds_obs = xr.open_dataset(obs_file)
