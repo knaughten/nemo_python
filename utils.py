@@ -669,7 +669,7 @@ def dz_name (ds, gtype='T'):
     for v in var_names:
         if v in ds:
             return v
-    raise Exception('No dz variale found')
+    raise Exception('No dz variable found')
     
 
     
