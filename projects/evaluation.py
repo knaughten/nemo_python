@@ -1000,7 +1000,7 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
         ds = xr.open_dataset(file_path, decode_times=time_coder)
         if config == 'UKESM1' and ds['nav_lat'].max() > 0:
             # Need to drop everything except the Southern Ocean
-            ds = ds.isel(nav_lat=slice(0,114))
+            ds = ds.isel(y=slice(0,114))
         if eos == 'eos80' and option in ['bottom_TS', 'zonal_TS'] and depth_3d is None:
             depth_3d = xr.broadcast(ds['deptht'], ds['so'])[0].where(ds['so']!=0)
             depth_bottom =  depth_3d.max(dim='deptht')
