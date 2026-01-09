@@ -3,7 +3,7 @@ import numpy as np
 import os
 import glob
 from .constants import region_points, region_names, rho_fw, rho_ice, sec_per_year, deg_string, gkg_string, drake_passage_lon0, drake_passage_lat_bounds
-from .utils import add_months, closest_point, month_convert, bwsalt_abs, xy_name
+from .utils import add_months, closest_point, month_convert, bwsalt_abs, xy_name, area_name, dz_name
 from .grid import single_cavity_mask, region_mask, calc_geometry, make_mask_3d
 from .diagnostics import transport, gyre_transport, thermocline
 time_coder = xr.coders.CFDatetimeCoder(use_cftime=True)
@@ -232,18 +232,9 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
       
         title += ' for '+region_name
 
-    def area_name ():
-        for v in ['area', 'area_grid_T', 'area_grid_U', 'area_grid_V']:
-            if v in ds_nemo:
-                return v
-    def dz_name ():
-        for v in ['thkcello', 'e3t']:
-            if v in ds_nemo:
-                return v
-
     if option == 'area_int':
         # Area integral
-        dA = ds_nemo[area_name()]*mask
+        dA = ds_nemo[area_name(ds_nemo)]*mask
         if nemo_var == 'pminuse':
             data_xy = ds_nemo['pr'] + ds_nemo['prsn'] - ds_nemo['evs']
         else:
@@ -251,7 +242,7 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         data = (data_xy*dA).sum(dim=[x_name, y_name])
     elif option == 'area_avg':
         # Area average
-        dA = ds_nemo[area_name()]*mask
+        dA = ds_nemo[area_name(ds_nemo)]*mask
         if nemo_var == 'draft':
             data_xy = calc_geometry(ds_nemo, keep_time_dim=True)[1]
         elif nemo_var == 'bwSA':
@@ -267,17 +258,17 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         # Volume average
         # First need a 3D mask
         mask_3d = xr.where(ds_nemo[nemo_var]==0, 0, mask)
-        dV = ds_nemo[area_name()]*ds_nemo[dz_name()]*mask_3d
+        dV = ds_nemo[area_name(ds_nemo)]*ds_nemo[dz_name(ds_nemo)]*mask_3d
         data = (ds_nemo[nemo_var]*dV).sum(dim=[x_name, y_name,'deptht'])/dV.sum(dim=[x_name, y_name, 'deptht'])
     elif option == 'avg_btw_depths':
         # Volume average between two depths
         # Create an extra mask to multiply dV with, which is 1 between the two depths and 0 otherwise
-        depth_below = ds_nemo[dz_name()].cumsum(dim='deptht')
+        depth_below = ds_nemo[dz_name(ds_nemo)].cumsum(dim='deptht')
         depth_above = depth_below.shift(deptht=1, fill_value=0)
         depth_centres = 0.5*(depth_above + depth_below)
         mask_depth = xr.where((depth_centres >= z_shallow)*(depth_centres <= z_deep), 1, 0)
         mask_3d = xr.where(ds_nemo[nemo_var]==0, 0, mask)
-        dV = ds_nemo[area_name()]*ds_nemo[dz_name()]*mask_3d*mask_depth
+        dV = ds_nemo[area_name(ds_nemo)]*ds_nemo[dz_name(ds_nemo)]*mask_3d*mask_depth
         data = (ds_nemo[nemo_var]*dV).sum(dim=[x_name, y_name,'deptht'])/dV.sum(dim=[x_name, y_name,'deptht'])
     elif option == 'transport':
         # Calculate zonal or meridional transport
@@ -416,11 +407,6 @@ def precompute_hovmollers (ds_nemo, hovmoller_types, hovmoller_file, halo=False)
                 break
         if not found:
             raise Exception('Invalid variable '+ht)
-
-    for v in ['area', 'area_grid_T']:
-        if v in ds_nemo:
-            area_name = v
-            break
     
     ds_new = None
     for region in regions:
@@ -441,7 +427,7 @@ def precompute_hovmollers (ds_nemo, hovmoller_types, hovmoller_file, halo=False)
         # Extend to 3D with depth-dependent land mask applied
         mask_3d = make_mask_3d(mask, ds_nemo)
         # Prepare area integrand in 3D
-        dA_3d = xr.broadcast(ds_nemo[area_name], mask_3d)[0]*mask_3d
+        dA_3d = xr.broadcast(ds_nemo[area_name(ds_nemo)], mask_3d)[0]*mask_3d
         # Now loop over NEMO variables
         for v in range(len(var_names)):
             var_full = region+'_'+var_names[v]
@@ -561,8 +547,8 @@ def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='t
         if 'weddell_gyre_transport' in timeseries_types or 'ross_gyre_transport' in timeseries_types: # need to load both gridU and grid V files to be able to calculate this; not currently the neatest approach
             if gtype not in ['U', 'V']:
                 raise Exception('Grid type must be specified as either U or V when calculating gyre transport') # should be U and V:
-            ds_nemo = xr.open_dataset(glob.glob(f'{sim_dir}/{file_pattern}'.replace('V.nc', 'U.nc'))[0], decode_times=time_coder)[['e3u','uo']].rename({'nav_lon':'nav_lon_grid_U','nav_lat':'nav_lat_grid_U'})
-            dsV = xr.open_dataset(glob.glob(f'{sim_dir}/{file_pattern}'.replace('U.nc', 'V.nc'))[0], decode_times=time_coder)[['e3v','vo']].rename({'nav_lon':'nav_lon_grid_V','nav_lat':'nav_lat_grid_V'})
+            ds_nemo = xr.open_dataset(glob.glob(f'{sim_dir}/{file_pattern}'.replace('V.nc', 'U.nc'))[0], decode_times=time_coder)[[dz_name(ds_nemo, gtype='U'),'uo']].rename({'nav_lon':'nav_lon_grid_U','nav_lat':'nav_lat_grid_U'})
+            dsV = xr.open_dataset(glob.glob(f'{sim_dir}/{file_pattern}'.replace('U.nc', 'V.nc'))[0], decode_times=time_coder)[[dz_name(ds_nemo, gtype='V'),'vo']].rename({'nav_lon':'nav_lon_grid_V','nav_lat':'nav_lat_grid_V'})
         else:
             ds_nemo = xr.open_mfdataset(f'{sim_dir}/{file_pattern}', decode_times=time_coder)
             if gtype == 'T':

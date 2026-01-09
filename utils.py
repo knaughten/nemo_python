@@ -650,6 +650,26 @@ def bwsalt_abs (ds_nemo):
     # Get depth in bottom cell: approximately equal to pressure in dbar
     press = depth_3d.max(dim='deptht')
     return gsw.SA_from_SP(SP, press, ds_nemo['nav_lon'], ds_nemo['nav_lat'])
+
+
+# Select the correct variable for area in the dataset
+def area_name (ds, gtype='T'):
+
+    var_names = ['area' + 'area_grid_'+gtype]
+    for v in var_names:
+        if v in ds:
+            return v
+    raise Exception('No area variable found')
+
+
+# Same for cell thickness
+def dz_name (ds, gtype='T'):
+
+    var_names = ['thkcello' + 'e3'+gtype.lower()]
+    for v in var_names:
+        if v in ds:
+            return v
+    raise Exception('No dz variale found')
     
 
     
