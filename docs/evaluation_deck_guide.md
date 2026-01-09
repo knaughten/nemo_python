@@ -20,7 +20,7 @@ Here are instructions for how to generate a bunch of figures to evaluate the sim
 
 More figures are planned so check back often for updates.
 
-This code has been tested on [Birgit Rogalla's circum-Antarctic NEMO configuration](https://github.com/brogalla/eANT025-AntArc). An option will soon be added for UKESM1, and eventually also UKESM2.
+This code has been tested on [Birgit Rogalla's circum-Antarctic NEMO configuration](https://github.com/brogalla/eANT025-AntArc) and UKESM1.3 suites.
 
 In order to use Kaitlin's precomputed gridded observations files, it must be run on JASMIN, and you must have access to the `terrafirma` group workspace. If you want to run on another system, ask Kaitlin for a copy of these files.
 
@@ -35,7 +35,13 @@ Add the following line to your `~/.bashrc` file:
 
      export PYTHONPATH=$PYTHONPATH:<some_dir>
 
-Now, get the top-level evaluation scripts in the same directory as your NEMO output files. If you want to make changes to the scripts (eg comment out some figures, or change the budget for the queue), make a copy:
+Now, choose the directory you want to run the scripts in. This should be a directory including all the output files from NEMO, and you will also need write access (to save the image files). For UKESM1 suites, this directory is also assumed to be named after the suite, not including the `u-` prefix (eg, `dv346`). If someone else is hosting the output, it might be more convenient to make your own directory and link in their files. For example,
+
+     mkdir dv346
+     cd dv346
+     ln -s /gws/ssde/j25b/terrafirma/tarlge/ukesm_monitoring/data/u-dv346/nemo*.nc .
+
+In any case, you'll now need to get the top-level evaluation scripts into this directory. If you want to make changes to the scripts (eg comment out some figures, or change the budget for the queue), make a copy:
 
      cp <some_dir>/nemo_python/projects/evaluation_scripts/* <nemo_output_dir>
 
@@ -45,9 +51,13 @@ If you don't want to change anything, make a link instead (this should then auto
 
 # 2. Precompute files for plotting
 
-In `<nemo_output_dir>`, submit a job script to the SLURM queue:
+In `<nemo_output_dir>`, submit a job script to the SLURM queue. For Birgit's configuration, run
 
      sbatch precompute_all.sh
+
+and for UKESM1 suites, submit the slightly different script
+
+     sbatch precompute_all_ukesm.sh
 
 This will precompute four things:
 
@@ -62,7 +72,7 @@ Depending on how many years you're trying to process, this can be slow. Here are
 - Set it off to finish overnight
 - Split up the three steps into different jobs to run simultaneously
 - If you are processing a really long run and the timeseries don't finish precomputing within 24 hours, you can just resubmit the same job again to pick up where it left off
-- The slowest step is the transport timeseries; to skip these, set the argument `transport=False` in the call to `update_timeseries_evaluation_NEMO_AIS` in `precompute_all.sh`.
+- The slowest step is the transport timeseries; to skip these, set the argument `transport=False` in the call to `update_timeseries_evaluation_NEMO_AIS` in `precompute_all.sh` (or `update_timeseries_evaluation_UKESM1` in `precompute_all_ukesm.sh`).
 
 # 3. Make the plots
 
