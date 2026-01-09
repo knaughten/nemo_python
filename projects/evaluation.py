@@ -616,7 +616,7 @@ def update_timeseries_evaluation_NEMO_AIS (in_dir, suite_id='AntArc', out_dir='.
 
 
 # As above, for UKESM1 suites
-def update_timeseries_evaluation_UKESM1 (suite_id, base_dir='./', in_dir=None, out_dir=None, compute_u=False):
+def update_timeseries_evaluation_UKESM1 (suite_id, base_dir='./', in_dir=None, out_dir=None, compute_u=True):
 
     domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc'
     timeseries_types = timeseries_types_evaluation()

@@ -9,7 +9,10 @@
 
 # Must pass --export=SUITE=<suite_id>
 
-if 
+if [ ! -d ${SUITE} ]; then
+    mkdir ${SUITE}
+fi
+
 
 # Timeseries and Hovmollers - update existing files, or calculate from scratch
 python -c "from nemo_python.projects.evaluation import *; update_timeseries_evaluation_NEMO_AIS('./')"
