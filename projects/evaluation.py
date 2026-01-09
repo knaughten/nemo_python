@@ -1053,8 +1053,12 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
             # UKESM1 has 30-day months so don't need to worry about weights
             ds = ds.squeeze().drop_vars({'time_counter', 'time_centered'})
             if option == 'zonal_TS':
+                ds = ds.reset_coords()
+                ds[lat_name] = ds[lat_name].where(ds[var_names[0]].sum(dim='deptht'))
                 x_name, y_name = xy_name(ds)
                 ds = ds.mean(dim=x_name).squeeze()
+                ds = ds.drop_vars({lon_name, 'bounds_'+lon_name})
+                ds = ds.set_coords(lat_name)
             if ds_accum is None:
                 ds_accum = ds
             else:
