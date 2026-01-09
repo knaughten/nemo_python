@@ -549,11 +549,11 @@ def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='t
                 raise Exception('Grid type must be specified as either U or V when calculating gyre transport') # should be U and V:
             ds_nemo = xr.open_dataset(glob.glob(f'{sim_dir}/{file_pattern}'.replace('V.nc', 'U.nc'))[0], decode_times=time_coder)
             ds_nemo = ds_nemo[[dz_name(ds_nemo, gtype='U'),'uo']].rename({'nav_lon':'nav_lon_grid_U','nav_lat':'nav_lat_grid_U'})
-            if dz_name(ds_nemo) == 'thkcello':
+            if dz_name(ds_nemo, gtype='U') == 'thkcello':
                 ds_nemo = ds_nemo.rename({'thkcello':'thkcelluo'})
             dsV = xr.open_dataset(glob.glob(f'{sim_dir}/{file_pattern}'.replace('U.nc', 'V.nc'))[0], decode_times=time_coder)
             dsV = dsV[[dz_name(dsV, gtype='V'),'vo']].rename({'nav_lon':'nav_lon_grid_V','nav_lat':'nav_lat_grid_V'})
-            if dz_name(dsV) == 'thkcello':
+            if dz_name(dsV, gtype='V') == 'thkcello':
                 dsV = dsV.rename({'thkcello':'thkcellvo'})
         else:
             ds_nemo = xr.open_mfdataset(f'{sim_dir}/{file_pattern}', decode_times=time_coder)
