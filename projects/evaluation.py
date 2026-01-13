@@ -1014,7 +1014,13 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
         lon_name, lat_name = latlon_name(ds)
         ds_var = ds[var_names].where(ds[var_names[0]]!=0)
         # Add in some grid variables
-        ds = ds_var.merge(ds[[lon_name, lat_name, 'bounds_'+lon_name, 'bounds_'+lat_name]])
+        if 'bounds_'+lon_name in ds:
+            bounds_lon = 'bounds_'+lon_name
+            bounds_lat = 'bounds_'+lat_name
+        else:
+            bounds_lon = 'bounds_lon'
+            bounds_lat = 'bounds_lat'
+        ds = ds_var.merge(ds[[lon_name, lat_name, bounds_lon, bounds_lat]])
         if eos == 'eos80' and option in ['bottom_TS', 'zonal_TS']:
             # Convert to TEOS-10
             pot_temp = ds[var_names[0]]
@@ -1043,7 +1049,7 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
                     ds_tmp[lat_name] = ds_tmp[lat_name].where(ds_tmp[var_names[0]].sum(dim='deptht'))
                     x_name, y_name = xy_name(ds_tmp)
                     ds_tmp = ds_tmp.mean(dim=x_name).squeeze()
-                    ds_tmp = ds_tmp.drop_vars({lon_name, 'bounds_'+lon_name})
+                    ds_tmp = ds_tmp.drop_vars({lon_name, bounds_lon})
                     ds_tmp = ds_tmp.set_coords(lat_name)
                 if ds_accum is None:
                     ds_accum = ds_tmp
@@ -1057,7 +1063,7 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
                 ds[lat_name] = ds[lat_name].where(ds[var_names[0]].sum(dim='deptht'))
                 x_name, y_name = xy_name(ds)
                 ds = ds.mean(dim=x_name).squeeze()
-                ds = ds.drop_vars({lon_name, 'bounds_'+lon_name})
+                ds = ds.drop_vars({lon_name, bounds_lon})
                 ds = ds.set_coords(lat_name)
             if ds_accum is None:
                 ds_accum = ds
