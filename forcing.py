@@ -855,7 +855,7 @@ def convert_era5_specific_humidity (year_start=1979, year_end=2024, era5_folder=
         num_time = ds_dew.sizes['valid_time']
         chunk = num_time//hours_per_day
         for t in range(0, num_time, chunk):
-            ds_tmp = dewpoint_to_specific_humidity(ds_dew=ds_dew.isel(valid_time=slice(t,t+chunk)), ds_slp=ds_slp.isel(valid_time=slice(t,t+chunk))
+            ds_tmp = dewpoint_to_specific_humidity(ds_dew=ds_dew.isel(valid_time=slice(t,t+chunk)), ds_slp=ds_slp.isel(valid_time=slice(t,t+chunk)))
             if ds_sph is None:
                 ds_sph = ds_tmp
             else:
