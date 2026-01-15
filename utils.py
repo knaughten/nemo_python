@@ -324,26 +324,37 @@ def convert_precip(file_precip='era5_tp_1979_daily_averages.nc', variable='tp',
 # variable_slp: string name of the sea level pressure variable within the file specified by file_slp
 # dataset: string specifying type of atmospheric forcing dataset (ERA5, JRA etc.)
 # folder: string of location that contains the atmospheric forcing files
+# ds_dew, ds_slp: optional xarray Datasets to use instead of opening file_dew, file_slp. This can be useful if you want to loop over time for memory reasons. If they exist, will return a dataset containing specific humidity, instead of writing to file.
 def dewpoint_to_specific_humidity(file_dew='d2m_y1979.nc', variable_dew='d2m',
                                   file_slp='msl_y1979.nc', variable_slp='msl',
-                                  dataset='ERA5', folder='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/ERA5-forcing/daily/files/'):
+                                  dataset='ERA5', folder='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/ERA5-forcing/daily/files/', ds_dew=None, ds_slp=None):
     if dataset=='ERA5':
         # ERA5 does not provide specific humidity, but gives the 2 m dewpoint temperature in K
         # Conversion assumes temperature is in K and pressure in Pa.
         # Based off: https://confluence.ecmwf.int/pages/viewpage.action?pageId=171411214
 
-        ds               = xr.open_dataset(f'{folder}{file_dew}')
-        surface_pressure = xr.open_dataset(f'{folder}{file_slp}')[variable_slp]
+        if ds_dew is not None:
+            dewpoint = ds_dew[variable_dew]
+        else:
+            ds               = xr.open_dataset(f'{folder}{file_dew}')
+            dewpoint = ds[variable_dew]
+        if ds_slp is not None:
+            surface_pressure = ds_slp[variable_slp]
+        else:
+            surface_pressure = xr.open_dataset(f'{folder}{file_slp}')[variable_slp]
 
-        dewpoint = ds[variable_dew]
+        
         # calculation:
         vapor_pressure = vap_pres_c1*np.exp(vap_pres_c3*(dewpoint.values - temp_C2K)/(dewpoint.values - vap_pres_c4)) # E saturation water vapour from Teten's formula
         spec_humidity  = (Rdry / Rvap) * vapor_pressure / (surface_pressure - ((1-Rdry/Rvap)*vapor_pressure)) # saturation specific humidity
 
-        ds[variable_dew] = spec_humidity
-        ds = ds.rename_vars({variable_dew:'specific_humidity'}) 
-        filename = file_dew.replace('d2m', 'sph2m')
-        ds.to_netcdf(f'{folder}{filename}')
+        if ds_dew is not None or ds_slp is not None:
+            return xr.Dataset({'sph2m':spec_humidity})
+        else:
+            ds[variable_dew] = spec_humidity
+            ds = ds.rename_vars({variable_dew:'specific_humidity'}) 
+            filename = file_dew.replace('d2m', 'sph2m')
+            ds.to_netcdf(f'{folder}{filename}')
         
         return
     else:

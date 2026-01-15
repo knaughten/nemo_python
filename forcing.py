@@ -844,6 +844,25 @@ def process_era5_forcing(variable, year_start=1979, year_end=2024, era5_folder='
     return
 
 
+# As above but only convert specific humidity, don't do the flood-filling; and do so looping over daily chunks of the file to save memory.
+def convert_era5_specific_humidity (year_start=1979, year_end=2024, era5_folder='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ERA5_hourly/'):
+
+    for year in range(year_start, year_end+1):
+        print('Processing '+str(year))
+        ds_dew = xr.open_dataset(era5_folder+'/d2m_y'+str(year)+'.nc')
+        ds_slp = xr.open_dataset(era5_folder+'/msl_y'+str(year)+'.nc')
+        ds_sph = None
+        for t in range(0, ds_dew.sizes['valid_time'], hours_per_day):
+            ds_tmp = dewpoint_to_specific_humidity(ds_dew=ds_dew.isel(valid_time=slice(t,t+hours_per_day)), ds_slp=ds_slp.isel(valid_time=slice(t,t+hours_per_day)))
+            if ds_sph is None:
+                ds_sph = ds_tmp
+            else:
+                ds_sph = xr.concat([ds_sph, ds_tmp], dim='valid_time')
+        ds_sph.to_netcdf(era5_folder+'/sph2m_y'+str(year)+'.nc')
+            
+        
+
+
 # Convert one suite of UKESM forcing (3-hourly, pp files, 9 variables) to NEMO forcing files.
 def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./', lat_max=-50, flood_fill=True, mask_file='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/masks_um_ukesm1.2.nc'):
 
