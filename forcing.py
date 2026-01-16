@@ -445,34 +445,45 @@ def cesm2_expt_all_ocn_forcing(expt, ens_strs=None, out_dir=None, start_year=185
 # - (optional) year_start : start year for time averaging
 # - (optional) end_year   : end year for time averaging
 def era5_time_mean_forcing(variable, year_start=1979, year_end=2024, freq='daily', lat_slice=slice(-90,-50),
-                           era5_folder='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/ERA5-forcing/'):
+                           era5_folder='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/ERA5-forcing/', era5_folder_in=None, processed=True, varname=None):
 
-    if freq=='3-hourly':
-        era5_folder_in = f'{era5_folder}hourly/processed/'
+    if era5_folder_in is None:
+        if freq=='3-hourly':
+            era5_folder_in = f'{era5_folder}hourly/processed/'
+        else:
+            era5_folder_in = f'{era5_folder}{freq}/processed/'
     else:
-        era5_folder_in = f'{era5_folder}{freq}/processed/'
+        if era5_folder is None:
+            era5_folder = era5_folder_in
         
-    era5_folder_out = f'{era5_folder}climatology/' 
-    if variable=='sph2m':
-        varname='specific_humidity'
+    era5_folder_out = f'{era5_folder}climatology/'
+    if varname is None:
+        varname = variable
+    if processed:
+        time_dim = 'time'
     else:
-        varname=variable
+        time_dim = 'valid_time'
 
     if freq=='daily' or freq=='hourly':
         if variable in ['wind_speed', 'wind_angle']:
             era5_u  = xr.open_mfdataset(f'{era5_folder_in}u10_*')['u10'].sortby('lat').sel(lat=lat_slice)
             era5_v  = xr.open_mfdataset(f'{era5_folder_in}v10_*')['v10'].sortby('lat').sel(lat=lat_slice)
-            era5_u  = era5_u.isel(time=((era5_u.time.dt.year <= year_end)*(era5_u.time.dt.year >= year_start)*(era5_u.time.dt.year != 1996)))
-            era5_v  = era5_v.isel(time=((era5_v.time.dt.year <= year_end)*(era5_v.time.dt.year >= year_start)*(era5_v.time.dt.year != 1996)))
+            era5_u  = era5_u.isel({time_dim:((era5_u[time_dim].dt.year <= year_end)*(era5_u[time_dim].dt.year >= year_start)*(era5_u[time_dim].dt.year != 1996))})
+            era5_v  = era5_v.isel({time_dim:((era5_v[time_dim].dt.year <= year_end)*(era5_v[time_dim].dt.year >= year_start)*(era5_v[time_dim].dt.year != 1996))})
             if variable == 'wind_speed':
                 era5_ds = np.hypot(era5_u, era5_v).rename(variable).to_dataset()
             elif variable == 'wind_angle':
                 era5_ds = np.arctan2(era5_v, era5_u).rename(variable).to_dataset()
         else:
-            era5_ds = xr.open_mfdataset(f'{era5_folder_in}{variable}_*.nc')[varname].sortby('lat').sel(lat=lat_slice)
-            era5_ds = era5_ds.isel(time=((era5_ds.time.dt.year <= year_end)*(era5_ds.time.dt.year >= year_start)*(era5_ds.time.dt.year != 1996)))
+            try:
+                era5_ds = xr.open_mfdataset(f'{era5_folder_in}{variable}_*.nc')[varname].sortby('lat').sel(lat=lat_slice)
+            except(KeyError):
+                if variable == 'sph2m':
+                    varname = 'specific_humidity'
+                era5_ds = xr.open_mfdataset(f'{era5_folder_in}{variable}_*.nc')[varname].sortby('lat').sel(lat=lat_slice)
+            era5_ds = era5_ds.isel({time_dim:((era5_ds[time_dim].dt.year <= year_end)*(era5_ds[time_dim].dt.year >= year_start)*(era5_ds[time_dim].dt.year != 1996))})
 
-        time_mean = era5_ds.groupby('time.month').mean(dim='time')
+        time_mean = era5_ds.groupby(time_dim+'.month').mean(dim=time_dim)
 
     elif freq=='3-hourly':
         # slow due to resampling if you use the same approach as for daily, so do the below instead
@@ -484,23 +495,46 @@ def era5_time_mean_forcing(variable, year_start=1979, year_end=2024, freq='daily
                 if variable in ['wind_speed', 'wind_angle']:
                     era5_u = xr.open_dataset(f'{era5_folder_in}u10_y{year}.nc')['u10'].sortby('lat').sel(lat=lat_slice)
                     era5_v = xr.open_dataset(f'{era5_folder_in}v10_y{year}.nc')['v10'].sortby('lat').sel(lat=lat_slice)
-                    era5_u = era5_u.resample(time='3h').mean()
-                    era5_v = era5_v.resample(time='3h').mean()               
+                    era5_u = era5_u.resample({time_dim:'3h'}).mean()
+                    era5_v = era5_v.resample({time_dim:'3h'}).mean()           
                     if variable == 'wind_speed':
-                        era5_ds = np.hypot(era5_u, era5_v).rename(variable).groupby('time.month').mean(dim='time').to_dataset()
+                        era5_ds = np.hypot(era5_u, era5_v).rename(variable).groupby(time_dim+'.month').mean(dim=time_dim).to_dataset()
                     elif variable == 'wind_angle':
-                        era5_ds = np.arctan2(era5_v, era5_u).rename(variable).groupby('time.month').mean(dim='time').to_dataset()
+                        era5_ds = np.arctan2(era5_v, era5_u).rename(variable).groupby(time_dim+'.month').mean(dim=time_dim).to_dataset()
                 else:
-                    era5_ds = xr.open_dataset(f'{era5_folder_in}{variable}_y{year}.nc')[varname].sortby('lat').sel(lat=lat_slice)
-                    era5_ds = era5_ds.resample(time='3h').mean().groupby('time.month').mean(dim='time').to_dataset()
+                    try:
+                        era5_ds = xr.open_dataset(f'{era5_folder_in}{variable}_y{year}.nc')[varname].sortby('lat').sel(lat=lat_slice)
+                    except(KeyError):
+                        if variable == 'sph2m':
+                            varname = 'specific_humidity'
+                        era5_ds = xr.open_dataset(f'{era5_folder_in}{variable}_y{year}.nc')[varname].sortby('lat').sel(lat=lat_slice)
+                    era5_ds = era5_ds.resample({time_dim:'3h'}).mean().groupby(time_dim:'.month').mean(dim=time_dim).to_dataset()
                
                 era5_ds.to_netcdf(f'{era5_folder_out}ERA5_{variable}_{freq}_monthly_mean_y{year}.nc')
  
         time_mean = xr.open_mfdataset(f'{era5_folder_out}ERA5_{variable}_{freq}_monthly_mean_y*', concat_dim='year', combine='nested')[varname].mean(dim='year')
     
-    time_mean.to_netcdf(f'{era5_folder_out}ERA5_{variable}_{freq}_{year_start}-{year_end}_mean_monthly.nc')
+    time_mean.rename(variable).to_netcdf(f'{era5_folder_out}ERA5_{variable}_{freq}_{year_start}-{year_end}_mean_monthly.nc')
 
-    return 
+    return
+
+
+# Wrapper for the above to calculate ERA5 climatology for comparison with UKESM, for all variables
+def era5_clim_for_ukesm (era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ERA5_hourly/'):
+
+    for variable in ['t2m', 'sph2m', 'wind_speed', 'wind_angle', 'mtpr', 'msr', 'msl', 'msdwswrf', 'msdwlwrf']:
+        print('Processing '+variable)
+        if variable == 'mtpr':
+            varname = 'avg_tprate'
+        elif variable == 'msr':
+            varname = 'avg_tsrwe'
+        elif variable == 'msdwswrf':
+            varname = 'avg_sdswrf'
+        elif variable == 'msdwlwrf':
+            varname = 'avg_sdlwrf'
+        else:
+            varname = variable
+        era5_time_mean_forcing(variable, year_start=1979, year_end=2014, freq='3-hourly', ere5_folder_in=era5_dir, processed=False, varname=varname)            
 
 
 # Function calculates the monthly time-mean over specified year range for mean of all CESM2 ensemble members in the specified experiment (for bias correction)
