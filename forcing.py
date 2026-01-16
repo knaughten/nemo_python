@@ -521,7 +521,7 @@ def era5_time_mean_forcing(variable, year_start=1979, year_end=2024, freq='daily
     return
 
 
-# Wrapper for the above to calculate ERA5 climatology for comparison with UKESM, for all variables
+# Wrapper for the above to calculate ERA5 climatology for comparison with UKESM, for one variable (set var_name) or looping over all variables (default)
 def era5_clim_for_ukesm (era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ERA5_hourly/', year_end=2014, var_name=None):
 
     if var_name is None:
@@ -569,8 +569,8 @@ def ukesm_hist_forcing_monthly_clim (variable, suite, base_dir='/gws/ssde/j25b/t
         time_sel = (time_years >= start_year)*(time_years <= end_year)*(time_years != 1996)
         data_ds = data.isel({'time':time_sel})
     time_mean = data_ds.groupby('time.month').mean(dim='time')
-    time_mean.to_netcdf(f'{out_dir}{variable}_{start_year}-{end_year}_mean_monthly.nc')           
-
+    time_mean.to_netcdf(f'{out_dir}{variable}_{start_year}-{end_year}_mean_monthly.nc')
+    
 
 # Function calculates the monthly time-mean over specified year range for mean of all CESM2 ensemble members in the specified experiment (for bias correction)
 # Input:
