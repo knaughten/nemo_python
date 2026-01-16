@@ -536,7 +536,15 @@ def era5_clim_for_ukesm (era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKE
             varname = 'avg_sdlwrf'
         else:
             varname = variable
-        era5_time_mean_forcing(variable, year_start=1979, year_end=year_end, freq='3-hourly', era5_folder_in=era5_dir, processed=False, varname=varname)            
+        era5_time_mean_forcing(variable, year_start=1979, year_end=year_end, freq='3-hourly', era5_folder_in=era5_dir, era5_folder=None, processed=False, varname=varname)
+
+
+# Calculate monthly climatology for UKESM historical atmospheric forcing. So far just one ensemble member (cy691).
+# Options for variable = tair, qair, wind_speed, wind_angle, precip, snow, pair, swrad, lwrad
+def ukesm_hist_forcing_monthly_clim (variable, in_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/nemo_forcing_files/cy691/', out_dir=None, start_year=1979, end_year=2014):
+
+    if out_dir is None:
+        out_dir = in_dir + '/climatology/'
 
 
 # Function calculates the monthly time-mean over specified year range for mean of all CESM2 ensemble members in the specified experiment (for bias correction)
