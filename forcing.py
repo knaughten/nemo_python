@@ -508,7 +508,7 @@ def era5_time_mean_forcing(variable, year_start=1979, year_end=2024, freq='daily
                         if variable == 'sph2m':
                             varname = 'specific_humidity'
                         era5_ds = xr.open_dataset(f'{era5_folder_in}{variable}_y{year}.nc')[varname].sortby('lat').sel(lat=lat_slice)
-                    era5_ds = era5_ds.resample({time_dim:'3h'}).mean().groupby(time_dim:'.month').mean(dim=time_dim).to_dataset()
+                    era5_ds = era5_ds.resample({time_dim:'3h'}).mean().groupby(time_dim+'.month').mean(dim=time_dim).to_dataset()
                
                 era5_ds.to_netcdf(f'{era5_folder_out}ERA5_{variable}_{freq}_monthly_mean_y{year}.nc')
  
