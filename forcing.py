@@ -556,8 +556,8 @@ def ukesm_hist_forcing_monthly_clim (variable, in_dir='/gws/ssde/j25b/terrafirma
         data_v = xr.open_mfdataset(f'{in_dir}vwind_*')['vwind']
         time_years = data_u['time'].dt.year
         time_sel = (time_years >= start_year)*(time_years <= end_year)*(time_year != 1996)
-        data_u = data_u.isel('time'=time_sel)
-        data_v = data_v.isel('time'=time_sel)
+        data_u = data_u.isel({'time':time_sel})
+        data_v = data_v.isel({'time':time_sel})
         if variable == 'wind_speed':
             data_ds = np.hypot(data_u, data_v).rename(variable).to_dataset()
         elif variable == 'wind_angle':
@@ -566,7 +566,7 @@ def ukesm_hist_forcing_monthly_clim (variable, in_dir='/gws/ssde/j25b/terrafirma
         data = xr.open_mfdataset(f'{in_dir}{variable}_*.nc')[variable]
         time_years = data['time'].dt.year
         time_sel = (time_years >= start_year)*(time_years <= end_year)*(time_year != 1996)
-        data_ds = data.isel('time'=time_sel)
+        data_ds = data.isel({'time':time_sel})
     time_mean = data_ds.groupby('time.month').mean(dim='time')
     time_mean.to_netcdf(f'{out_dir}{variable}_{start_year}-{end_year}_mean_monthly.nc')           
 
