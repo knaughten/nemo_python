@@ -522,7 +522,7 @@ def era5_time_mean_forcing(variable, year_start=1979, year_end=2024, freq='daily
 
 
 # Wrapper for the above to calculate ERA5 climatology for comparison with UKESM, for all variables
-def era5_clim_for_ukesm (era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ERA5_hourly/'):
+def era5_clim_for_ukesm (era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ERA5_hourly/', year_end=2014):
 
     for variable in ['t2m', 'sph2m', 'wind_speed', 'wind_angle', 'mtpr', 'msr', 'msl', 'msdwswrf', 'msdwlwrf']:
         print('Processing '+variable)
@@ -536,7 +536,7 @@ def era5_clim_for_ukesm (era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKE
             varname = 'avg_sdlwrf'
         else:
             varname = variable
-        era5_time_mean_forcing(variable, year_start=1979, year_end=2014, freq='3-hourly', era5_folder_in=era5_dir, processed=False, varname=varname)            
+        era5_time_mean_forcing(variable, year_start=1979, year_end=year_end, freq='3-hourly', era5_folder_in=era5_dir, processed=False, varname=varname)            
 
 
 # Function calculates the monthly time-mean over specified year range for mean of all CESM2 ensemble members in the specified experiment (for bias correction)
