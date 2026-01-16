@@ -544,10 +544,11 @@ def era5_clim_for_ukesm (era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKE
         era5_time_mean_forcing(variable, year_start=1979, year_end=year_end, freq='3-hourly', era5_folder_in=era5_dir, era5_folder=None, processed=False, varname=varname)
 
 
-# Calculate monthly climatology for 3-hourly UKESM historical atmospheric forcing. So far just one ensemble member (cy691).
+# Calculate monthly climatology for 3-hourly UKESM historical atmospheric forcing, one ensemble member (suite=cy690, cy691, cy692, cy693). 
 # Options for variable = tair, qair, wind_speed, wind_angle, precip, snow, pair, swrad, lwrad
-def ukesm_hist_forcing_monthly_clim (variable, in_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/nemo_forcing_files/cy691/', out_dir=None, start_year=1979, end_year=2014):
+def ukesm_hist_forcing_monthly_clim (variable, suite, base_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/nemo_forcing_files/', out_dir=None, start_year=1979, end_year=2014):
 
+    in_dir = base_dir + suite + '/'
     if out_dir is None:
         out_dir = in_dir + '/climatology/'
 
@@ -555,7 +556,7 @@ def ukesm_hist_forcing_monthly_clim (variable, in_dir='/gws/ssde/j25b/terrafirma
         data_u = xr.open_mfdataset(f'{in_dir}uwind_*')['uwind']
         data_v = xr.open_mfdataset(f'{in_dir}vwind_*')['vwind']
         time_years = data_u['time'].dt.year
-        time_sel = (time_years >= start_year)*(time_years <= end_year)*(time_year != 1996)
+        time_sel = (time_years >= start_year)*(time_years <= end_year)*(time_years != 1996)
         data_u = data_u.isel({'time':time_sel})
         data_v = data_v.isel({'time':time_sel})
         if variable == 'wind_speed':
@@ -565,7 +566,7 @@ def ukesm_hist_forcing_monthly_clim (variable, in_dir='/gws/ssde/j25b/terrafirma
     else:
         data = xr.open_mfdataset(f'{in_dir}{variable}_*.nc')[variable]
         time_years = data['time'].dt.year
-        time_sel = (time_years >= start_year)*(time_years <= end_year)*(time_year != 1996)
+        time_sel = (time_years >= start_year)*(time_years <= end_year)*(time_years != 1996)
         data_ds = data.isel({'time':time_sel})
     time_mean = data_ds.groupby('time.month').mean(dim='time')
     time_mean.to_netcdf(f'{out_dir}{variable}_{start_year}-{end_year}_mean_monthly.nc')           
