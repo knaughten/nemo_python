@@ -522,7 +522,7 @@ def era5_time_mean_forcing(variable, year_start=1979, year_end=2024, freq='daily
 
 
 # Wrapper for the above to calculate ERA5 climatology for comparison with UKESM, for one variable (set var_name) or looping over all variables (default)
-def era5_clim_for_ukesm (era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ERA5_hourly/', year_end=2014, var_name=None):
+def era5_clim_for_ukesm (era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ERA5_hourly/', var_name=None):
 
     if var_name is not None:
         var_names = [var_name]
@@ -541,7 +541,7 @@ def era5_clim_for_ukesm (era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKE
             varname = 'avg_sdlwrf'
         else:
             varname = variable
-        era5_time_mean_forcing(variable, year_start=1979, year_end=year_end, freq='3-hourly', era5_folder_in=era5_dir, era5_folder=None, processed=False, varname=varname)
+        era5_time_mean_forcing(variable, year_start=1979, year_end=2014, freq='3-hourly', era5_folder_in=era5_dir, era5_folder=None, processed=False, varname=varname)
 
 
 # Calculate monthly climatology for 3-hourly UKESM historical atmospheric forcing, one ensemble member (suite=cy690, cy691, cy692, cy693). 
@@ -556,7 +556,7 @@ def ukesm_hist_forcing_monthly_clim (variable, suite, base_dir='/gws/ssde/j25b/t
         data_u = xr.open_mfdataset(f'{in_dir}uwind_*')['uwind']
         data_v = xr.open_mfdataset(f'{in_dir}vwind_*')['vwind']
         # Interpolate to tracer grid
-        data_t = xr.open_dataset(f'{in_dir}tair_*')['tair']
+        data_t = xr.open_mfdataset(f'{in_dir}tair_*')['tair']
         def interp_tgrid (data, gtype):
             # Interpolate once as usual; this will produce a stripe of missing values in the middle where longitude jumps from 180 to -180
             data_interp1 = data.rename({'longitude_'+gtype:'longitude', 'latitude_'+gtype:'latitude'}).interp_like(data_t)
