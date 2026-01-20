@@ -9,7 +9,7 @@ import os
 from .utils import distance_btw_points, closest_point, convert_to_teos10, fix_lon_range, dewpoint_to_specific_humidity
 from .grid import get_coast_mask, get_icefront_mask
 from .ics_obcs import fill_ocean
-from .interpolation import regrid_era5_to_cesm2, extend_into_mask, regrid_to_NEMO, neighbours
+from .interpolation import regrid_era5_to_cesm2, extend_into_mask, regrid_to_NEMO, neighbours, construct_cf
 from .file_io import find_cesm2_file, find_processed_cesm2_file
 from .constants import temp_C2K, rho_fw, cesm2_ensemble_members, sec_per_day, sec_per_hour, months_per_year, hours_per_day
 
@@ -555,6 +555,24 @@ def ukesm_hist_forcing_monthly_clim (variable, suite, base_dir='/gws/ssde/j25b/t
     if variable in ['wind_speed', 'wind_angle']:
         data_u = xr.open_mfdataset(f'{in_dir}uwind_*')['uwind']
         data_v = xr.open_mfdataset(f'{in_dir}vwind_*')['vwind']
+        # Interpolate to tracer grid
+        data_t = xr.open_dataset(f'{in_dir}tair_*')['tair']
+        def interp_tgrid (data, gtype):
+            # Interpolate once as usual; this will produce a stripe of missing values in the middle where longitude jumps from 180 to -180
+            data_interp1 = data.rename({'longitude_'+gtype:'longitude', 'latitude_'+gtype:'latitude'}).interp_like(data_t)
+            # Now move longitude to the range 0-360
+            data.coords['longitude_'+gtype] = fix_lon_range(data.coords['longitude_'+gtype], max_lon=360)
+            data_t.coords['longitude'] = fix_lon_range(data_t.coords['longitude'], max_lon=360)
+            # Interpolate again
+            data_interp2 = data.rename({'longitude_'+gtype:'longitude', 'latitude_'+gtype:'latitude'}).interp_like(data_t)
+            # Move longitude back to -180 to 180
+            data_interp2.coords['longitude'] = fix_lon_range(data.coords['longitude'], max_lon=180)
+            data_t.coords['longitude'] = fix_lon_range(data_t.coords['longitude'], max_lon=180)
+            # Fill in that gap
+            data_interp = xr.where(data_interp1.isnull(), data_interp2, data_interp1)
+            return data_interp
+        data_u = interp_tgrid(data_u, 'u')
+        data_v = interp_tgrid(data_v, 'v')        
         time_years = data_u['time'].dt.year
         time_sel = (time_years >= start_year)*(time_years <= end_year)*(time_years != 1996)
         data_u = data_u.isel({'time':time_sel})
