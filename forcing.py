@@ -566,7 +566,7 @@ def ukesm_hist_forcing_monthly_clim (variable, suite, base_dir='/gws/ssde/j25b/t
             # Interpolate again
             data_interp2 = data.rename({'longitude_'+gtype:'longitude', 'latitude_'+gtype:'latitude'}).interp_like(data_t)
             # Move longitude back to -180 to 180
-            data_interp2.coords['longitude'] = fix_lon_range(data.coords['longitude'], max_lon=180)
+            data_interp2.coords['longitude'] = fix_lon_range(data_interp2.coords['longitude'], max_lon=180)
             data_t.coords['longitude'] = fix_lon_range(data_t.coords['longitude'], max_lon=180)
             # Fill in that gap
             data_interp = xr.where(data_interp1.isnull(), data_interp2, data_interp1)
