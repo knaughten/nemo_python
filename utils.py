@@ -683,7 +683,54 @@ def dz_name (ds, gtype='T'):
     raise Exception('No dz variable found')
     
 
+# Function identifies clusters or single cells of open ocean that are  mostly surrounded by ice shelf cells.
+# Takes an xarray dataset of domain_cfg.nc as input and returns a DataArray containing a mask indicating isolated grid cells
+# that can then be used to fix the underlying bathmetry file before passing it to the DOMAINcfg tool
+# Example usage:
+#    domain_ds         = xr.open_dataset('domain_cfg-20260108.nc').isel(nav_lev=0).squeeze()
+#    isolated_features = find_isolated_ocean_features(domain_ds, threshold=0.70)
+#    print(f'Number of isolated grid points: {int(isolated_features.sum())}')
+#    isolated_indices  = np.argwhere(isolated_features.values!=0)
+def find_isolated_ocean_features(ds, bathy_var='bathy_metry', isf_var='isf_draft', threshold=0.70):
+    from scipy.ndimage import label, binary_dilation
     
+    # 1. Create binary masks
+    # Candidates: Ocean points with no ice shelf
+    is_ocean_candidate = (ds[bathy_var] > 0) & (ds[isf_var] == 0)
+    # Surrounders: Ice shelf points
+    is_isf = (ds[isf_var] > 0)
+    
+    # 2. Label connected components (clusters)
+    # Using a 3x3 structure (connectivity=2) to include diagonal neighbors
+    structure = np.ones((3, 3))
+    labeled_array, num_features = label(is_ocean_candidate.values, structure=structure)
+    
+    # Initialize an empty mask for our results
+    isolated_mask = np.zeros_like(labeled_array, dtype=bool)
+    
+    # 3. Analyze each cluster/feature
+    for i in range(1, num_features + 1):
+        # Create a mask for just this specific cluster
+        cluster_mask = (labeled_array == i)
+        
+        # Find the boundary: Dilate the cluster and subtract the original cluster
+        dilated = binary_dilation(cluster_mask, structure=structure)
+        boundary_mask = dilated & ~cluster_mask
+        
+        # Calculate how many boundary pixels are actually ice shelves
+        total_boundary_count = np.sum(boundary_mask)
+        if total_boundary_count == 0: continue
+            
+        isf_boundary_count = np.sum(is_isf.values[boundary_mask])
+        
+        # Surround ratio (1.0 = perfectly surrounded by ice shelves)
+        surround_ratio = isf_boundary_count / total_boundary_count
+        
+        if surround_ratio >= threshold:
+            isolated_mask[cluster_mask] = True
+            
+    # 4. Return as an xarray DataArray for easy mapping/subsetting (domain_cfg needs to have nav_lev removed for this to work)
+    return xr.DataArray(isolated_mask, coords=ds.coords, dims=ds.dims)    
 
     
 
