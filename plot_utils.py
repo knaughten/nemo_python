@@ -189,6 +189,19 @@ def latlon_axes (ax, max_decimals=0):
 
     latlon_axis(ax, 'lon', 'x', max_decimals=max_decimals)
     latlon_axis(ax, 'lat', 'y', max_decimals=max_decimals)
+
+
+# Choose what the endpoints of the colourbar should do. If they're manually set, they should extend. The output can be passed to plt.colorbar with the keyword argument 'extend'.
+def get_extend (vmin=None, vmax=None):
+
+    if vmin is None and vmax is None:
+        return 'neither'
+    elif vmin is not None and vmax is None:
+        return 'min'
+    elif vmin is None and vmax is not None:
+        return 'max'
+    elif vmin is not None and vmax is not None:
+        return 'both'
             
 
     
