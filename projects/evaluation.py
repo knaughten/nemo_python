@@ -1244,27 +1244,28 @@ def plot_ukesm_era5_atm_biases (era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_
 
     era5_var = ['t2m', 'sph2m', 'msl', 'wind_speed', 'wind_angle', 'mtpr', 'msr', 'msdwswrf', 'msdwlwrf']
     ukesm_var = ['tair', 'qair', 'pair', 'wind_speed', 'wind_angle', 'precip', 'snow', 'swrad', 'lwrad']
-    var_titles = ['Temperature at 2m ('+deg_string+'C)', 'Specific humidity at 2m (1)', 'Sea-level pressure (Pa)', 'Wind speed (m/s)', 'Wind angle (rad)', 'Total precip (kg/m2/s)', 'Snowfall (kg/m2/s)', 'Downwelling shortwave (W/m2)', 'Downwelling longwave (W/m2)']
+    var_titles = ['Temperature at 2m (K)', 'Specific humidity at 2m (1)', 'Sea-level pressure (Pa)', 'Wind speed (m/s)', 'Wind angle (rad)', 'Total precip (kg/m2/s)', 'Snowfall (kg/m2/s)', 'Downwelling shortwave (W/m2)', 'Downwelling longwave (W/m2)']
+    titles = [None, 'UKESM annual mean', 'ERA5 annual mean', 'Bias annual mean'] + ['Bias '+calendar.month_name[t+1][:3] for t in range(months_per_year)]
     num_var = len(era5_var)
     vmin = [None]*num_var
     vmax = [None]*num_var
-    vmin_diff = [None]*num_var
-    vmax_diff = [None]*num_var
+    vmin_diff = [-10] + [None]*8
+    vmax_diff = [10] + [None]*8
     era5_head = era5_dir + '/ERA5_'
     era5_tail = '_3-hourly_1979-2014_mean_monthly.nc'
     ukesm_tail = '_1979-2014_mean_monthly.nc'
 
     # Set up NEMO grid and surface mask
     ds_nemo = xr.open_dataset(domain_cfg).squeeze()
-    sfc_mask = xr.where((ds_nemo['top_level']==0)*(ds_nemo['bottom_level']!=0), 1, 0)
+    sfc_mask = xr.where(ds_nemo['top_level']==1, 1, 0)
 
     # Set up two Datasets with all the 2D fields (unravelled in time) to interpolate in one go
     ds_era5 = None
     ds_ukesm = None
     for v in range(num_var):
         print('Reading '+ukesm_var[v])
-        data_era5 = xr.open_dataset(era5_head+era5_var[v]+era5_tail).rename({'longitude':'x', 'latitude':'y'})[era5_var[v]]
-        data_ukesm = xr.open_dataset(ukesm_dir+'/'+ukesm_var[v]+ukesm_tail).rename({'longitude':'x', 'latitude':'y'})[ukesm_var[v]]
+        data_era5 = xr.open_dataset(era5_head+era5_var[v]+era5_tail).rename({'longitude':'lon', 'latitude':'lat'})[era5_var[v]]
+        data_ukesm = xr.open_dataset(ukesm_dir+'/'+ukesm_var[v]+ukesm_tail).rename({'longitude':'lon', 'latitude':'lat'})[ukesm_var[v]]
         # Take annual means
         if ds_era5 is None:
             ds_era5 = xr.Dataset({ukesm_var[v]+'_mean':data_era5.mean(dim='month')})
@@ -1273,27 +1274,24 @@ def plot_ukesm_era5_atm_biases (era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_
             ds_era5 = ds_era5.assign({ukesm_var[v]+'_mean':data_era5.mean(dim='month')})
             ds_ukesm = ds_ukesm.assign({ukesm_var[v]+'_mean':data_ukesm.mean(dim='month')})
         # Save each month individually
-        for t in range(num_months):
+        for t in range(months_per_year):
             ds_era5 = ds_era5.assign({ukesm_var[v]+'_'+str(t+1).zfill(2):data_era5.isel(month=t)})
             ds_ukesm = ds_ukesm.assign({ukesm_var[v]+'_'+str(t+1).zfill(2):data_ukesm.isel(month=t)})
     # Now interpolate to NEMO grid
     print('Interpolating ERA5 to NEMO')
-    ds_era5_interp = interp_latlon_cf(ds_era5, ds_nemo, periodic_src=True, periodic_nemo=True, method='bilinear')
+    ds_era5_interp = interp_latlon_cf(ds_era5, ds_nemo, periodic_src=True, method='bilinear')
     print('Interpolating UKESM to NEMO')
-    ds_ukesm_interp = interp_latlon_cf(ds_ukesm, ds_nemo, periodic_src=True, periodic_nemo=True, method='bilinear')
+    ds_ukesm_interp = interp_latlon_cf(ds_ukesm, ds_nemo, periodic_src=True, method='bilinear')
     ds_bias = ds_ukesm_interp - ds_era5_interp
 
     # Plot one variable at a time
     # Top row: space for title and colourbars, UKESM annual mean, ERA5 annual mean, annual mean bias
     # Following 3 rows: monthly mean bias for each month
     for v in range(num_var):
-        data_plot = [None, ds_ukesm_interp[ukesm_var[v]+'_mean'], ds_era5_interp[ukesm_var[v]+'_mean'], ds_bias[ukesm_var[v]+'_mean']] + [ds_bias[ukesm_var[v]+'_'+str(t+1).zfill(2)] for t in range(num_months)]
-        titles = [None, 'UKESM annual mean', 'ERA5 annual mean', 'Bias annual mean'] + ['Bias '+calendar.month_name[t+1][0] for t in range(num_months)]
-        fig = plt.figure(figsize=(10,8))
+        data_plot = [None, ds_ukesm_interp[ukesm_var[v]+'_mean'], ds_era5_interp[ukesm_var[v]+'_mean'], ds_bias[ukesm_var[v]+'_mean']] + [ds_bias[ukesm_var[v]+'_'+str(t+1).zfill(2)] for t in range(months_per_year)]
+        fig = plt.figure(figsize=(7,8))
         gs = plt.GridSpec(4,4)
-        gs.update(left=0.02, right=0.98, bottom=0.02, top=0.95, hspace=0.5, wspace=0.1)
-        # Title on top left
-        plt.text(0.02, 0.98, var_titles[v], fontsize=14, transform=fig.transFigure, ha='left', va='top')
+        gs.update(left=0.02, right=0.98, bottom=0.02, top=0.95, hspace=0.2, wspace=0)
         # Set consistent colour scale limits for absolute and difference plots
         vmin_tmp = np.amin([data_plot[1].min(), data_plot[2].min()]) if vmin[v] is None else vmin[v]
         vmax_tmp = np.amax([data_plot[1].max(), data_plot[2].max()]) if vmax[v] is None else vmax[v]
@@ -1307,15 +1305,17 @@ def plot_ukesm_era5_atm_biases (era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_
                     ax.axis('equal')
                     # Mask land and ice shelves
                     data = data_plot[index].where(sfc_mask)
-                    img = circumpolar_plot(data, ds_nemo, ax=ax, masked=True, make_cbar=False, vmin=(vmin_tmp if index<3 else vmin_diff_tmp), vmax=(vmax_tmp if index<3 else vmax_diff_tmp), ctype=('viridis' if index<3 else 'plusminus'), title=titles[index])
+                    img = circumpolar_plot(data, ds_nemo, ax=ax, masked=True, make_cbar=False, vmin=(vmin_tmp if index<3 else vmin_diff_tmp), vmax=(vmax_tmp if index<3 else vmax_diff_tmp), ctype=('viridis' if index<3 else 'plusminus'), title=titles[index], titlesize=11, shade_land=False)
                     if index == 1:
                         # Absolute colourbar
-                        cax1 = fig.add_axes([0.02, 0.94, 0.15, 0.02])
+                        cax1 = fig.add_axes([0.02, 0.89, 0.15, 0.02])
                         plt.colorbar(img, cax=cax1, orientation='horizontal', extend=get_extend(vmin=vmin[v], vmax=vmax[v]))
-                    elif index == 2:
+                    elif index == 3:
                         # Difference colourbar
-                        cax2 = fig.add_axes([0.02, 0.91, 0.15, 0.02])
+                        cax2 = fig.add_axes([0.02, 0.82, 0.15, 0.02])
                         plt.colorbar(img, cax=cax2, orientation='horizontal', extend=get_extend(vmin=vmin_diff[v], vmax=vmax_diff[v]))
+        # Title on top left
+        plt.text(0.01, 0.95, var_titles[v], fontsize=12, transform=fig.transFigure, ha='left', va='top')
         if fig_dir is None:
             fig_name = None
         else:

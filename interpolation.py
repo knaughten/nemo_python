@@ -350,7 +350,7 @@ def regrid_array_cf(source, regrid_operator, key_3d=True, method='linear', src_c
 
 # Interpolate the source dataset to the NEMO coordinates using CF. This is good for smaller interpolation jobs (i.e. not BedMachine3) and hopefully will be good for big interpolation jobs once CF is next updated.
 # Inputs:
-# source: xarray Dataset containing the coordinates 'x' and 'y' (could be either lat/lon or polar stereographic), and any data variables you want
+# source: xarray Dataset containing the coordinates 'x' and 'y' (if polar stereographic) or 'lon' and 'lat', and any data variables you want
 # nemo: xarray Dataset containing the NEMO grid: must contain at least (option 1:) glamt, gphit, glamf, gphif, and dimensions x and y; (option 2): nav_lon_grid_T, nav_lat_grid_T, bounds_nav_lon_grid_T, bounds_nav_lat_grid_T, and dimensions x_grid_T and y_grid_T; (option 3): nav_lon, nav_lat, bounds_lon, bounds_lat, and dimensions x and y.
 # pster_src: whether the source dataset is polar stereographic
 # periodic_src: whether the source dataset is periodic in the x dimension
@@ -477,7 +477,7 @@ def interp_latlon_cf (source, nemo, pster_src=False, periodic_src=False, periodi
     # Now interpolate each field, re-using the weights each time, and add it to a new Dataset
     interp = xr.Dataset()
     for var, data_cf0 in zip(source, data_cf):
-        data_interp = data_cf0.regrids(regrid_operator, src_axes=src_axes).array
+        data_interp = data_cf0.regrids(regrid_operator, src_cyclic=periodic_src, dst_cyclic=periodic_nemo, src_axes=src_axes).array
         data_interp = xr.DataArray(data_interp, dims=['y', 'x'])
         interp = interp.assign({var:data_interp})     
 
