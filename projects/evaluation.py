@@ -606,7 +606,7 @@ def timeseries_types_evaluation ():
 # eg for latest 'best' ERA5 case, uncompressed: in_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/birgit_baseline/"
 def update_timeseries_evaluation_NEMO_AIS (in_dir, suite_id='AntArc', out_dir='./', transport=True):
 
-    domain_cfg = '/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20260801.nc'
+    domain_cfg = '/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20260121.nc'
     timeseries_types = timeseries_types_evaluation()
 
     if transport:
