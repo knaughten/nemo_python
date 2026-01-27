@@ -939,7 +939,7 @@ def preproc_shenjie (obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_cl
 
 # Precompute variables averaged over the last part of the simulation (default 20 years). Convert to TEOS-10 if it's not already.
 # config can be NEMO_AIS or UKESM1
-# option: 'bottom_TS' (bottom T and S), 'zonal_TS' (zonal mean T and S), 'seaice' (sea ice area and thickness)
+# option: 'bottom_TS' (bottom T and S), 'zonal_TS' (zonal mean T and S), 'seaice' (sea ice area and thickness in Feb and Sept)
 def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir=None, num_years=20, out_file='bottom_TS_avg.nc'):
 
     if option == 'bottom_TS':
@@ -948,6 +948,8 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
     elif option == 'zonal_TS':
         var_names = ['thetao', 'so']
     elif option == 'seaice':
+        months = [2, 9]
+        time_flags = ['_min', '_max']
         if config == 'NEMO_AIS':
             var_names = ['siconc', 'sithic']
         elif config == 'UKESM1':
@@ -970,11 +972,7 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
         if in_dir is None:
             in_dir = suite_id + '/'
         file_head = 'nemo_'+suite_id+'o_1m_'
-        if option == 'seaice':
-            # Code hooks
-            pass
-        else:
-            file_tail = 'grid-T.nc'
+        file_tail = 'grid-T.nc'
         eos = 'eos80'
 
     # Find all the output filenames
@@ -1007,6 +1005,9 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
 
     # Now read one file at a time
     ds_accum = None
+    if option == 'seaice':
+        ds_min = None
+        ds_max = None
     depth_3d = None
     for file_path in nemo_files:
         print('Processing '+file_path)
@@ -1047,27 +1048,37 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
             ds[var_names[0]] = con_temp.assign_attrs(long_name='conservative temperature, TEOS-10')
             ds[var_names[1]] = abs_salt.assign_attrs(long_name='absolute salinity, TEOS-10')            
         if months_per_file == months_per_year:
-            # Annual average
-            ndays = ds.time_centered.dt.days_in_month
-            weights = ndays/ndays.sum()
-            # Process one month at a time: this is more memory efficient than the built in functions, if not more code efficient!
-            for t in range(months_per_file):
-                ds_tmp = ds.isel(time_counter=t)
-                for var in ds_tmp:
-                    ds_tmp[var] = ds_tmp[var]*weights[t]
-                ds_tmp = ds_tmp.drop_vars({'time_counter', 'time_centered'})
-                if option == 'zonal_TS':
-                    # Zonal mean - keep it simple - this is just for eyeball comparison with WOA, don't need to close a budget
-                    ds_tmp = ds_tmp.reset_coords()
-                    ds_tmp[lat_name] = ds_tmp[lat_name].where(ds_tmp[var_names[0]].sum(dim='deptht'))
-                    x_name, y_name = xy_name(ds_tmp)
-                    ds_tmp = ds_tmp.mean(dim=x_name).squeeze()
-                    ds_tmp = ds_tmp.drop_vars({lon_name, bounds_lon})
-                    ds_tmp = ds_tmp.set_coords(lat_name)
-                if ds_accum is None:
-                    ds_accum = ds_tmp
-                else:
-                    ds_accum += ds_tmp
+            if option == 'seaice':
+                # Select the months we want for min and max
+                for month, flag, ds_accum_tmp in zip(months, time_flags, [ds_min, ds_max]):
+                    ds_tmp = ds.isel(time_counter=month-1).rename({var_names[0]:var_names[0]+flag, var_names[1]:var_names[1]+flag})
+                    ds_tmp = ds_tmp.drop_vars({'time_counter', 'time_centered'})
+                    if ds_accum_tmp is None:
+                        ds_accum_tmp = ds_tmp
+                    else:
+                        ds_accum_tmp += ds_tmp
+            else:
+                # Annual average
+                ndays = ds.time_centered.dt.days_in_month
+                weights = ndays/ndays.sum()
+                # Process one month at a time: this is more memory efficient than the built in functions, if not more code efficient!
+                for t in range(months_per_file):
+                    ds_tmp = ds.isel(time_counter=t)
+                    for var in ds_tmp:
+                        ds_tmp[var] = ds_tmp[var]*weights[t]
+                    ds_tmp = ds_tmp.drop_vars({'time_counter', 'time_centered'})
+                    if option == 'zonal_TS':
+                        # Zonal mean - keep it simple - this is just for eyeball comparison with WOA, don't need to close a budget
+                        ds_tmp = ds_tmp.reset_coords()
+                        ds_tmp[lat_name] = ds_tmp[lat_name].where(ds_tmp[var_names[0]].sum(dim='deptht'))
+                        x_name, y_name = xy_name(ds_tmp)
+                        ds_tmp = ds_tmp.mean(dim=x_name).squeeze()
+                        ds_tmp = ds_tmp.drop_vars({lon_name, bounds_lon})
+                        ds_tmp = ds_tmp.set_coords(lat_name)
+                    if ds_accum is None:
+                        ds_accum = ds_tmp
+                    else:
+                        ds_accum += ds_tmp
         elif config == 'UKESM1':
             # UKESM1 has 30-day months so don't need to worry about weights
             ds = ds.squeeze().drop_vars({'time_counter', 'time_centered'})
@@ -1085,6 +1096,8 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
         else:
             raise Exception('Unsure how to handle monthly files for config='+config)
         ds.close()
+    if option == 'seaice':
+        ds_accum = ds_min.merge(ds_max)
     ds_avg = ds_accum/num_t
 
     print('Writing '+out_file)
