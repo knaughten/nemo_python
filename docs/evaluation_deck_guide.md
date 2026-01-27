@@ -10,7 +10,7 @@ Here are instructions for how to generate a bunch of figures to evaluate the sim
 
 ![](evaluation_timeseries_transport.png)
 
-3. a 6-panelled map showing bottom temperature salinity in the model, observations (Zhou 2025), and the difference:
+3. a 6-panelled map showing bottom temperature and salinity in the model, observations (Zhou 2025), and the difference:
 
 ![](evaluation_bottom_TS.png)
 
@@ -18,9 +18,13 @@ Here are instructions for how to generate a bunch of figures to evaluate the sim
 
 ![](evaluation_zonal_TS.png)
 
+5. a 4-panelled map showing sea ice area and thickness during February (min) and September (max):
+
+![](evaluation_seaice.png)
+
 More figures are planned so check back often for updates.
 
-This code has been tested on [Birgit Rogalla's circum-Antarctic NEMO configuration](https://github.com/brogalla/eANT025-AntArc) and UKESM1.3 suites.
+This code has been tested on [Birgit Rogalla's circum-Antarctic NEMO configuration](https://github.com/brogalla/eANT025-AntArc) and UKESM suites (versions 1.2 and 1.3).
 
 In order to use Kaitlin's precomputed gridded observations files, it must be run on JASMIN, and you must have access to the `terrafirma` group workspace. If you want to run on another system, ask Kaitlin for a copy of these files.
 
@@ -59,25 +63,32 @@ and for UKESM1 suites, submit the slightly different script
 
      sbatch precompute_all_ukesm.sh
 
-This will precompute four things:
+This will precompute five things:
 
 1. Timeseries from the model output (producing files `timeseries_T.nc` and `timeseries_U.nc`)
 2. Hovmollers (depth versus time) of T and S area-averaged over one region (producing `hovmollers.nc`)
 3. Bottom temperature and salinity time-averaged over the last 20 years of simulation (producing `bottom_TS_avg.nc`)
 4. Zonally averaged temperature and salinity time-averaged over the last 20 years of simulation (producing `zonal_TS_avg.nc`)
+5. Sea ice area and thickness during February and September, time-averaged over the last 20 years of simulation (producing `seaice_avg.nc` - not yet supported for UKESM which uses CICE instead of SI3)
 
-If you run this job script again after NEMO has run for longer, it will update the time-dependent files from #1 and #2 as needed with any new NEMO files. However, it will delete the time-averaged files from #3 and #4, and remake them from scratch.
+If you run this job script again after NEMO has run for longer, it will update the time-dependent files from #1 and #2 as needed with any new NEMO files. However, it will delete the time-averaged files from #3-5, and remake them from scratch.
 
 Depending on how many years you're trying to process, this can be slow. Here are some strategies to manage this:
 - Set it off to finish overnight
 - Split up the three steps into different jobs to run simultaneously
 - If you are processing a really long run and the timeseries don't finish precomputing within 24 hours, you can just resubmit the same job again to pick up where it left off
-- The slowest step is the transport timeseries; to skip these, set the argument `transport=False` in the call to `update_timeseries_evaluation_NEMO_AIS` in `precompute_all.sh` (or `update_timeseries_evaluation_UKESM1` in `precompute_all_ukesm.sh`).
+- You might not care about the transport timeseries; to skip these, set the argument `transport=False` in the call to `update_timeseries_evaluation_NEMO_AIS` in `precompute_all.sh` (or `update_timeseries_evaluation_UKESM1` in `precompute_all_ukesm.sh`).
 
 # 3. Make the plots
 
 In `<nemo_output_dir>`, run:
 
      python plot_all.py
+
+for Birgit's configuration, or
+
+     python plot_all_ukesm.py
+
+for UKESM suites.
 
 This will create a few files `evaluation_*.png` corresponding to the evaluation figures shown above.

@@ -9,7 +9,7 @@ import calendar
 from ..utils import select_bottom, distance_along_transect, moving_average, polar_stereo, latlon_name, xy_name
 from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli_melt, adusumilli_std, transport_obs, transport_std, region_edges, rEarth, deg2rad, zhou_TS, zhou_TS_std
 from ..plots import circumpolar_plot, finished_plot, plot_ts_distribution, plot_transect
-from ..plot_utils import set_colours, latlon_axis, get_extend
+from ..plot_utils import set_colours, latlon_axis, get_extend, round_to_decimals
 from ..interpolation import interp_latlon_cf, interp_latlon_cf_blocks
 from ..file_io import read_schmidtko, read_woa, read_dutrieux, read_zhou
 from ..grid import extract_var_region, transect_coords_from_latlon_waypoints, region_mask, build_shelf_mask
@@ -1362,25 +1362,28 @@ def plot_evaluation_seaice (config='NEMO_AIS', in_file='seaice_avg.nc', fig_name
     elif config == 'UKESM1':
         raise Exception('CICE output not yet supported')
 
-    ds = xr.open_dataset(in_file, decode_times=time_coder)
-    ds_domcfg = xr.open_dataset(domain_cfg)
+    ds = xr.open_dataset(in_file, decode_times=time_coder).squeeze()
+    ds_domcfg = xr.open_dataset(domain_cfg).squeeze()
     sfc_mask = xr.where(ds_domcfg['top_level']==1, 1, 0)
 
-    fig = plt.figure(figsize=(10,8))
+    fig = plt.figure(figsize=(6,6))
     gs = plt.GridSpec(2,2)
-    gs.update(left=0.05, right=0.9, bottom=0.05, top=0.9, wspace=0.1, hspace=0.3)
+    gs.update(left=0.05, right=0.9, bottom=0.05, top=0.9, wspace=0.05, hspace=0.3)
     for n in range(len(var_names)):
         for m in range(len(time_flags)):
             data = ds[var_names[n]+time_flags[m]]
             # Set ocean cells with no sea ice to zero (masked in SI3)
             data = xr.where(data.isnull()*sfc_mask, 0, data)
             ax = plt.subplot(gs[n,m])
-            axis.axis('equal')
-            img = circumpolar_plot(data, ds_domcfg, ax=ax, masked=True, shade_land=False, make_cbar=False, title=time_titles[m], titlesize=12, vmin=vmin[n], mvax=vmax[n])
+            ax.axis('equal')
+            img = circumpolar_plot(data, ds_domcfg, ax=ax, masked=True, shade_land=False, make_cbar=False, title=time_titles[m], titlesize=12, vmin=vmin[n], vmax=vmax[n])
             if m == 1:
-                cax = fig.add_axes([0.92, 0.6-0.5*n, 0.03, 0.3])
-                plt.colorbar(img, cax=cax, extend=('none' if n==0 else 'max'))
-        plt.text(0.5, 0.95-0.5*n, var_titles[n], ha='center', va='bottom', transform=fig.transFigure, fontsize=14)
+                cax = fig.add_axes([0.905, 0.58-0.5*n, 0.03, 0.3])
+                plt.colorbar(img, cax=cax, extend=('neither' if n==0 else 'max'))
+            if n==1 and m==1:
+                # Print real max
+                plt.text(0.5, 0.5, 'max=\n'+str(round_to_decimals(data.max().item(),1))+' m', ha='center', va='center', transform=ax.transAxes, fontsize=9)
+        plt.text(0.5, 0.95-0.48*n, var_titles[n], ha='center', va='bottom', transform=fig.transFigure, fontsize=14)
     finished_plot(fig, fig_name=fig_name)
 
     
