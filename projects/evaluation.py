@@ -1346,6 +1346,44 @@ def plot_ukesm_era5_atm_biases (era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_
         else:
             fig_name = fig_dir + '/' + ukesm_var[v] + '_bias_ukesm_era5.png'
         finished_plot(fig, fig_name=fig_name)
+
+
+# Plot sea ice concentration and thickness in Feb and Sept.
+def plot_evaluation_seaice (config='NEMO_AIS', in_file='seaice_avg.nc', fig_name=None):
+
+    var_names = ['siconc', 'sithic']
+    var_titles = ['Sea ice concentration', 'Sea ice thickness (m)']
+    time_flags = ['_min', '_max']
+    time_titles = ['February', 'September']
+    vmin = [0, 0]
+    vmax = [1, 3]
+    if config == 'NEMO_AIS':
+        domain_cfg = '/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20260121.nc'
+    elif config == 'UKESM1':
+        raise Exception('CICE output not yet supported')
+
+    ds = xr.open_dataset(in_file, decode_times=time_coder)
+    ds_domcfg = xr.open_dataset(domain_cfg)
+    sfc_mask = xr.where(ds_domcfg['top_level']==1, 1, 0)
+
+    fig = plt.figure(figsize=(10,8))
+    gs = plt.GridSpec(2,2)
+    gs.update(left=0.05, right=0.9, bottom=0.05, top=0.9, wspace=0.1, hspace=0.3)
+    for n in range(len(var_names)):
+        for m in range(len(time_flags)):
+            data = ds[var_names[n]+time_flags[m]]
+            # Set ocean cells with no sea ice to zero (masked in SI3)
+            data = xr.where(data.isnull()*sfc_mask, 0, data)
+            ax = plt.subplot(gs[n,m])
+            axis.axis('equal')
+            img = circumpolar_plot(data, ds_domcfg, ax=ax, masked=True, shade_land=False, make_cbar=False, title=time_titles[m], titlesize=12, vmin=vmin[n], mvax=vmax[n])
+            if m == 1:
+                cax = fig.add_axes([0.92, 0.6-0.5*n, 0.03, 0.3])
+                plt.colorbar(img, cax=cax, extend=('none' if n==0 else 'max'))
+        plt.text(0.5, 0.95-0.5*n, var_titles[n], ha='center', va='bottom', transform=fig.transFigure, fontsize=14)
+    finished_plot(fig, fig_name=fig_name)
+
+    
                         
         
                     
