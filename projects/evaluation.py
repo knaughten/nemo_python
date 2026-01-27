@@ -1384,7 +1384,7 @@ def plot_evaluation_seaice (config='NEMO_AIS', in_file='seaice_avg.nc', fig_name
                 # Print real max
                 plt.text(0.5, 0.5, 'max=\n'+str(round_to_decimals(data.max().item(),1))+' m', ha='center', va='center', transform=ax.transAxes, fontsize=9)
         plt.text(0.5, 0.95-0.48*n, var_titles[n], ha='center', va='bottom', transform=fig.transFigure, fontsize=14)
-    finished_plot(fig, fig_name=fig_name)
+    finished_plot(fig, fig_name=fig_name, dpi=300)
 
     
                         
