@@ -1004,10 +1004,10 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
     nemo_files =  nemo_files[-num_t:]
 
     # Now read one file at a time
-    ds_accum = None
     if option == 'seaice':
-        ds_min = None
-        ds_max = None
+        ds_accum = [None, None]
+    else:
+        ds_accum = None
     depth_3d = None
     for file_path in nemo_files:
         print('Processing '+file_path)
@@ -1049,14 +1049,16 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
             ds[var_names[1]] = abs_salt.assign_attrs(long_name='absolute salinity, TEOS-10')            
         if months_per_file == months_per_year:
             if option == 'seaice':
-                # Select the months we want for min and max
-                for month, flag, ds_accum_tmp in zip(months, time_flags, [ds_min, ds_max]):
+                # Inner function to process one month for min or max
+                def process_month (ds, month, flag, ds_accum_m):
                     ds_tmp = ds.isel(time_counter=month-1).rename({var_names[0]:var_names[0]+flag, var_names[1]:var_names[1]+flag})
                     ds_tmp = ds_tmp.drop_vars({'time_counter', 'time_centered'})
-                    if ds_accum_tmp is None:
-                        ds_accum_tmp = ds_tmp
+                    if ds_accum_m is None:
+                        ds_accum_m = ds_tmp
                     else:
-                        ds_accum_tmp += ds_tmp
+                        ds_accum_m += ds_tmp
+                    return ds_accum_m
+                ds_accum = [process_month(ds, months[n], time_flags[n], ds_accum[n]) for n in range(2)]
             else:
                 # Annual average
                 ndays = ds.time_centered.dt.days_in_month
@@ -1097,7 +1099,7 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
             raise Exception('Unsure how to handle monthly files for config='+config)
         ds.close()
     if option == 'seaice':
-        ds_accum = ds_min.merge(ds_max)
+        ds_accum = ds_accum[0].merge(ds_accum[1])
     ds_avg = ds_accum/num_t
 
     print('Writing '+out_file)
