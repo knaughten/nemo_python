@@ -939,7 +939,7 @@ def preproc_shenjie (obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_cl
 
 # Precompute variables averaged over the last part of the simulation (default 20 years). Convert to TEOS-10 if it's not already.
 # config can be NEMO_AIS or UKESM1
-# option: 'bottom_TS' (bottom T and S), 'zonal_TS' (zonal mean T and S)
+# option: 'bottom_TS' (bottom T and S), 'zonal_TS' (zonal mean T and S), 'seaice' (sea ice area and thickness)
 def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir=None, num_years=20, out_file='bottom_TS_avg.nc'):
 
     if option == 'bottom_TS':
@@ -947,14 +947,22 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
         var_names_2 = ['sbt', 'sbs']
     elif option == 'zonal_TS':
         var_names = ['thetao', 'so']
-
+    elif option == 'seaice':
+        if config == 'NEMO_AIS':
+            var_names = ['siconc', 'sithic']
+        elif config == 'UKESM1':
+            raise Exception('Not coded precompute_avg for CICE variables yet')
+        
     if config == 'NEMO_AIS':
         if suite_id is None:
             suite_id = 'AntArc'
         if in_dir is None:
             in_dir = './'
         file_head = 'eANT025.'+suite_id+'_1m_'
-        file_tail = '_grid_T.nc'
+        if option == 'seaice':
+            file_tail = '_icemod.nc'
+        else:
+            file_tail = '_grid_T.nc'
         eos = 'teos10'
     elif config == 'UKESM1':
         if suite_id is None:
@@ -962,7 +970,11 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
         if in_dir is None:
             in_dir = suite_id + '/'
         file_head = 'nemo_'+suite_id+'o_1m_'
-        file_tail = 'grid-T.nc'
+        if option == 'seaice':
+            # Code hooks
+            pass
+        else:
+            file_tail = 'grid-T.nc'
         eos = 'eos80'
 
     # Find all the output filenames
