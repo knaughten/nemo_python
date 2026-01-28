@@ -48,7 +48,7 @@ def finished_plot (fig, fig_name=None, dpi=None, print_out=True):
 # lognorm: logarithmic colormap normalization
 # zoom_amundsen: boolean to activate a zoom on the Amundsen sea region
 
-def circumpolar_plot (data, grid, pole='S', cice=False, ax=None, make_cbar=True, masked=False, title=None, titlesize=16, fig_name=None, return_fig=False, vmin=None, vmax=None, ctype='viridis', change_points=None, periodic=True, lat_max=None, contour=None, contour_colour='black', shade_land=None, lognorm=False, cbar_kwags={}, zoom_amundsen=False, contour_ice=False, icefront_color='black'):
+def circumpolar_plot (data, grid, pole='S', cice=False, ax=None, make_cbar=True, masked=False, title=None, titlesize=16, fig_name=None, return_fig=False, vmin=None, vmax=None, ctype='viridis', change_points=None, periodic=True, lat_max=None, contour=None, contour_colour='black', shade_land=None, lognorm=False, cbar_kwags={}, zoom_amundsen=False, contour_ice=False, icefront_colour='black'):
 
     import cf_xarray as cfxr
 

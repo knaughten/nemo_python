@@ -17,7 +17,7 @@ def frontiers_figure (fig_name='frontiers_domain.pdf'):
     ds = xr.open_dataset(domain_cfg).squeeze()
     ocean_mask = build_ocean_mask(ds)[0]
     ice_mask = build_ice_mask(ds)[0]
-    bathy = ds['bathy_metry'].where(ocean_mask*(~ice_mask))
+    bathy = ds['bathy_metry'].where(ocean_mask).where(~ice_mask)
 
     fig, ax = plt.subplots(figsize=(6,8))
     ax.axis('equal')
