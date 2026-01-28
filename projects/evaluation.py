@@ -1349,7 +1349,7 @@ def plot_ukesm_era5_atm_biases (era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_
 
 
 # Plot sea ice concentration and thickness in Feb and Sept.
-def plot_evaluation_seaice (config='NEMO_AIS', in_file='seaice_avg.nc', fig_name=None):
+def plot_evaluation_seaice (config='NEMO_AIS', in_file='seaice_avg.nc', obs_file='/gws/nopw/j04/bas_pog/tarlge/data/observations/HadISST2/HadISST.2.2.0.0_sea_ice_concentration.nc', fig_name=None):
 
     var_names = ['siconc', 'sithic']
     var_titles = ['Sea ice concentration', 'Sea ice thickness (m)']
@@ -1361,22 +1361,40 @@ def plot_evaluation_seaice (config='NEMO_AIS', in_file='seaice_avg.nc', fig_name
         domain_cfg = '/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20260121.nc'
     elif config == 'UKESM1':
         raise Exception('CICE output not yet supported')
+    siconc0 = 0.15
 
-    ds = xr.open_dataset(in_file, decode_times=time_coder).squeeze()
+    # Read model
+    ds_model = xr.open_dataset(in_file, decode_times=time_coder).squeeze()
     ds_domcfg = xr.open_dataset(domain_cfg).squeeze()
     sfc_mask = xr.where(ds_domcfg['top_level']==1, 1, 0)
+
+    # Read obs
+    ds_obs = xr.open_dataset(obs_file).rename({'longitude':'lon', 'latitude':'lat'})
+    # Average over the months we want
+    def obs_month_clim (month):
+        return ds_obs['sic'].where(ds_obs['time'].dt.month==month, drop=True).mean(dim='time')
+    obs_min = obs_month_clim(2)
+    obs_max = obs_month_clim(9)
+    ds_obs_minmax = xr.Dataset({var_names[0]+time_flags[0]:obs_min, var_names[0]+time_flags[1]:obs_max})
+    # Interpolate to NEMO grid
+    ds_obs_interp = interp_latlon_cf(ds_obs_minmax, ds_domcfg, periodic_src=True, method='bilinear').where(sfc_mask)
 
     fig = plt.figure(figsize=(6,6))
     gs = plt.GridSpec(2,2)
     gs.update(left=0.05, right=0.9, bottom=0.05, top=0.9, wspace=0.05, hspace=0.3)
     for n in range(len(var_names)):
         for m in range(len(time_flags)):
-            data = ds[var_names[n]+time_flags[m]]
+            data = ds_model[var_names[n]+time_flags[m]]
             # Set ocean cells with no sea ice to zero (masked in SI3)
             data = xr.where(data.isnull()*sfc_mask, 0, data)
             ax = plt.subplot(gs[n,m])
             ax.axis('equal')
             img = circumpolar_plot(data, ds_domcfg, ax=ax, masked=True, shade_land=False, make_cbar=False, title=time_titles[m], titlesize=12, vmin=vmin[n], vmax=vmax[n])
+            if n == 0:
+                # Contour observed ice edge in white
+                lon_name, lat_name = latlon_name(ds_model)
+                x, y = polar_stereo(ds_model[lon_name], ds_model[lat_name])
+                ax.contour(x, y, ds_obs_interp[var_names[n]+time_flags[m]], levels=[siconc0], colors=('white'), linewidths=1, linestyles='solid')
             if m == 1:
                 cax = fig.add_axes([0.905, 0.58-0.5*n, 0.03, 0.3])
                 plt.colorbar(img, cax=cax, extend=('neither' if n==0 else 'max'))
