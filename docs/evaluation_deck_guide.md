@@ -18,7 +18,7 @@ Here are instructions for how to generate a bunch of figures to evaluate the sim
 
 ![](evaluation_zonal_TS.png)
 
-5. a 4-panelled map showing sea ice area and thickness during February (min) and September (max):
+5. a 4-panelled map showing sea ice area and thickness during February (min) and September (max), with the observed ice edge (HadISST) contoured in white:
 
 ![](evaluation_seaice.png)
 
