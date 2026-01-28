@@ -47,8 +47,9 @@ def finished_plot (fig, fig_name=None, dpi=None, print_out=True):
 # icefront_colour: colour to contour ice front (default black)
 # lognorm: logarithmic colormap normalization
 # zoom_amundsen: boolean to activate a zoom on the Amundsen sea region
+# lon0: longitude at the top of the plot (default 0)
 
-def circumpolar_plot (data, grid, pole='S', cice=False, ax=None, make_cbar=True, masked=False, title=None, titlesize=16, fig_name=None, return_fig=False, vmin=None, vmax=None, ctype='viridis', change_points=None, periodic=True, lat_max=None, contour=None, contour_colour='black', shade_land=None, lognorm=False, cbar_kwags={}, zoom_amundsen=False, contour_ice=False, icefront_colour='black'):
+def circumpolar_plot (data, grid, pole='S', cice=False, ax=None, make_cbar=True, masked=False, title=None, titlesize=16, fig_name=None, return_fig=False, vmin=None, vmax=None, ctype='viridis', change_points=None, periodic=True, lat_max=None, contour=None, contour_colour='black', shade_land=None, lognorm=False, cbar_kwags={}, zoom_amundsen=False, contour_ice=False, icefront_colour='black', lon0=0):
 
     import cf_xarray as cfxr
 
@@ -126,7 +127,7 @@ def circumpolar_plot (data, grid, pole='S', cice=False, ax=None, make_cbar=True,
     elif lat_name == 'TLAT':
         lon_edges = cfxr.bounds_to_vertices(grid['lont_bounds'], 'nvertices')
         lat_edges = cfxr.bounds_to_vertices(grid['latt_bounds'], 'nvertices')
-    x_edges, y_edges = polar_stereo(lon_edges, lat_edges, lat_c=lat_c)
+    x_edges, y_edges = polar_stereo(lon_edges, lat_edges, lat_c=lat_c, lon0=lon0)
 
     # Get axes bounds
     if zoom_amundsen:
@@ -135,7 +136,7 @@ def circumpolar_plot (data, grid, pole='S', cice=False, ax=None, make_cbar=True,
     else:
         lon_bounds = np.array([0, 90, 180, -90])
         lat_bounds = np.array([lat_max]*4)
-    x_bounds, y_bounds = polar_stereo(lon_bounds, lat_bounds, lat_c=lat_c)
+    x_bounds, y_bounds = polar_stereo(lon_bounds, lat_bounds, lat_c=lat_c, lon0=lon0)
     xlim = [x_bounds[3], x_bounds[1]]
     ylim = [y_bounds[2], y_bounds[0]]
 
@@ -170,7 +171,7 @@ def circumpolar_plot (data, grid, pole='S', cice=False, ax=None, make_cbar=True,
     else:   
        img = ax.pcolormesh(x_edges, y_edges, data, cmap=cmap, vmin=vmin, vmax=vmax)
     if contour is not None or contour_ice:
-        x, y = polar_stereo(grid[lon_name], grid[lat_name])
+        x, y = polar_stereo(grid[lon_name], grid[lat_name], lon0=lon0)
         if contour is not None:
             ax.contour(x, y, data, levels=contour, colors=(contour_colour), linewidths=1, linestyles='solid')
         if contour_ice:
