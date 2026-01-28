@@ -5,7 +5,7 @@ import socket
 import numpy as np
 import cmocean
 from .utils import polar_stereo, extend_grid_edges, moving_average
-from .grid import build_ocean_mask
+from .grid import build_ocean_mask, build_ice_mask
 from .plot_utils import set_colours
 from .constants import line_colours, region_names, land_colour, iceshelf_colour
 
@@ -40,13 +40,15 @@ def finished_plot (fig, fig_name=None, dpi=None, print_out=True):
 # vmin, vmax: optional bounds on colour map
 # ctype: colourmap type (see set_colours in plot_utils.py)
 # change_points: arguments to ismr colourmap (see above)
-# contour: list of levels to contour in black
+# contour: list of levels to contour
+# contour_colour: colour to contour (default black)
 # shade_land: whether to shade the land mask in grey (default True unless cice=True)
+# contour_ice: whether to contour the ice front (default False)
+# icefront_colour: colour to contour ice front (default black)
 # lognorm: logarithmic colormap normalization
 # zoom_amundsen: boolean to activate a zoom on the Amundsen sea region
 
-# TODO contour ice front
-def circumpolar_plot (data, grid, pole='S', cice=False, ax=None, make_cbar=True, masked=False, title=None, titlesize=16, fig_name=None, return_fig=False, vmin=None, vmax=None, ctype='viridis', change_points=None, periodic=True, lat_max=None, contour=None, shade_land=None, lognorm=False, cbar_kwags={}, zoom_amundsen=False):
+def circumpolar_plot (data, grid, pole='S', cice=False, ax=None, make_cbar=True, masked=False, title=None, titlesize=16, fig_name=None, return_fig=False, vmin=None, vmax=None, ctype='viridis', change_points=None, periodic=True, lat_max=None, contour=None, contour_colour='black', shade_land=None, lognorm=False, cbar_kwags={}, zoom_amundsen=False, contour_ice=False, icefront_color='black'):
 
     import cf_xarray as cfxr
 
@@ -140,11 +142,16 @@ def circumpolar_plot (data, grid, pole='S', cice=False, ax=None, make_cbar=True,
     # Set up colour map
     cmap, vmin, vmax = set_colours(data, ctype=ctype, vmin=vmin, vmax=vmax, change_points=change_points)
 
-    if shade_land:
+    if shade_land or contour_ice:
         ocean_mask = build_ocean_mask(grid)[0]
+    if contour_ice:
+        ice_mask = build_ice_mask(grid)[0]
+        mask_sum = ocean_mask + ice_mask  # 0 in grounded ice, 1 in open ocean, 2 in cavity
+        ice_front_mask = ice_mask.where(mask_sum!=0)
+    if shade_land:
         ocean_mask = ocean_mask.where(ocean_mask)
         x_bg, y_bg = np.meshgrid(np.linspace(x_edges.min().item(), x_edges.max().item()), np.linspace(y_edges.min().item(), y_edges.max().item()))
-        mask_bg = np.ones(x_bg.shape)  
+        mask_bg = np.ones(x_bg.shape)
 
     if new_fig:
         fig, ax = plt.subplots()
@@ -162,9 +169,12 @@ def circumpolar_plot (data, grid, pole='S', cice=False, ax=None, make_cbar=True,
        img = ax.pcolormesh(x_edges, y_edges, data, cmap=cmap, norm=cl.LogNorm(vmin=vmin, vmax=vmax)) # note that vmin can't be zero when logarithmic
     else:   
        img = ax.pcolormesh(x_edges, y_edges, data, cmap=cmap, vmin=vmin, vmax=vmax)
-    if contour is not None:
+    if contour is not None or contour_ice:
         x, y = polar_stereo(grid[lon_name], grid[lat_name])
-        ax.contour(x, y, data, levels=contour, colors=('black'), linewidths=1, linestyles='solid')
+        if contour is not None:
+            ax.contour(x, y, data, levels=contour, colors=(contour_colour), linewidths=1, linestyles='solid')
+        if contour_ice:
+            ax.contour(x, y, ice_front_mask, levels=[0.5], colors=(icefront_colour), linewidths=0.5, linestyles='solid')
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
     ax.axis('off')

@@ -1,0 +1,10 @@
+# Figures for proposals etc
+
+import xarray as xr
+import matplotlib.pyplot as plt
+
+from ..plots import circumpolar_plot
+
+def frontiers_figure (domain_cfg='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20260121.nc', fig_name='frontiers_domain.png'):
+
+    
