@@ -581,6 +581,42 @@ def transects_Amundsen(run_folder, transect_locations=['Getz_left','Getz_right',
 
     return
 
+# Set up list of timeseries for evaluation deck
+def timeseries_types_extended ():
+
+    regions = ['all', 'larsen', 'filchner_ronne', 'east_antarctica', 'amery', 'ross', 'west_antarctica', 'dotson_cosgrove', 'amundsen_sea','bellingshausen_sea', 'getz']
+    var_names = ['massloss', 'shelf_bwtemp', 'shelf_bwsalt', 'cavity_bwtemp', 'cavity_bwsalt', 'cavity_thermocline','shelf_thermocline']
+    var_names_ASE = ['massloss', 'shelf_temp_btw_200_700m', 'shelf_salt_btw_200_700m', 'cavity_bwtemp', 'cavity_bwsalt', 'cavity_thermocline','shelf_thermocline']
+    timeseries_types_T = []
+    for region in regions:
+        if region == 'dotson_cosgrove':
+            var_names_use = var_names_ASE
+        else:
+            var_names_use = var_names
+        for var in var_names_use:
+            timeseries_types_T.append(region+'_'+var)
+    timeseries_types_U = ['drake_passage_transport', 'weddell_gyre_transport', 'ross_gyre_transport']
+    timeseries_types = {'T' : timeseries_types_T,
+                        'U' : timeseries_types_U}
+    return timeseries_types
+
+
+# Precompute timeseries for extended analysis from Birgit's NEMO config
+# eg for latest 'best' ERA5 case, uncompressed: in_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/birgit_baseline/"
+def update_timeseries_extended_NEMO_AIS (in_dir, suite_id='AntArc', out_dir='./', transport=True):
+
+    print(in_dir)
+    domain_cfg = '/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20260108.nc'
+    timeseries_types = timeseries_types_extended()
+
+    if transport:
+        gtypes = timeseries_types
+    else:
+        gtypes = timeseries_types[:-1]
+
+    for gtype in gtypes:
+        update_simulation_timeseries(suite_id, timeseries_types[gtype], timeseries_file=f'timeseries_{gtype}.nc', timeseries_dir=out_dir, config='eANT025', sim_dir=in_dir, halo=False, gtype=gtype, domain_cfg=domain_cfg)
+
 
 # Set up list of timeseries for evaluation deck
 def timeseries_types_evaluation ():
