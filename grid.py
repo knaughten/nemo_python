@@ -398,7 +398,7 @@ def create_regions_file(nemo_mesh, option, out_file):
 # nemo_domain  : (optional) string path to NEMO domain cfg file to create mask from
 def extract_var_region(ds_nemo, nemo_var, region, 
                        region_type='all', regions_file='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/output/regions.nc', 
-                       nemo_domain='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20250715.nc'):
+                       nemo_domain='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20260121.nc'):
 
     # Calculate a mask or read masks from a regions file
     if not regions_file:

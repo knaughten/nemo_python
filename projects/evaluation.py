@@ -21,7 +21,7 @@ time_coder = xr.coders.CFDatetimeCoder(use_cftime=True)
 def bottom_TS_vs_obs (nemo, time_ave=True,
                       schmidtko_file='/gws/ssde/j25b/terrafirma/kaight/input_data/schmidtko_TS.txt', 
                       woa_files='/gws/ssde/j25b/terrafirma/kaight/input_data/WOA18/woa18_decav_*00_04.nc', 
-                      nemo_mesh='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20250715.nc',
+                      nemo_mesh='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20260121.nc',
                       fig_name=None, amundsen=False, dpi=None, return_fig=False):
 
     obs = read_schmidtko(schmidtko_file=schmidtko_file, eos='teos10')
@@ -118,8 +118,8 @@ def bottom_TS_vs_obs (nemo, time_ave=True,
        finished_plot(fig, fig_name=fig_name, dpi=dpi)
           
 # 4-panel evaluation plot of Barotropic streamfunction, winter mixed-layer depth, bottom T, bottom S as in Fig.1, Holland et al. 2014
-def circumpolar_Holland_tetraptych(run_folder, nemo_domain='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20250715.nc',
-                                   nemo_mesh='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20250715.nc',
+def circumpolar_Holland_tetraptych(run_folder, nemo_domain='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20260121.nc',
+                                   nemo_mesh='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20260121.nc',
                                    fig_name=None, dpi=None):
 
     from ..diagnostics import barotropic_streamfunction
@@ -184,7 +184,7 @@ def circumpolar_Holland_tetraptych(run_folder, nemo_domain='/gws/nopw/j04/anthro
 
 # Compare temperature and salinity in a depth range in NEMO (time-averaged over the given xarray Dataset) to observations: 
 # Specifically, Shenji Zhou's 2024 dataset
-def circumpolar_TS_vs_obs (nemo, depth_min, depth_max, nemo_mesh='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20250715.nc', fig_name=None, dpi=None):
+def circumpolar_TS_vs_obs (nemo, depth_min, depth_max, nemo_mesh='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20260121.nc', fig_name=None, dpi=None):
 
     # depth is the depth to look at (could be a slice):
     obs      = read_zhou()
@@ -270,7 +270,7 @@ def mask_sim_region(gridT_files, mask, region_subsetx=slice(0,None), region_subs
 # mask  : xarray dataset containing a mask to extract the specified region 
 # nemo_domcfg : string of path to NEMO domain_cfg file
 # Returns xarray DataArrays of temperature and salinity with NaNs everywhere except the region of interest
-def mask_obs_region(fileT, fileS, mask, nemo_domcfg='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20250715.nc'):
+def mask_obs_region(fileT, fileS, mask, nemo_domcfg='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20260121.nc'):
 
     nemo_file = xr.open_dataset(nemo_domcfg).squeeze()
 
@@ -311,7 +311,7 @@ def mask_obs_region(fileT, fileS, mask, nemo_domcfg='/gws/nopw/j04/anthrofail/bi
 # years_show             : which years to show, defaults to only show simulated profiles during overlap with obs, otherwise pass a list or range of the years to include
 def regional_profile_TS_std(run_folder, region, option='shelf', fig_name=None, dpi=None, conf=None,
                             dir_obs='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/observations/pierre-dutrieux/',
-                            nemo_domcfg='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20250715.nc',
+                            nemo_domcfg='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20260121.nc',
                             years_show=np.arange(2000,2020)):
     from datetime import datetime
 
@@ -456,7 +456,7 @@ def animate_transect(run_folder, loc='shelf_west'):
 # not yet generalized for other domains
 def frames_transect_Amundsen_sims(run_folder, savefig=False, transect_location='shelf_west', add_rho=False, clevels=10, 
                                   smin=33.8, smax=34.9, tmin=0.2, tmax=1.0, fig_name='',
-                                  nemo_mesh='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20250715.nc'):
+                                  nemo_mesh='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20260121.nc'):
     import warnings
     import gsw
 
@@ -526,7 +526,7 @@ def frames_transect_Amundsen_sims(run_folder, savefig=False, transect_location='
 # savefig    : (optional) boolean whether to save figure within figures sub-directory in run_folder
 def transects_Amundsen(run_folder, transect_locations=['Getz_left','Getz_right','Dotson','PI_trough','shelf_west','shelf_mid','shelf_east','shelf_edge'], 
                        time_slice=("2000-01-01", "2015-12-31"), tmin=-2, tmax=0.5, smin=33, smax=35, savefig=False, ylim=(1300, -20), 
-                       nemo_mesh='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20250715.nc', fig_dir='', fig_name=''):
+                       nemo_mesh='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20260121.nc', fig_dir='', fig_name=''):
     
     # load nemo simulations
     gridT_files  = glob.glob(f'{run_folder}*grid_T*')
