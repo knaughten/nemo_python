@@ -199,7 +199,13 @@ def find_cesm2_file(expt, var_name, domain, freq, ensemble_member, year,
     elif expt=='piControl':
         start_stub = 'b.e21.B1850.f09_g17.CMIP6'
     elif expt in SF_expts:
-        start_stub = 'b.e21.B1850cmip6.f09_g17.CESM2'
+        if expt=='SF-xAER':
+            if (year <= 2014):
+                start_stub = 'b.e21.BHISTcmip6.f09_g17.CESM2'
+            else:
+                start_stub = 'b.e21.BSSP370cmip6.f09_g17.CESM2'
+        else:
+            start_stub = 'b.e21.B1850cmip6.f09_g17.CESM2'
 
     if domain == 'atm':
         if freq == 'monthly':
@@ -229,7 +235,10 @@ def find_cesm2_file(expt, var_name, domain, freq, ensemble_member, year,
         if (year < 2015):
             file_list  = glob.glob(f'{base_dir}{expt}/raw/{start_stub}-{expt}.{ensemble_member}{domain_stub}{var_name}*')
         else:
-            file_list  = glob.glob(f'{base_dir}{expt}/raw/{start_stub}-{expt}-SSP370.{ensemble_member}{domain_stub}{var_name}*') 
+            if expt=='SF-xAER':
+                file_list = glob.glob(f'{base_dir}{expt}/raw/{start_stub}-{expt}.{ensemble_member}{domain_stub}{var_name}*')
+            else:
+                file_list  = glob.glob(f'{base_dir}{expt}/raw/{start_stub}-{expt}-SSP370.{ensemble_member}{domain_stub}{var_name}*') 
 
     found_date = False
     for file in file_list:
@@ -256,7 +265,10 @@ def find_cesm2_file(expt, var_name, domain, freq, ensemble_member, year,
         if (year < 2015):
             file_path = f'{base_dir}{expt}/raw/{start_stub}-{expt}.{ensemble_member}{domain_stub}{var_name}.{date_range}.nc'
         else:
-            file_path = f'{base_dir}{expt}/raw/{start_stub}-{expt}-SSP370.{ensemble_member}{domain_stub}{var_name}.{date_range}.nc'
+            if expt=='SF-xAER':
+                file_path = f'{base_dir}{expt}/raw/{start_stub}-{expt}.{ensemble_member}{domain_stub}{var_name}.{date_range}.nc'
+            else:
+                file_path = f'{base_dir}{expt}/raw/{start_stub}-{expt}-SSP370.{ensemble_member}{domain_stub}{var_name}.{date_range}.nc'
 
     return file_path
 
@@ -277,7 +289,7 @@ def find_processed_cesm2_file(expt, var_name, ensemble_member, year, freq='daily
             raise Exception(f'Ensemble member {ensemble_member} is not available')
         if (year > 2100) or (year < 1850):
             raise Exception('Not a valid year for the specified experiment and ensemble member')
-    if expt == 'piControl':
+    elif expt == 'piControl':
         if year > 2000:
             raise Exception('Not a valid year for the specified experiment and ensemble member')
 
