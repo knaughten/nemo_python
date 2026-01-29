@@ -5,11 +5,10 @@ import glob
 import cmocean
 import os
 import gsw
-import calendar
 from ..utils import select_bottom, distance_along_transect, moving_average, polar_stereo, latlon_name, xy_name
 from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli_melt, adusumilli_std, transport_obs, transport_std, region_edges, rEarth, deg2rad, zhou_TS, zhou_TS_std
 from ..plots import circumpolar_plot, finished_plot, plot_ts_distribution, plot_transect
-from ..plot_utils import set_colours, latlon_axis, get_extend, round_to_decimals
+from ..plot_utils import set_colours, latlon_axis
 from ..interpolation import interp_latlon_cf, interp_latlon_cf_blocks
 from ..file_io import read_schmidtko, read_woa, read_dutrieux, read_zhou
 from ..grid import extract_var_region, transect_coords_from_latlon_waypoints, region_mask, build_shelf_mask
@@ -601,12 +600,47 @@ def timeseries_types_evaluation ():
                         'U' : timeseries_types_U}
     return timeseries_types
 
+# Set up list of timeseries for evaluation deck
+def timeseries_types_extended ():
+
+    regions = ['all', 'larsen', 'filchner_ronne', 'east_antarctica', 'amery', 'ross', 'west_antarctica', 'dotson_cosgrove', 'amundsen_sea','bellingshausen_sea', 'getz']
+    var_names = ['massloss', 'shelf_bwtemp', 'shelf_bwsalt', 'cavity_bwtemp', 'cavity_bwsalt', 'cavity_thermocline','shelf_thermocline']
+    var_names_ASE = ['massloss', 'shelf_temp_btw_200_700m', 'shelf_salt_btw_200_700m', 'cavity_bwtemp', 'cavity_bwsalt', 'cavity_thermocline','shelf_thermocline']
+    timeseries_types_T = []
+    for region in regions:
+        if region == 'dotson_cosgrove':
+            var_names_use = var_names_ASE
+        else:
+            var_names_use = var_names
+        for var in var_names_use:
+            timeseries_types_T.append(region+'_'+var)
+    timeseries_types_U = ['drake_passage_transport', 'weddell_gyre_transport', 'ross_gyre_transport']
+    timeseries_types = {'T' : timeseries_types_T,
+                        'U' : timeseries_types_U}
+    return timeseries_types
+
+# Precompute timeseries for extended analysis from Birgit's NEMO config
+# eg for latest 'best' ERA5 case, uncompressed: in_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/birgit_baseline/"
+def update_timeseries_extended_NEMO_AIS (in_dir, suite_id='AntArc', out_dir='./', transport=True):
+
+    print(in_dir)
+    domain_cfg = '/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20260108.nc'
+    timeseries_types = timeseries_types_extended()
+
+    if transport:
+        gtypes = timeseries_types
+    else:
+        gtypes = timeseries_types[:-1]
+
+    for gtype in gtypes:
+        update_simulation_timeseries(suite_id, timeseries_types[gtype], timeseries_file=f'timeseries_{gtype}.nc', timeseries_dir=out_dir, config='eANT025', sim_dir=in_dir, halo=False, gtype=gtype, domain_cfg=domain_cfg)
+
 
 # Precompute timeseries for evaluation deck from Birgit's NEMO config
 # eg for latest 'best' ERA5 case, uncompressed: in_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/birgit_baseline/"
 def update_timeseries_evaluation_NEMO_AIS (in_dir, suite_id='AntArc', out_dir='./', transport=True):
 
-    domain_cfg = '/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20260121.nc'
+    domain_cfg = '/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20260801.nc'
     timeseries_types = timeseries_types_evaluation()
 
     if transport:
@@ -939,7 +973,7 @@ def preproc_shenjie (obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_cl
 
 # Precompute variables averaged over the last part of the simulation (default 20 years). Convert to TEOS-10 if it's not already.
 # config can be NEMO_AIS or UKESM1
-# option: 'bottom_TS' (bottom T and S), 'zonal_TS' (zonal mean T and S), 'seaice' (sea ice area and thickness in Feb and Sept)
+# option: 'bottom_TS' (bottom T and S), 'zonal_TS' (zonal mean T and S)
 def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir=None, num_years=20, out_file='bottom_TS_avg.nc'):
 
     if option == 'bottom_TS':
@@ -947,24 +981,14 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
         var_names_2 = ['sbt', 'sbs']
     elif option == 'zonal_TS':
         var_names = ['thetao', 'so']
-    elif option == 'seaice':
-        months = [2, 9]
-        time_flags = ['_min', '_max']
-        if config == 'NEMO_AIS':
-            var_names = ['siconc', 'sivolu']
-        elif config == 'UKESM1':
-            raise Exception('Not coded precompute_avg for CICE variables yet')
-        
+
     if config == 'NEMO_AIS':
         if suite_id is None:
             suite_id = 'AntArc'
         if in_dir is None:
             in_dir = './'
         file_head = 'eANT025.'+suite_id+'_1m_'
-        if option == 'seaice':
-            file_tail = '_icemod.nc'
-        else:
-            file_tail = '_grid_T.nc'
+        file_tail = '_grid_T.nc'
         eos = 'teos10'
     elif config == 'UKESM1':
         if suite_id is None:
@@ -1004,10 +1028,7 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
     nemo_files =  nemo_files[-num_t:]
 
     # Now read one file at a time
-    if option == 'seaice':
-        ds_accum = [None, None]
-    else:
-        ds_accum = None
+    ds_accum = None
     depth_3d = None
     for file_path in nemo_files:
         print('Processing '+file_path)
@@ -1048,39 +1069,27 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
             ds[var_names[0]] = con_temp.assign_attrs(long_name='conservative temperature, TEOS-10')
             ds[var_names[1]] = abs_salt.assign_attrs(long_name='absolute salinity, TEOS-10')            
         if months_per_file == months_per_year:
-            if option == 'seaice':
-                # Inner function to process one month for min or max
-                def process_month (ds, month, flag, ds_accum_m):
-                    ds_tmp = ds.isel(time_counter=month-1).rename({var_names[0]:var_names[0]+flag, var_names[1]:var_names[1]+flag})
-                    ds_tmp = ds_tmp.drop_vars({'time_counter', 'time_centered'})
-                    if ds_accum_m is None:
-                        ds_accum_m = ds_tmp
-                    else:
-                        ds_accum_m += ds_tmp
-                    return ds_accum_m
-                ds_accum = [process_month(ds, months[n], time_flags[n], ds_accum[n]) for n in range(2)]
-            else:
-                # Annual average
-                ndays = ds.time_centered.dt.days_in_month
-                weights = ndays/ndays.sum()
-                # Process one month at a time: this is more memory efficient than the built in functions, if not more code efficient!
-                for t in range(months_per_file):
-                    ds_tmp = ds.isel(time_counter=t)
-                    for var in ds_tmp:
-                        ds_tmp[var] = ds_tmp[var]*weights[t]
-                    ds_tmp = ds_tmp.drop_vars({'time_counter', 'time_centered'})
-                    if option == 'zonal_TS':
-                        # Zonal mean - keep it simple - this is just for eyeball comparison with WOA, don't need to close a budget
-                        ds_tmp = ds_tmp.reset_coords()
-                        ds_tmp[lat_name] = ds_tmp[lat_name].where(ds_tmp[var_names[0]].sum(dim='deptht'))
-                        x_name, y_name = xy_name(ds_tmp)
-                        ds_tmp = ds_tmp.mean(dim=x_name).squeeze()
-                        ds_tmp = ds_tmp.drop_vars({lon_name, bounds_lon})
-                        ds_tmp = ds_tmp.set_coords(lat_name)
-                    if ds_accum is None:
-                        ds_accum = ds_tmp
-                    else:
-                        ds_accum += ds_tmp
+            # Annual average
+            ndays = ds.time_centered.dt.days_in_month
+            weights = ndays/ndays.sum()
+            # Process one month at a time: this is more memory efficient than the built in functions, if not more code efficient!
+            for t in range(months_per_file):
+                ds_tmp = ds.isel(time_counter=t)
+                for var in ds_tmp:
+                    ds_tmp[var] = ds_tmp[var]*weights[t]
+                ds_tmp = ds_tmp.drop_vars({'time_counter', 'time_centered'})
+                if option == 'zonal_TS':
+                    # Zonal mean - keep it simple - this is just for eyeball comparison with WOA, don't need to close a budget
+                    ds_tmp = ds_tmp.reset_coords()
+                    ds_tmp[lat_name] = ds_tmp[lat_name].where(ds_tmp[var_names[0]].sum(dim='deptht'))
+                    x_name, y_name = xy_name(ds_tmp)
+                    ds_tmp = ds_tmp.mean(dim=x_name).squeeze()
+                    ds_tmp = ds_tmp.drop_vars({lon_name, bounds_lon})
+                    ds_tmp = ds_tmp.set_coords(lat_name)
+                if ds_accum is None:
+                    ds_accum = ds_tmp
+                else:
+                    ds_accum += ds_tmp
         elif config == 'UKESM1':
             # UKESM1 has 30-day months so don't need to worry about weights
             ds = ds.squeeze().drop_vars({'time_counter', 'time_centered'})
@@ -1098,8 +1107,6 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
         else:
             raise Exception('Unsure how to handle monthly files for config='+config)
         ds.close()
-    if option == 'seaice':
-        ds_accum = ds_accum[0].merge(ds_accum[1])
     ds_avg = ds_accum/num_t
 
     print('Writing '+out_file)
@@ -1263,164 +1270,5 @@ def plot_evaluation_zonal_TS (in_file='zonal_TS_avg.nc', obs_file='/gws/ssde/j25
                 ax.set_yticklabels([])
         plt.text(0.5, 0.99-0.5*v, var_titles[v], ha='center', va='top', transform=fig.transFigure, fontsize=16)
     finished_plot(fig, fig_name=fig_name, dpi=300)
-
-
-# Plot biases in 9 atmospheric variables for UKESM historical ensemble relative to ERA5 over 1979-2014.
-# Each figure (1 per variable) will show the annual mean of both products, the annual mean bias, and the monthly mean bias x12.
-def plot_ukesm_era5_atm_biases (era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ERA5_hourly/climatology/', ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ensemble_mean_climatology/', domain_cfg = '/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20260121.nc', fig_dir=None):
-
-    era5_var = ['t2m', 'sph2m', 'msl', 'wind_speed', 'wind_angle', 'mtpr', 'msr', 'msdwswrf', 'msdwlwrf']
-    ukesm_var = ['tair', 'qair', 'pair', 'wind_speed', 'wind_angle', 'precip', 'snow', 'swrad', 'lwrad']
-    var_titles = ['Temperature at 2m (K)', 'Specific humidity at 2m (1)', 'Sea-level pressure (Pa)', 'Wind speed (m/s)', 'Wind angle (rad)', 'Total precip (kg/m2/s)', 'Snowfall (kg/m2/s)', 'Downwelling shortwave (W/m2)', 'Downwelling longwave (W/m2)']
-    titles = [None, 'UKESM annual mean', 'ERA5 annual mean', 'Bias annual mean'] + ['Bias '+calendar.month_name[t+1][:3] for t in range(months_per_year)]
-    num_var = len(era5_var)
-    vmin = [None, None, None, None, None, None, None, None, None]
-    vmax = [None, None, None, None, None, 5e-5, 5e-5, 150, None]
-    vmin_diff = [-14, -1e-3, None, -4, None, -2e-5, -2e-5, -75, None]
-    vmax_diff = [None, 1e-3, None, 4, None, 2e-5, 2e-5, None, None]
-    era5_head = era5_dir + '/ERA5_'
-    era5_tail = '_3-hourly_1979-2014_mean_monthly.nc'
-    ukesm_tail = '_1979-2014_mean_monthly.nc'
-
-    # Set up NEMO grid and surface mask
-    ds_nemo = xr.open_dataset(domain_cfg).squeeze()
-    sfc_mask = xr.where(ds_nemo['top_level']==1, 1, 0)
-
-    # Set up two Datasets with all the 2D fields (unravelled in time) to interpolate in one go
-    ds_era5 = None
-    ds_ukesm = None
-    for v in range(num_var):
-        print('Reading '+ukesm_var[v])
-        data_era5 = xr.open_dataset(era5_head+era5_var[v]+era5_tail).rename({'longitude':'lon', 'latitude':'lat'})[era5_var[v]]
-        data_ukesm = xr.open_dataset(ukesm_dir+'/'+ukesm_var[v]+ukesm_tail).rename({'longitude':'lon', 'latitude':'lat'})[ukesm_var[v]]
-        # Take annual means
-        if ds_era5 is None:
-            ds_era5 = xr.Dataset({ukesm_var[v]+'_mean':data_era5.mean(dim='month')})
-            ds_ukesm = xr.Dataset({ukesm_var[v]+'_mean':data_ukesm.mean(dim='month')})
-        else:
-            ds_era5 = ds_era5.assign({ukesm_var[v]+'_mean':data_era5.mean(dim='month')})
-            ds_ukesm = ds_ukesm.assign({ukesm_var[v]+'_mean':data_ukesm.mean(dim='month')})
-        # Save each month individually
-        for t in range(months_per_year):
-            ds_era5 = ds_era5.assign({ukesm_var[v]+'_'+str(t+1).zfill(2):data_era5.isel(month=t)})
-            ds_ukesm = ds_ukesm.assign({ukesm_var[v]+'_'+str(t+1).zfill(2):data_ukesm.isel(month=t)})
-    # Now interpolate to NEMO grid and mask land and ice shelves
-    print('Interpolating ERA5 to NEMO')
-    ds_era5_interp = interp_latlon_cf(ds_era5, ds_nemo, periodic_src=True, method='bilinear').where(sfc_mask)
-    print('Interpolating UKESM to NEMO')
-    ds_ukesm_interp = interp_latlon_cf(ds_ukesm, ds_nemo, periodic_src=True, method='bilinear').where(sfc_mask)
-    ds_bias = ds_ukesm_interp - ds_era5_interp
-
-    # Plot one variable at a time
-    # Top row: space for title and colourbars, UKESM annual mean, ERA5 annual mean, annual mean bias
-    # Following 3 rows: monthly mean bias for each month
-    for v in range(num_var):
-        data_plot = [None, ds_ukesm_interp[ukesm_var[v]+'_mean'], ds_era5_interp[ukesm_var[v]+'_mean'], ds_bias[ukesm_var[v]+'_mean']] + [ds_bias[ukesm_var[v]+'_'+str(t+1).zfill(2)] for t in range(months_per_year)]
-        fig = plt.figure(figsize=(7,8))
-        gs = plt.GridSpec(4,4)
-        gs.update(left=0.02, right=0.98, bottom=0.02, top=0.95, hspace=0.2, wspace=0)
-        # Set consistent colour scale limits for absolute and difference plots
-        vmin_tmp = np.amin([data_plot[1].min(), data_plot[2].min()]) if vmin[v] is None else vmin[v]
-        vmax_tmp = np.amax([data_plot[1].max(), data_plot[2].max()]) if vmax[v] is None else vmax[v]
-        vmin_diff_tmp = np.amin([data.min() for data in data_plot[3:]]) if vmin_diff[v] is None else vmin_diff[v]
-        vmax_diff_tmp = np.amax([data.max() for data in data_plot[3:]]) if vmax_diff[v] is None else vmax_diff[v]
-        for n in range(4):
-            for m in range(4):
-                index = n*4 + m
-                if data_plot[index] is not None:
-                    ax = plt.subplot(gs[n,m])
-                    ax.axis('equal')
-                    img = circumpolar_plot(data_plot[index], ds_nemo, ax=ax, masked=True, make_cbar=False, vmin=(vmin_tmp if index<3 else vmin_diff_tmp), vmax=(vmax_tmp if index<3 else vmax_diff_tmp), ctype=('viridis' if index<3 else 'plusminus'), title=titles[index], titlesize=11, shade_land=False)
-                    if index == 1:
-                        # Absolute colourbar
-                        cax1 = fig.add_axes([0.02, 0.89, 0.23, 0.02])
-                        plt.colorbar(img, cax=cax1, orientation='horizontal', extend=get_extend(vmin=vmin[v], vmax=vmax[v]))
-                    elif index == 3:
-                        # Difference colourbar
-                        cax2 = fig.add_axes([0.02, 0.82, 0.23, 0.02])
-                        plt.colorbar(img, cax=cax2, orientation='horizontal', extend=get_extend(vmin=vmin_diff[v], vmax=vmax_diff[v]))
-        # Title on top left
-        plt.text(0.01, 0.95, var_titles[v], fontsize=12, transform=fig.transFigure, ha='left', va='top')
-        if fig_dir is None:
-            fig_name = None
-        else:
-            fig_name = fig_dir + '/' + ukesm_var[v] + '_bias_ukesm_era5.png'
-        finished_plot(fig, fig_name=fig_name)
-
-
-# Plot sea ice concentration and thickness in Feb and Sept.
-def plot_evaluation_seaice (config='NEMO_AIS', in_file='seaice_avg.nc', obs_file='/gws/nopw/j04/bas_pog/tarlge/data/observations/HadISST2/HadISST.2.2.0.0_sea_ice_concentration.nc', fig_name=None):
-
-    var_names = ['siconc', 'sivolu']
-    var_titles = ['Sea ice concentration', 'Sea ice thickness (m)']
-    time_flags = ['_min', '_max']
-    time_titles = ['February', 'September']
-    vmin = [0, 0]
-    vmax = [1, 3]
-    if config == 'NEMO_AIS':
-        domain_cfg = '/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20260121.nc'
-    elif config == 'UKESM1':
-        raise Exception('CICE output not yet supported')
-    siconc0 = 0.15
-
-    # Read model
-    ds_model = xr.open_dataset(in_file, decode_times=time_coder).squeeze()
-    ds_domcfg = xr.open_dataset(domain_cfg).squeeze()
-    sfc_mask = xr.where(ds_domcfg['top_level']==1, 1, 0)
-
-    # Read obs
-    ds_obs = xr.open_dataset(obs_file).rename({'longitude':'lon', 'latitude':'lat'})
-    # Average over the months we want
-    def obs_month_clim (month):
-        return ds_obs['sic'].where(ds_obs['time'].dt.month==month, drop=True).mean(dim='time')
-    obs_min = obs_month_clim(2)
-    obs_max = obs_month_clim(9)
-    ds_obs_minmax = xr.Dataset({var_names[0]+time_flags[0]:obs_min, var_names[0]+time_flags[1]:obs_max})
-    # Interpolate to NEMO grid
-    ds_obs_interp = interp_latlon_cf(ds_obs_minmax, ds_domcfg, periodic_src=True, method='bilinear').where(sfc_mask)
-
-    fig = plt.figure(figsize=(6,6))
-    gs = plt.GridSpec(2,2)
-    gs.update(left=0.05, right=0.9, bottom=0.05, top=0.9, wspace=0.05, hspace=0.3)
-    for n in range(len(var_names)):
-        for m in range(len(time_flags)):
-            data = ds_model[var_names[n]+time_flags[m]]
-            # Set ocean cells with no sea ice to zero (masked in SI3)
-            data = xr.where(data.isnull()*sfc_mask, 0, data)
-            ax = plt.subplot(gs[n,m])
-            ax.axis('equal')
-            img = circumpolar_plot(data, ds_domcfg, ax=ax, masked=True, shade_land=False, make_cbar=False, title=time_titles[m], titlesize=12, vmin=vmin[n], vmax=vmax[n])
-            if n == 0:
-                # Contour observed ice edge in white
-                lon_name, lat_name = latlon_name(ds_model)
-                x, y = polar_stereo(ds_model[lon_name], ds_model[lat_name])
-                ax.contour(x, y, ds_obs_interp[var_names[n]+time_flags[m]], levels=[siconc0], colors=('white'), linewidths=1, linestyles='solid')
-            if m == 1:
-                cax = fig.add_axes([0.905, 0.58-0.5*n, 0.03, 0.3])
-                plt.colorbar(img, cax=cax, extend=('neither' if n==0 else 'max'))
-            if n==1 and m==1:
-                # Print real max
-                plt.text(0.5, 0.5, 'max=\n'+str(round_to_decimals(data.max().item(),1))+' m', ha='center', va='center', transform=ax.transAxes, fontsize=9)
-        plt.text(0.5, 0.95-0.48*n, var_titles[n], ha='center', va='bottom', transform=fig.transFigure, fontsize=14)
-    finished_plot(fig, fig_name=fig_name, dpi=300)
-
-    
-                        
-        
-                    
-                    
-                    
-                    
-        
-        
-        
-        
-
-    
-    
-
-    
-
-    
     
     
