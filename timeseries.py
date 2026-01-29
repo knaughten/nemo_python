@@ -182,6 +182,8 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
     if var.endswith('_thermocline'):
         if nemo_mesh:
             kwargs = {'mesh_mask':nemo_mesh}
+        else:
+            kwargs = {}
         ds_nemo['thermocline_depth'] = thermocline(ds_nemo[nemo_var], **kwargs)
 
     # Some variables have two equivalent options - allow for either
