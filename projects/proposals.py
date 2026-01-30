@@ -10,7 +10,7 @@ from ..grid import build_ocean_mask, build_ice_mask
 
 def frontiers_figure (fig_name='frontiers_domain.pdf'):
 
-    domain_cfg='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20260121.nc'
+    domain_cfg='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/domain_cfg-20260121.nc'
     depth0 = 700
     xlim = [-1.85e6, 0]
     ylim = [5e5, 3.3e6]
