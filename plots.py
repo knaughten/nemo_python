@@ -158,18 +158,18 @@ def circumpolar_plot (data, grid, pole='S', cice=False, ax=None, make_cbar=True,
         fig, ax = plt.subplots()
     if shade_land:
         # Shade background in grey
-        ax.pcolormesh(x_bg, y_bg, mask_bg, cmap=cl.ListedColormap(['DarkGrey']), rasterized=True)
+        ax.pcolormesh(x_bg, y_bg, mask_bg, cmap=cl.ListedColormap(['DarkGrey']))
         # Clear ocean back to white
-        ax.pcolormesh(x_edges, y_edges, ocean_mask, cmap=cl.ListedColormap(['white']), rasterized=True)
+        ax.pcolormesh(x_edges, y_edges, ocean_mask, cmap=cl.ListedColormap(['white']))
     # Now plot the data
     if lognorm:
        if (vmin <= 0 or vmax <= 0):
           print('vmin and vmax must be positive and non-zero when using a logarithmic colormap (lognorm=True), so allowing pcolormesh to choose limits instead')
           vmin=None; vmax=None;
 
-       img = ax.pcolormesh(x_edges, y_edges, data, cmap=cmap, norm=cl.LogNorm(vmin=vmin, vmax=vmax), rasterized=True) # note that vmin can't be zero when logarithmic
+       img = ax.pcolormesh(x_edges, y_edges, data, cmap=cmap, norm=cl.LogNorm(vmin=vmin, vmax=vmax)) # note that vmin can't be zero when logarithmic
     else:   
-       img = ax.pcolormesh(x_edges, y_edges, data, cmap=cmap, vmin=vmin, vmax=vmax, rasterized=True)
+       img = ax.pcolormesh(x_edges, y_edges, data, cmap=cmap, vmin=vmin, vmax=vmax)
     if contour is not None or contour_ice:
         x, y = polar_stereo(grid[lon_name], grid[lat_name], lon0=lon0)
         if contour is not None:
