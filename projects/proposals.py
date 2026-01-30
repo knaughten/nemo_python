@@ -8,7 +8,7 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from ..plots import circumpolar_plot, finished_plot
 from ..grid import build_ocean_mask, build_ice_mask
 
-def frontiers_figure (fig_name='frontiers_domain.png'):
+def frontiers_figure (fig_name='frontiers_domain.pdf'):
 
     domain_cfg='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20260121.nc'
     depth0 = 700
