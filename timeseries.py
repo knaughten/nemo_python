@@ -182,6 +182,8 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
     if var.endswith('_thermocline'):
         if nemo_mesh:
             kwargs = {'mesh_mask':nemo_mesh}
+        else:
+            kwargs = {}
         ds_nemo['thermocline_depth'] = thermocline(ds_nemo[nemo_var], **kwargs)
 
     # Some variables have two equivalent options - allow for either
@@ -634,7 +636,7 @@ def update_simulation_timeseries_um (suite_id, timeseries_types, timeseries_file
         
 def calc_hovmoeller_region(var, region,
                            run_folder='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/output/reference-4.2.2/',
-                           nemo_mesh='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20250715.nc'):
+                           nemo_mesh='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20260121.nc'):
     
     # Load gridT files into dataset:
     gridT_files = glob.glob(f'{run_folder}*grid_T*')

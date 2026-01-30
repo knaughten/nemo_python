@@ -131,7 +131,7 @@ def isosurface(field, target, dim):
 # - dsT                  : xarray DataArray of temperature (can deal with 4D)
 # - (optional) mesh_mask : path to configuration mesh mask file containing tmask and gdept_0
 # - (optional) limit     : float specifying the gradient dT/dz threshold where to find the thermocline
-def thermocline(dsT, mesh_mask='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20250715.nc', limit=3e-3):
+def thermocline(dsT, mesh_mask='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20260121.nc', limit=3e-3):
     
     # load mesh mask file and mask temperature with land points
     if 'x_grid_T' in dsT.dims:

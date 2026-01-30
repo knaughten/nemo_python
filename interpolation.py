@@ -789,7 +789,7 @@ def regrid_era5_to_cesm2(cesm2_ds, era5_ds, variable):
 
     return era5_regridded
             
-def regrid_to_NEMO(ds, varname, nemo_coord=f'/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20250715.nc', method='conservative'):
+def regrid_to_NEMO(ds, varname, nemo_coord=f'/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20260121.nc', method='conservative'):
     
     nemo_coord_file = xr.open_dataset(nemo_coord).squeeze()
     name_remapping  = {'longitude':'lon', 'latitude':'lat'}

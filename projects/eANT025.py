@@ -56,7 +56,7 @@ def plot_extended_timeseries(path_ts1, path_ts2, var, fig_name, title='',
     
     return
 
-def plot_SSH_trend(run_folder, fig_name, style='lineplot', dpi=None, nemo_mesh='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20250715.nc'):
+def plot_SSH_trend(run_folder, fig_name, style='lineplot', dpi=None, nemo_mesh='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20260121.nc'):
     # Load meshmask
     mesh_ds    = xr.open_dataset(nemo_mesh)
 
@@ -108,7 +108,7 @@ def plot_SSH_trend(run_folder, fig_name, style='lineplot', dpi=None, nemo_mesh='
     return
 
 # Evaluate bottom temperature and salinity with WOA output (two plots: (1) average over time series (2) end state of timeseries)
-def plot_WOA_eval(run_folder, figname1, figname2, figname3, nemo_mesh='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20250715.nc', dpi=None, reanalysis=False):
+def plot_WOA_eval(run_folder, figname1, figname2, figname3, nemo_mesh='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20260121.nc', dpi=None, reanalysis=False):
 
     # Load gridT files into dataset:
     gridT_files = np.sort(glob.glob(f'{run_folder}*grid_T*'))
@@ -143,7 +143,7 @@ def plot_WOA_eval(run_folder, figname1, figname2, figname3, nemo_mesh='/gws/nopw
 # return_mask (optional) : boolean to return region mask used
 # domain_cfg (optional)  : string of path to NEMO domain cfg file
 def calculate_regional_melt_rate(region_name, nemo_ds, return_name=False, return_mask=False,
-                             domain_cfg='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20250715.nc'):
+                             domain_cfg='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20260121.nc'):
    
     # get region mask:
     nemo_domcfg               = xr.open_dataset(domain_cfg).squeeze()
@@ -177,8 +177,8 @@ def calculate_regional_melt_rate(region_name, nemo_ds, return_name=False, return
 # fig_name   (optional) : string of path to save figure to 
 # return_fig (optional) : boolean specifying whether to return the figure and axes
 def plot_annual_melt_overview(SBC_files, ylim1=(None,None), ylim2=(None,None),
-                              domain_cfg='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20250715.nc',
-                              mesh_mask ='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20250715.nc',
+                              domain_cfg='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20260121.nc',
+                              mesh_mask ='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20260121.nc',
                               fig_name=None, return_fig=False):
 
     nemo_ds       = xr.open_mfdataset(SBC_files)
@@ -229,7 +229,7 @@ def plot_annual_melt_overview(SBC_files, ylim1=(None,None), ylim2=(None,None),
 
 # Visualize the timeseries of variable averaged over a region to see convection
 def plot_hovmoeller_convect(run_folder, region, figname1, figname2, title='', tlim=(-1.5, 0.5), slim=(34.8, 34.86), ylim=(5500,0), 
-                            nemo_mesh='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20250715.nc'):
+                            nemo_mesh='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20260121.nc'):
 
     T_region = calc_hovmoeller_region('thetao', region, run_folder=run_folder, nemo_mesh=nemo_mesh)    
     S_region = calc_hovmoeller_region('so', region, run_folder=run_folder, nemo_mesh=nemo_mesh)
@@ -240,7 +240,7 @@ def plot_hovmoeller_convect(run_folder, region, figname1, figname2, title='', tl
     return
 
 # Create animations of some standard variables that are useful to look at
-def animate_vars(run_folder, out_folder='', nemo_mesh='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20250715.nc'):
+def animate_vars(run_folder, out_folder='', nemo_mesh='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20260121.nc'):
     import cmocean 
 
     var   = ['mldr10_1', 'siconc', 'zos', 'sbt', 'sbs', 'sosst', 'sosss']
