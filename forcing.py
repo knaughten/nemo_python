@@ -1170,7 +1170,7 @@ def ukesm_bias_corrections_test (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NEM
     for var_u, var_e in zip(ukesm_var_names, era5_var_names):
         ds_ukesm = xr.open_dataset(ukesm_dir+'/'+var_u+ukesm_tail).mean(dim='month')
         # Regrid ERA5 to UM grid
-        ds_era5 = xr.open_dataset(era5_dir+'/'+era5_head+var_e+era5_tail).mean(dim='month').interp_like(ds_ukesm)
+        ds_era5 = xr.open_dataset(era5_dir+'/'+era5_head+var_e+era5_tail).mean(dim='month').rename({var_e:var_u}).interp_like(ds_ukesm)
         ds_correction = ds_era5 - ds_ukesm
         out_file = out_dir+'/'+var_u+'_bias_correction.nc'
         print('Writing '+out_file)
