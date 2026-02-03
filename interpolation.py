@@ -350,7 +350,7 @@ def regrid_array_cf(source, regrid_operator, key_3d=True, method='linear', src_c
 
 # Interpolate the source dataset to the NEMO coordinates using CF. This is good for smaller interpolation jobs (i.e. not BedMachine3) and hopefully will be good for big interpolation jobs once CF is next updated.
 # Inputs:
-# source: xarray Dataset containing the coordinates 'x' and 'y' (if polar stereographic) or 'lon' and 'lat', and any data variables you want
+# source: xarray Dataset containing the coordinates 'x' and 'y' (if polar stereographic) or anything from the function latlon_name (utils.py), and any data variables you want
 # nemo: xarray Dataset containing the NEMO grid: must contain at least (option 1:) glamt, gphit, glamf, gphif, and dimensions x and y; (option 2): nav_lon_grid_T, nav_lat_grid_T, bounds_nav_lon_grid_T, bounds_nav_lat_grid_T, and dimensions x_grid_T and y_grid_T; (option 3): nav_lon, nav_lat, bounds_lon, bounds_lat, and dimensions x and y.
 # pster_src: whether the source dataset is polar stereographic
 # periodic_src: whether the source dataset is periodic in the x dimension
@@ -387,10 +387,9 @@ def interp_latlon_cf (source, nemo, pster_src=False, periodic_src=False, periodi
         y_src = source['y']
         lon_src, lat_src = polar_stereo_inv(source['x'], source['y'])
     else:
-        x_name = 'lon'
-        y_name = 'lat'
-        x_src = source['lon']
-        y_src = source['lat']
+        x_name, y_name = latlon_name(source)
+        x_src = source[x_name]
+        y_src = source[y_name]
         lon_src = None
         lat_src = None
     if method == 'conservative':
