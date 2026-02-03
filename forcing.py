@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import glob
 import os
+import shutil
 from .utils import distance_btw_points, closest_point, convert_to_teos10, fix_lon_range, dewpoint_to_specific_humidity
 from .grid import get_coast_mask, get_icefront_mask
 from .ics_obcs import fill_ocean
@@ -1179,6 +1180,57 @@ def ukesm_bias_corrections_test (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NEM
         out_file = out_dir+'/'+var_u+'_bias_correction.nc'
         print('Writing '+out_file)
         ds_correction.to_netcdf(out_file)
+
+
+# Apply the bias corrections calculated above to a short period of UM forcing, using monthly step changes (no time interpolation).
+def ukesm_apply_bias_corrections_test (forcing_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/nemo_forcing_files/cy691/', out_dir=None, bias_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/bias_corrections/test/', start_year=1978, end_year=1979):
+
+    var_names = ['tair', 'qair', 'precip', 'snow', 'swrad', 'lwrad']  # Only the ones to correct
+    file_tail = '_bias_correction.nc'
+    if out_dir is None:
+        out_dir = forcing_dir + '/bias_corrected/'
+
+    # Read bias corrections and merge into one dataset
+    ds_corr = None
+    for var in var_names:
+        ds = xr.open_dataset(bias_dir+'/'+var+file_tail)
+        if ds_corr is None:
+            ds_corr = ds
+        else:
+            ds_corr = ds_corr.merge(ds)
+
+    # Loop over files in the forcing directory
+    for f in os.listdir(forcing_dir):
+        # Skip anything that's not a NetCDF file; this includes directories
+        if not f.endswith('.nc'):
+            continue
+        # Extract year
+        i0 = f.index('_y')+2
+        year = int(f[i0:i0+4])
+        # Check if in date range
+        if year < start_year or year > end_year:            
+            continue
+        file_path_in = forcing_dir+'/'+f
+        file_path_out = out_dir+'/'+f
+        print('Processing '+file_path_in)
+        # Check if this variable needs correcting
+        if any([var in f for var in var_names]):
+            # Extract variable
+            var = f[:f.index('_y')]
+            # Extract month
+            month0 = int(f[i0+5:i0+7])
+            # Read the data
+            ds = xr.open_dataset(file_path_in)
+            # Apply bias correction
+            ds[var] = ds[var] + ds_corr[var].isel(month=month0-1)
+            if var != 'tair':
+                # Apply minimum of zero
+                ds[var] = np.maximum(ds[var], 0)
+            # Save file
+            ds.to_netcdf(file_path_out)
+        else:
+            # Variable doesn't need correcting; just copy
+            shutil.copyfile(file_path_in, file_path_out)
         
         
     
