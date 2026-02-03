@@ -1,7 +1,7 @@
 import xarray as xr
 import numpy as np
 import os
-from .utils import polar_stereo, fix_lon_range, extend_grid_edges, polar_stereo_inv
+from .utils import polar_stereo, fix_lon_range, extend_grid_edges, polar_stereo_inv, latlon_name
 
 # Interpolate the source dataset to the NEMO coordinates using a binning approach. This assumes the source dataset is much finer resolution, and will simply average over all source points in each NEMO grid cell.
 # Warning, this is VERY SLOW but hopefully it's a temporary measure while CF vectorises their weighting. It loops over every grid cell - this is necessary because the BedMachine source dataset is just too massive to vectorise without overflowing memory.
