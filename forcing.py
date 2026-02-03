@@ -1174,6 +1174,8 @@ def ukesm_bias_corrections_test (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NEM
         # Regrid ERA5 to UM grid
         ds_era5_interp = ds_era5.interp_like(ds_ukesm)
         ds_correction = ds_era5_interp - ds_ukesm
+        # Fill missing row at north with zeros
+        ds_correction = ds_correction.fillna(0)
         out_file = out_dir+'/'+var_u+'_bias_correction.nc'
         print('Writing '+out_file)
         ds_correction.to_netcdf(out_file)
