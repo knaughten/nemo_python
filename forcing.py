@@ -1156,3 +1156,25 @@ def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./', lat_max=-50, flood_f
                 if data.sizes['time'] != 30*hours_per_day/3:
                     raise Exception('Invalid length of time axis ('+str(data.sizes['time'])+' for file '+out_file)
                 data.to_netcdf(out_file, unlimited_dims='time')
+
+
+# Calculate time-mean (not monthly) bias correction files on the UM grid, for testing online bias correction code (6 thermodynamic variables only). Don't worry about flood filling or proper interpolation against periodic boundaries; this is just a test of online vs offline.
+def ukesm_bias_corrections_test (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ensemble_mean_climatology/', era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ERA5_hourly/climatology/', out_dir='./'):
+
+    ukesm_var_names = ['tair', 'qair', 'precip', 'snow', 'swrad', 'lwrad']
+    era5_var_names = ['t2m', 'sph2m', 'mtpr', 'msr', 'msdwswrf', 'msdwlwrf']
+    ukesm_tail = '_1979-2014_mean_monthly.nc'
+    era5_head = 'ERA5_'
+    era5_tail = '_3-hourly_1979-2014_mean_monthly.nc'
+
+    for var_u, var_e in zip(ukesm_var_names, era5_var_names):
+        ds_ukesm = xr.open_dataset(ukesm_dir+'/'+var_u+ukesm_tail).mean(dim='month')
+        # Regrid ERA5 to UM grid
+        ds_era5 = xr.open_dataset(era5_dir+'/'+era5_head+var_e+era5_tail).mean(dim='month').interp_like(ds_ukesm)
+        ds_correction = ds_era5 - ds_ukesm
+        out_file = out_dir+'/'+var_u+'_bias_correction.nc'
+        print('Writing '+out_file)
+        ds_correction.to_netcdf(out_file)
+        
+        
+    
