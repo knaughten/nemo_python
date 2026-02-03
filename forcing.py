@@ -1193,7 +1193,7 @@ def ukesm_apply_bias_corrections_test (forcing_dir='/gws/ssde/j25b/terrafirma/ka
     # Read bias corrections and merge into one dataset
     ds_corr = None
     for var in var_names:
-        ds = xr.open_dataset(bias_dir+'/'+var+file_tail)
+        ds = xr.open_dataset(bias_dir+'/'+var+file_tail).drop_vars({'height'})
         if ds_corr is None:
             ds_corr = ds
         else:
