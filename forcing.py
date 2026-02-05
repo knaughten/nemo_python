@@ -1159,7 +1159,7 @@ def ukesm_atm_forcing_3h (suite, in_dir=None, out_dir='./', lat_max=-50, flood_f
                 data.to_netcdf(out_file, unlimited_dims='time')
 
 
-# Calculate bias correction files on the UM grid, for testing online bias correction code (6 thermodynamic variables only). Don't worry about flood filling or proper interpolation against periodic boundaries; this is just a test of online vs offline.
+# Calculate bias correction files on the UM grid, for testing online bias correction code (6 thermodynamic variables only) with no time dependence (annual mean). Don't worry about flood filling or proper interpolation against periodic boundaries; this is just a test of online vs offline.
 def ukesm_bias_corrections_test (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ensemble_mean_climatology/', era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ERA5_hourly/climatology/', out_dir='./'):
 
     ukesm_var_names = ['tair', 'qair', 'precip', 'snow', 'swrad', 'lwrad']
@@ -1169,8 +1169,8 @@ def ukesm_bias_corrections_test (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NEM
     era5_tail = '_3-hourly_1979-2014_mean_monthly.nc'
 
     for var_u, var_e in zip(ukesm_var_names, era5_var_names):
-        ds_ukesm = xr.open_dataset(ukesm_dir+'/'+var_u+ukesm_tail)
-        ds_era5 = xr.open_dataset(era5_dir+'/'+era5_head+var_e+era5_tail).rename({var_e:var_u})
+        ds_ukesm = xr.open_dataset(ukesm_dir+'/'+var_u+ukesm_tail).mean(dim='month')
+        ds_era5 = xr.open_dataset(era5_dir+'/'+era5_head+var_e+era5_tail).rename({var_e:var_u}).mean(dim='month')
         ds_era5.coords['longitude'] = fix_lon_range(ds_era5.coords['longitude'], max_lon=180)
         # Regrid ERA5 to UM grid
         ds_era5_interp = ds_era5.interp_like(ds_ukesm)
@@ -1182,7 +1182,7 @@ def ukesm_bias_corrections_test (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NEM
         ds_correction.to_netcdf(out_file)
 
 
-# Apply the bias corrections calculated above to a short period of UM forcing, using monthly step changes (no time interpolation).
+# Apply the bias corrections calculated above to a short period of UM forcing, using annually averaged fields (no time dependence).
 def ukesm_apply_bias_corrections_test (forcing_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/nemo_forcing_files/cy691/', out_dir=None, bias_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/bias_corrections/test/', start_year=1978, end_year=1979):
 
     var_names = ['tair', 'qair', 'precip', 'snow', 'swrad', 'lwrad']  # Only the ones to correct
@@ -1217,12 +1217,10 @@ def ukesm_apply_bias_corrections_test (forcing_dir='/gws/ssde/j25b/terrafirma/ka
         if any([var in f for var in var_names]):
             # Extract variable
             var = f[:f.index('_y')]
-            # Extract month
-            month0 = int(f[i0+5:i0+7])
             # Read the data
             ds = xr.open_dataset(file_path_in)
             # Apply bias correction
-            ds[var] = ds[var] + ds_corr[var].isel(month=month0-1)
+            ds[var] = ds[var] + ds_corr[var]
             if var != 'tair':
                 # Apply minimum of zero
                 ds[var] = np.maximum(ds[var], 0)
