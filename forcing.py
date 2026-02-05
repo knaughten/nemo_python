@@ -1219,11 +1219,8 @@ def ukesm_apply_bias_corrections_test (forcing_dir='/gws/ssde/j25b/terrafirma/ka
             var = f[:f.index('_y')]
             # Read the data
             ds = xr.open_dataset(file_path_in)
-            # Apply bias correction
+            # Apply bias correction; minimum of 0 will happen within NEMO code per timestep
             ds[var] = ds[var] + ds_corr[var]
-            if var != 'tair':
-                # Apply minimum of zero
-                ds[var] = np.maximum(ds[var], 0)
             # Save file
             ds.to_netcdf(file_path_out)
         else:
