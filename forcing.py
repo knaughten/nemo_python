@@ -1226,6 +1226,46 @@ def ukesm_apply_bias_corrections_test (forcing_dir='/gws/ssde/j25b/terrafirma/ka
         else:
             # Variable doesn't need correcting; just copy
             shutil.copyfile(file_path_in, file_path_out)
+
+
+# Make proper bias correction files: monthly, on the ERA5 grid, flood filled, proper interpolation with cf. These will be used to correct biases online.
+def ukesm_bias_corrections (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ensemble_mean_climatology/', era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ERA5_hourly/climatology/', out_dir='./', era5_mask_file='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/ERA5-forcing/climatology/land_sea_mask.nc'):
+
+    ukesm_var_names = ['tair', 'qair', 'precip', 'snow', 'swrad', 'lwrad']
+    era5_var_names = ['t2m', 'sph2m', 'mtpr', 'msr', 'msdwswrf', 'msdwlwrf']
+    ukesm_tail = '_1979-2014_mean_monthly.nc'
+    era5_head = 'ERA5_'
+    era5_tail = '_3-hourly_1979-2014_mean_monthly.nc'
+    missing_val = -9999
+
+    mask_era5 = xr.open_dataset(era5_mask_file)['lsm']  # Open ocean is zero
+
+    for var_u, var_e in zip(ukesm_var_names, era5_var_names):
+        # Read UKESM climatology; land already flood filled by ukesm_atm_forcing_3h
+        ds_ukesm = xr.open_dataset(ukesm_dir+'/'+var_u+ukesm_tail)
+        # Read ERA5 and add mask to dataset
+        ds_era5 = xr.open_dataset(era5_dir+'/'+era5_head+var_e+era5_tail).rename({var_e:var_u}).assign({'mask':mask_era5})
+        # Reorder longitude from -180 to 180
+        ds_era5.coords['longitude'] = fix_lon_range(ds_era5.coords['longitude'], max_lon=180)
+        ds_era5 = ds_era5.sortby('longitude')
+        # Regrid UM to the ERA5 grid
+        ds_ukesm_interp = interp_latlon_cf(ds_ukesm, ds_era5, source_type='other', target_type='other', pster_src=False, pster_target=False, periodic_src=True, periodic_target=True, method='linear', time_dim='month')
+        # Calculate bias correction
+        ds_correction = ds_era5.isel(month=t) - ds_ukesm_interp
+        # Flood fill ERA5 land
+        data = xr.where(ds_era5['mask']==0, ds_correction[var_u], missing_val)
+        data_filled = np.empty(data.shape)
+        for t in range(data.sizes['month']):
+            data_filled[t,:] = extend_into_mask(data.isel(month=t).data, missing_val=missing_val, use_2d=True, num_iters=data.sizes['latitude'])
+        data.data = data_filled
+        ds_correction[var_u] = data
+        out_file = out_dir+'/'+var_u+'_bias_correction.nc'
+        print('Writing '+out_file)
+        ds_correction.to_netcdf(out_file)
+        
+    
+        # Plot one and make sure agrees with longitude ordering of ERA5 files used previously with weights file
+        
         
         
     

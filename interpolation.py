@@ -348,138 +348,134 @@ def regrid_array_cf(source, regrid_operator, key_3d=True, method='linear', src_c
     
     return regridded_array
 
-# Interpolate the source dataset to the NEMO coordinates using CF. This is good for smaller interpolation jobs (i.e. not BedMachine3) and hopefully will be good for big interpolation jobs once CF is next updated.
+
+# Interpolate one dataset to different lat-lon coordinates using CF. 
 # Inputs:
-# source: xarray Dataset containing the coordinates 'x' and 'y' (if polar stereographic) or anything from the function latlon_name (utils.py), and any data variables you want
-# nemo: xarray Dataset containing the NEMO grid: must contain at least (option 1:) glamt, gphit, glamf, gphif, and dimensions x and y; (option 2): nav_lon_grid_T, nav_lat_grid_T, bounds_nav_lon_grid_T, bounds_nav_lat_grid_T, and dimensions x_grid_T and y_grid_T; (option 3): nav_lon, nav_lat, bounds_lon, bounds_lat, and dimensions x and y.
-# pster_src: whether the source dataset is polar stereographic
-# periodic_src: whether the source dataset is periodic in the x dimension
-# periodic_nemo: whether the NEMO grid is periodic in longitude
+# source, target: xarray Datasets containing coordinates:
+#    if not NEMO:
+#      1. 'x' and 'y' if polar stereographic
+#      2. anything from the function latlon_name (utils.py)
+#    if NEMO:
+#      1. glamt, gphit, glamf, gphif, and dimensions x and y
+#      2. nav_lon_grid_T, nav_lat_grid_T, bounds_nav_lon_grid_T, bounds_nav_lat_grid_T, and dimension x_grid_T and y_grid_T
+#      3. nav_lon, nav_lat, bounds_lon, bounds_lat, and dimensions x and y
+#    plus any data variables you want (only used for source)
+# source_type, target_type: 'nemo' or 'other' (as above)
+# pster_src, pster_target: whether polar stereographic
+# periodic_src, periodic_target: whether periodic in the x dimension
+# periodic_nemo: alternate name for periodic_target; used for backwards compatibility
 # method: CF interpolation method (bilinear or conservative both tested)
+# time_dim: if source is time-dependent, the name of the time dimension to iterate over (interpolate one at a time re-using weights)
 # Returns:
-# interp: xarray Dataset containing all data variables from source on the nemo grid
-def interp_latlon_cf (source, nemo, pster_src=False, periodic_src=False, periodic_nemo=True, method='conservative'):
+# interp: xarray Dataset containing all data variables from source on the target
+def interp_latlon_cf (source, target, source_type='other', target_type='nemo', pster_src=False, pster_target=False, periodic_src=False, periodic_target=False, periodic_nemo=None, method='conservative', time_dim=None):
 
     source.load()
-    nemo.load()
+    target.load()
 
-    # Helper function to get an xarray DataArray of edges (size N+1, or N+1 by M+1) into a Numpy array of bounds for CF (size N x 2, or N x M x 4)
-    def edges_to_bounds (edges):
-        if len(edges.shape)==1:
-            # 1D variable
-            bounds = np.empty([edges.shape[0]-1, 2])
-            bounds[...,0] = edges.values[:-1]
-            bounds[...,1] = edges.values[1:]
-        elif len(edges.shape)==2:
-            # 2D variable
-            bounds = np.empty([edges.shape[0]-1, edges.shape[1]-1, 4])
-            bounds[...,0] = edges.values[:-1,:-1]  # SW corner
-            bounds[...,1] = edges.values[:-1,1:] # SE
-            bounds[...,2] = edges.values[1:,1:] # NE
-            bounds[...,3] = edges.values[1:,:-1] # NW
-        return bounds
+    if periodic_nemo is not None:
+        periodic_target = periodic_nemo 
+
+    # Inner function to return coordinates for construct_cf
+    def get_coordinates (ds, ds_type, pster, periodic):
+        if ds_type == 'other':
+            if pster:
+                x_name = 'x'
+                y_name = 'y'
+                x = ds[x_name]
+                y = ds[y_name]
+                lon, lat = polar_stereo_inv(ds[x_name], ds[y_name])
+            else:
+                x_name, y_name = latlon_name(ds)
+                lon = None
+                lat = None
+            x = ds[x_name]
+            y = ds[y_name]
+            lon_bounds, lat_bounds = lonlat_bounds_cf(ds, ds_type='src', method=method, periodic_src=periodic, pster_src=pster)
+        elif ds_type == 'nemo':
+            if pster:
+                raise Exception('Cannot handle polar stereographic NEMO grid. Are you sure?')
+            if 'glamt' in nemo:
+                # domain_cfg type
+                x_name = 'x'
+                y_name = 'y'
+                lon_name = 'glamt'
+                lat_name = 'gphit'
+            elif 'nav_lon_grid_T' in nemo:
+                # model output type NEMO 4.2 t-grid
+                x_name = 'x_grid_T'
+                y_name = 'y_grid_T'
+                lon_name = 'nav_lon_grid_T'
+                lat_name = 'nav_lat_grid_T'
+            elif 'nav_lon' in nemo:
+                # model output type NEMO 3.6
+                x_name = 'x'
+                y_name = 'y'
+                lon_name = 'nav_lon'
+                lat_name = 'nav_lat'
+            else:
+                raise Exception('Unknown type of NEMO dataset.')
+            lon = ds[lon_name]
+            lat = ds[lat_name]
+            lon_bounds, lat_bounds = lonlat_bounds_cf(ds, ds_type='nemo', method=method, periodic_nemo=periodic)
+        x = ds[x_name]
+        y = ds[y_name]            
+        return x, y, lon, lat, lon_bounds, lat_bounds, 
 
     # Get source grid and data in CF format
-    if pster_src:
-        x_name = 'x'
-        y_name = 'y'
-        x_src = source['x']
-        y_src = source['y']
-        lon_src, lat_src = polar_stereo_inv(source['x'], source['y'])
-    else:
-        x_name, y_name = latlon_name(source)
-        x_src = source[x_name]
-        y_src = source[y_name]
-        lon_src = None
-        lat_src = None
-    if method == 'conservative':
-        if len(source[x_name].shape) != 1:
-            raise Exception('Cannot find bounds if source dataset not a regular grid')
-        # Get grid cell edges for x and y
-        def construct_edges (array, dim):
-            centres = 0.5*(array[:-1] + array[1:])
-            if periodic_src and dim=='lon':
-                first_edge = 0.5*(array[0] + array[-1] - 360)
-                last_edge = 0.5*(array[0] + 360 + array[-1])
-            else:
-                first_edge = 2*array[0] - array[1]
-                last_edge = 2*array[-1] - array[-2]
-            edges = np.concatenate(([first_edge], centres, [last_edge]))
-            return xr.DataArray(edges, coords={dim:edges})
-        x_edges = construct_edges(source[x_name].values, x_name)
-        y_edges = construct_edges(source[y_name].values, y_name)
-        if pster_src:
-            # Now convert to lat-lon
-            lon_edges, lat_edges = polar_stereo_inv(x_edges, y_edges)
-        else:
-            lon_edges = x_edges
-            lat_edges = y_edges
-        lon_bounds_src = edges_to_bounds(lon_edges)
-        lat_bounds_src = edges_to_bounds(lat_edges)
-    else:
-        lon_bounds_src = None
-        lat_bounds_src = None
+    x_src, y_src, lon_src, lat_src, lon_bounds_src, lat_bounds_src = get_coordinates(source, source_type, pster_src, periodic_src)
     # Loop over data fields and convert each to CF
     data_cf = []
     for var in source:
-        data_cf.append(construct_cf(source[var], x_src, y_src, lon=lon_src, lat=lat_src, lon_bounds=lon_bounds_src, lat_bounds=lat_bounds_src))
+        if time_dim is None:
+            # Time-independent
+            data_cf.append(construct_cf(source[var], x_src, y_src, lon=lon_src, lat=lat_src, lon_bounds=lon_bounds_src, lat_bounds=lat_bounds_src))
+        else:
+            # Time-dependent
+            for t in range(source.sizes[time_dim]):
+                data_cf.append(construct_cf(source[var].isel({time_dim:t}), x_src, y_src, lon=lon_src, lat=lat_src, lon_bounds=lon_bounds_src, lat_bounds=lat_bounds_src))
 
-    # Get NEMO grid in CF format
-    # Figure out some dimension and coordinate names
-    if 'glamt' in nemo:
-        # domain_cfg type
-        x_name = 'x'
-        y_name = 'y'
-        lon_name = 'glamt'
-        lat_name = 'gphit'
-    elif 'nav_lon_grid_T' in nemo:
-        # model output type
-        x_name = 'x_grid_T'
-        y_name = 'y_grid_T'
-        lon_name = 'nav_lon_grid_T'
-        lat_name = 'nav_lat_grid_T'
-    elif 'nav_lon' in nemo:
-        # model output type NEMO 3.6
-        x_name = 'x'
-        y_name = 'y'
-        lon_name = 'nav_lon'
-        lat_name = 'nav_lat'
-    else:
-        raise Exception('Unknown type of NEMO dataset.')
-        
-    dummy_data = np.zeros([nemo.sizes[y_name], nemo.sizes[x_name]])
-    if method == 'conservative':
-        def construct_nemo_bounds (array):
-            edges = extend_grid_edges(array, 'f', periodic=periodic_nemo)
-            return edges_to_bounds(edges)
-        if lon_name == 'glamt':
-            lon_bounds_nemo = construct_nemo_bounds(nemo['glamf'])
-            lat_bounds_nemo = construct_nemo_bounds(nemo['gphif'])
-        elif lon_name == 'nav_lon_grid_T':
-            lon_bounds_nemo = nemo['bounds_nav_lon_grid_T']
-            lat_bounds_nemo = nemo['bounds_nav_lat_grid_T']
-        elif lon_name == 'nav_lon':
-            lon_bounds_nemo = nemo['bounds_lon']
-            lat_bounds_nemo = nemo['bounds_lat']
-    else:
-        lon_bounds_nemo = None
-        lat_bounds_nemo = None
-    target_cf = construct_cf(dummy_data, nemo[x_name], nemo[y_name], lon=nemo[lon_name], lat=nemo[lat_name], lon_bounds=lon_bounds_nemo, lat_bounds=lat_bounds_nemo)
+    # Get target grid in CF format
+    x_target, y_target, lon_target, lat_target, lon_bounds_target, lat_bounds_target = get_coordinates(target, target_type, pster_target, periodic_target)
+    # Make a dummy data array of all zeros of the right shape
+    if len(x_target.sizes) == 1:
+        # 1D arrays for x and y
+        dummy_data = np.zeros([np.size(y_target), np.size(x_target)])
+    elif len(x_target.sizes) == 2:
+        # 2D arrays
+        dummy_data = np.zeros(np.shape(x_target))
+    target_cf = construct_cf(dummy_data, x_target, y_target, lon=lon_target, lat=lat_target, lon_bounds=lon_bounds_target, lat_bounds=lat_bounds_target)
     
     # Get weights with CF, using the first data field
     if pster_src:
         src_axes = {'X':'X', 'Y':'Y'}
     else:
         src_axes = None
-    regrid_operator = data_cf[0].regrids(target_cf, src_cyclic=periodic_src, dst_cyclic=periodic_nemo, src_axes=src_axes, dst_axes={'X':'X', 'Y':'Y'}, method=method, return_operator=True)
+    regrid_operator = data_cf[0].regrids(target_cf, src_cyclic=periodic_src, dst_cyclic=periodic_target, src_axes=src_axes, dst_axes={'X':'X', 'Y':'Y'}, method=method, return_operator=True)
 
     # Now interpolate each field, re-using the weights each time, and add it to a new Dataset
+    # Inner function to interpolate one field and turn it back into a DataArray
+    def interp_field (index):
+        data_interp = data_cf[index].regrids(regrid_operator, src_cyclic=periodic_src, dst_cyclic=periodic_target, src_axes=src_axes).array
+        return xr.DataArray(data_interp, dims=['y', 'x'])
     interp = xr.Dataset()
-    for var, data_cf0 in zip(source, data_cf):
-        data_interp = data_cf0.regrids(regrid_operator, src_cyclic=periodic_src, dst_cyclic=periodic_nemo, src_axes=src_axes).array
-        data_interp = xr.DataArray(data_interp, dims=['y', 'x'])
-        interp = interp.assign({var:data_interp})     
-
+    index = 0
+    for var in data_cf:
+        if time_dim is None:
+            # Time-independent
+            data_interp = interp_field(index)
+            index += 1
+        else:
+            # Time-dependent; put back together
+            data_interp = None
+            for t in range(source.sizes[time_dim]):
+                data_tmp = interp_field(index).expand_dims(dim={time_dim:source.time_dim[t]})
+                if data_interp is None:
+                    data_interp = data_tmp
+                else:
+                    data_interp = xr.concat([data_interp, data_tmp], dim=time_dim)
+                index += 1
+        interp = interp.assign({var:data_interp})
     return interp
 
 
