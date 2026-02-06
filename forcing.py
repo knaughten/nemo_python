@@ -1246,11 +1246,11 @@ def ukesm_bias_corrections (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS
         # Read UKESM climatology; land already flood filled by ukesm_atm_forcing_3h
         ds_ukesm = xr.open_dataset(ukesm_dir+'/'+var_u+ukesm_tail)
         # Read ERA5
-        ds_era5 = xr.open_dataset(era5_dir+'/'+era5_head+var_e+era5_tail)
+        ds_era5 = xr.open_dataset(era5_dir+'/'+era5_head+var_e+era5_tail).rename({var_e:var_u})
         # Regrid UM to the ERA5 grid
         ds_ukesm_interp = interp_latlon_cf(ds_ukesm, ds_era5, source_type='other', target_type='other', pster_src=False, pster_target=False, periodic_src=True, periodic_target=True, method='linear', time_dim='month')
         # Calculate bias correction
-        data_correction = ds_era5[var_e] - ds_ukesm_interp[var_u]
+        data_correction = ds_era5[var_u] - ds_ukesm_interp[var_u]
         # Flood fill ERA5 land
         # First trim mask if needed on first variable
         if mask_era5.sizes['latitude'] > ds_era5.sizes['latitude']:

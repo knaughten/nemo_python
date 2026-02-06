@@ -420,10 +420,10 @@ def interp_latlon_cf (source, target, source_type='other', target_type='nemo', p
             lon_bounds, lat_bounds = lonlat_bounds_cf(ds, ds_type='nemo', method=method, periodic_nemo=periodic)
         x = ds[x_name]
         y = ds[y_name]            
-        return x, y, lon, lat, lon_bounds, lat_bounds, 
+        return x, y, lon, lat, lon_bounds, lat_bounds, x_name, y_name
 
     # Get source grid and data in CF format
-    x_src, y_src, lon_src, lat_src, lon_bounds_src, lat_bounds_src = get_coordinates(source, source_type, pster_src, periodic_src)
+    x_src, y_src, lon_src, lat_src, lon_bounds_src, lat_bounds_src, x_name_src, y_name_src = get_coordinates(source, source_type, pster_src, periodic_src)
     # Loop over data fields and convert each to CF
     data_cf = []
     for var in source:
@@ -436,7 +436,7 @@ def interp_latlon_cf (source, target, source_type='other', target_type='nemo', p
                 data_cf.append(construct_cf(source[var].isel({time_dim:t}), x_src, y_src, lon=lon_src, lat=lat_src, lon_bounds=lon_bounds_src, lat_bounds=lat_bounds_src))
 
     # Get target grid in CF format
-    x_target, y_target, lon_target, lat_target, lon_bounds_target, lat_bounds_target = get_coordinates(target, target_type, pster_target, periodic_target)
+    x_target, y_target, lon_target, lat_target, lon_bounds_target, lat_bounds_target, x_name_target, y_name_target = get_coordinates(target, target_type, pster_target, periodic_target)
     # Make a dummy data array of all zeros of the right shape
     if len(x_target.sizes) == 1:
         # 1D arrays for x and y
@@ -457,7 +457,7 @@ def interp_latlon_cf (source, target, source_type='other', target_type='nemo', p
     # Inner function to interpolate one field and turn it back into a DataArray
     def interp_field (index):
         data_interp = data_cf[index].regrids(regrid_operator, src_cyclic=periodic_src, dst_cyclic=periodic_target, src_axes=src_axes).array
-        return xr.DataArray(data_interp, dims=['y', 'x'])
+        return xr.DataArray(data_interp, dims=[y_name_target, x_name_target])
     interp = xr.Dataset()
     index = 0
     for var in source:
