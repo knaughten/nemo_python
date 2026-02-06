@@ -460,7 +460,7 @@ def interp_latlon_cf (source, target, source_type='other', target_type='nemo', p
         return xr.DataArray(data_interp, dims=['y', 'x'])
     interp = xr.Dataset()
     index = 0
-    for var in data_cf:
+    for var in source:
         if time_dim is None:
             # Time-independent
             data_interp = interp_field(index)
