@@ -10,7 +10,7 @@ import shutil
 from .utils import distance_btw_points, closest_point, convert_to_teos10, fix_lon_range, dewpoint_to_specific_humidity
 from .grid import get_coast_mask, get_icefront_mask
 from .ics_obcs import fill_ocean
-from .interpolation import regrid_era5_to_cesm2, extend_into_mask, regrid_to_NEMO, neighbours, construct_cf
+from .interpolation import regrid_era5_to_cesm2, extend_into_mask, regrid_to_NEMO, neighbours, interp_latlon_cf
 from .file_io import find_cesm2_file, find_processed_cesm2_file
 from .constants import temp_C2K, rho_fw, cesm2_ensemble_members, sec_per_day, sec_per_hour, months_per_year, hours_per_day
 
@@ -1243,17 +1243,14 @@ def ukesm_bias_corrections (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS
     for var_u, var_e in zip(ukesm_var_names, era5_var_names):
         # Read UKESM climatology; land already flood filled by ukesm_atm_forcing_3h
         ds_ukesm = xr.open_dataset(ukesm_dir+'/'+var_u+ukesm_tail)
-        # Read ERA5 and add mask to dataset
-        ds_era5 = xr.open_dataset(era5_dir+'/'+era5_head+var_e+era5_tail).rename({var_e:var_u}).assign({'mask':mask_era5})
-        # Reorder longitude from -180 to 180
-        ds_era5.coords['longitude'] = fix_lon_range(ds_era5.coords['longitude'], max_lon=180)
-        ds_era5 = ds_era5.sortby('longitude')
+        # Read ERA5
+        ds_era5 = xr.open_dataset(era5_dir+'/'+era5_head+var_e+era5_tail).rename({var_e:var_u})
         # Regrid UM to the ERA5 grid
         ds_ukesm_interp = interp_latlon_cf(ds_ukesm, ds_era5, source_type='other', target_type='other', pster_src=False, pster_target=False, periodic_src=True, periodic_target=True, method='linear', time_dim='month')
         # Calculate bias correction
         ds_correction = ds_era5.isel(month=t) - ds_ukesm_interp
         # Flood fill ERA5 land
-        data = xr.where(ds_era5['mask']==0, ds_correction[var_u], missing_val)
+        data = xr.where(mask_era5==0, ds_correction[var_u], missing_val)
         data_filled = np.empty(data.shape)
         for t in range(data.sizes['month']):
             data_filled[t,:] = extend_into_mask(data.isel(month=t).data, missing_val=missing_val, use_2d=True, num_iters=data.sizes['latitude'])

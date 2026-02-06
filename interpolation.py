@@ -469,7 +469,7 @@ def interp_latlon_cf (source, target, source_type='other', target_type='nemo', p
             # Time-dependent; put back together
             data_interp = None
             for t in range(source.sizes[time_dim]):
-                data_tmp = interp_field(index).expand_dims(dim={time_dim:source.time_dim[t]})
+                data_tmp = interp_field(index).expand_dims(dim={time_dim:source[time_dim][t]})
                 if data_interp is None:
                     data_interp = data_tmp
                 else:
