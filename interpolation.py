@@ -395,19 +395,19 @@ def interp_latlon_cf (source, target, source_type='other', target_type='nemo', p
         elif ds_type == 'nemo':
             if pster:
                 raise Exception('Cannot handle polar stereographic NEMO grid. Are you sure?')
-            if 'glamt' in nemo:
+            if 'glamt' in ds:
                 # domain_cfg type
                 x_name = 'x'
                 y_name = 'y'
                 lon_name = 'glamt'
                 lat_name = 'gphit'
-            elif 'nav_lon_grid_T' in nemo:
+            elif 'nav_lon_grid_T' in ds:
                 # model output type NEMO 4.2 t-grid
                 x_name = 'x_grid_T'
                 y_name = 'y_grid_T'
                 lon_name = 'nav_lon_grid_T'
                 lat_name = 'nav_lat_grid_T'
-            elif 'nav_lon' in nemo:
+            elif 'nav_lon' in ds:
                 # model output type NEMO 3.6
                 x_name = 'x'
                 y_name = 'y'
