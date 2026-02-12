@@ -11,6 +11,8 @@ sec_per_hour = 60*60.
 hours_per_day = 24
 sec_per_day = hours_per_day*sec_per_hour
 sec_per_year = 365.25*sec_per_day
+nsec_per_sec = 1e9
+nsec_per_century = 100*sec_per_year*nsec_per_sec
 months_per_year = 12
 # Celsius to Kelvins intercept
 temp_C2K = 273.15
