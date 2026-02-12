@@ -1266,12 +1266,8 @@ def ukesm_bias_corrections (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS
         if ds_mask.sizes['latitude'] > ds_era5.sizes['latitude']:
             data_buffer = 0*ds_mask['lsm'].isel(latitude=slice(ds_era5.sizes['latitude'],None))
             data_correction = xr.concat([data_correction, data_buffer], dim='latitude')
-        # Set up coordinates to agree with ERA5 forcing files
-        # Swap order of latitude
+        # Swap order of latitude to agree with ERA5 forcing files
         data_correction = data_correction.reindex(latitude=data_correction['latitude'][::-1])
-        # Longitude from -180 to 180
-        data_correction['longitude'] = fix_lon_range(data_correction['longitude'])
-        data_correction = data_correction.sortby('longitude').rename({'longitude':'lon', 'latitude':'lat'})
         out_file = out_dir+'/'+var_u+'_bias_correction.nc'
         print('Writing '+out_file)
         data_correction.to_netcdf(out_file)
