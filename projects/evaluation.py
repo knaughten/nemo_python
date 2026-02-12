@@ -1461,7 +1461,7 @@ def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeserie
 
     if labels is None:
         # Set default labels: extract base directory for each
-        labels = [in_dir.split('/')[-1] for in_dir in in_dirs]
+        labels = [in_dir.split('/')[-2] for in_dir in in_dirs]
     if colours is None:
         # Set default colours
         colours = default_colours(num_sim)
@@ -1472,10 +1472,11 @@ def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeserie
     for in_dir in in_dirs:
         ds.append(xr.open_dataset(in_dir+timeseries_file, decode_times=time_coder))
         ds_hov.append(xr.open_dataset(in_dir+hovmoller_file, decode_times=time_coder).mean('time_centered'))
+    ds_obs = xr.open_dataset(obs_file_casts, decode_times=time_coder)
 
     # Find time bounds
-    time_start = np.amin([ds_tmp['time'][0] for ds_tmp in ds])
-    time_end = np.amax([ds_tmp['time'][-1] for ds_tmp in ds])
+    time_start = np.amin([ds_tmp['time_centered'][0] for ds_tmp in ds])
+    time_end = np.amax([ds_tmp['time_centered'][-1] for ds_tmp in ds])
 
     # Make plot
     fig = plt.figure(figsize=(14,7.5))
@@ -1483,12 +1484,12 @@ def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeserie
     columns = num_var*4*2 + 2
     gs = plt.GridSpec(rows, columns)
     gs.update(left=0.01, right=0.99, bottom=0.12, top=0.92, hspace=0.18, wspace=3)
-    for n in range(num_regions):
+    for r in range(num_regions):
         for v in range(num_var):
-            y0 = 1 + (4*num_var+1)*(n//rows) + v*4
-            ax = plt.subplot(gs[n%rows, y0:y0+4])
-            var = regions[n]+'_'
-            if regions[n] == 'dotson_cosgrove':
+            y0 = 1 + (4*num_var+1)*(r//rows) + v*4
+            ax = plt.subplot(gs[r%rows, y0:y0+4])
+            var = regions[r]+'_'
+            if regions[r] == 'dotson_cosgrove':
                 var += var_names_ASE[v]
                 hovmoller = v > 0
             else:
@@ -1500,24 +1501,24 @@ def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeserie
                     # Plot 2-year running mean
                     data_smoothed = moving_average(ds[n][var], smooth)
                     try:
-                        ax.plot(data_smoothed.time_centered, data_smoothed, color=colours[n], linewidth=1.5)
+                        ax.plot(data_smoothed.time_centered, data_smoothed, color=colours[n], linewidth=1.5, label=labels[n])
                     except(TypeError):
-                        ax.plot_date(data_smoothed.time_centered, data_smoothed, '-', color=colours[n], linewidth=1.5)
+                        ax.plot_date(data_smoothed.time_centered, data_smoothed, '-', color=colours[n], linewidth=1.5, label=labels[n])
                 # Plot obs
                 if 'massloss' in var:
-                    obs_mean = adusumilli_melt[regions[n]]
-                    obs_std = adusumilli_std[regions[n]]                
+                    obs_mean = adusumilli_melt[regions[r]]
+                    obs_std = adusumilli_std[regions[r]]                
                 else:
                     if 'temp' in var:
                         m = 0
                     elif 'salt' in var:
                         m = 1
-                    obs_mean = zhou_TS[regions[n]][m]
-                    obs_std = zhou_TS_std[regions[n]][m]
+                    obs_mean = zhou_TS[regions[r]][m]
+                    obs_std = zhou_TS_std[regions[r]][m]
                 ax.axhline(obs_mean, color='blue', linestyle='dashed', linewidth=1)
                 ax.axhspan(obs_mean-obs_std, obs_mean+obs_std, color='DodgerBlue', alpha=0.1)
                 ax.set_xlim([time_start, time_end])
-                if n%rows == rows-1:
+                if r%rows == rows-1:
                     ax.tick_params(axis='x', labelrotation=90)
                 else:
                     ax.set_xticklabels([])
@@ -1527,8 +1528,8 @@ def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeserie
                     depth_masked = depth.where(ds_hov[n][var].notnull())
                     ax.plot(ds_hov[n][var], depth, color=colours[n], label=labels[n], linewidth=1.5)
                 # Plot obs
-                obs_mean = ds_obs[var_names_obs[v]+'_cast_'+regions[n]]
-                obs_err = ds_obs[var_names_obs[v]+'_mse_cast_'+regions[n]]
+                obs_mean = ds_obs[var_names_obs[v]+'_cast_'+regions[r]]
+                obs_err = ds_obs[var_names_obs[v]+'_mse_cast_'+regions[r]]
                 obs_min = obs_mean-obs_err
                 obs_max = obs_mean+obs_err
                 obs_depth = ds_obs['pressure']
@@ -1541,15 +1542,15 @@ def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeserie
                 ax.set_xlabel(units[v])
             ax.grid(linestyle='dotted')
             ax.tick_params(axis='both', labelsize=7)
-            if n%(rows) == 0:
+            if r%(rows) == 0:
                 # Variable title and units on top
                 ax.set_title(var_titles[v], fontsize=11)
             if v == 0:
                 # Label region on the left
-                plt.text(-0.3, 0.5, region_names[regions[n]], fontsize=10, ha='center', va='center', transform=ax.transAxes, rotation=90)
+                plt.text(-0.3, 0.5, region_names[regions[r]], fontsize=10, ha='center', va='center', transform=ax.transAxes, rotation=90)
             else:
                 # Label depth
-                if n == 0:
+                if r == 0:
                     depth_label = '(bottom)'
                     xpos = 0.05
                 elif hovmoller:
@@ -1559,9 +1560,9 @@ def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeserie
                     depth_label = ''
                     xpos = 0
                 plt.text(xpos, 0.95, depth_label, fontsize=8, ha='left', va='top', transform=ax.transAxes)
-            if n == rows-1 and v == columns-1:
+            if r == num_regions-1 and v == num_var-1:
                 # Legend at bottom
-                ax.legend(loc='lower left', bbox_to_anchor=(-2.5, -0.5), ncol=num_sim, fontsize=11)
+                ax.legend(loc='lower center', bbox_to_anchor=(-2.75, -0.7), ncol=num_sim, fontsize=11)
     finished_plot(fig, fig_name=fig_name, dpi=300)
 
                 
