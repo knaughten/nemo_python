@@ -1239,14 +1239,17 @@ def ukesm_bias_corrections (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS
     missing_val = -9999
 
     # Read ERA5 mask and trim to existing climatology file
-    ds_mask = xr.open_dataset(era5_mask_file)
-    mask_era5 = ds_mask['lsm']  # Open ocean is zero
+    # To do: this is the wrong size in latitude? extra time dimension? Look into it.
+    ds_mask = xr.open_dataset(era5_mask_file).isel(time=0).drop_vars({'time'})
+    # Flip order of latitude to agree with ERA5 climatology files
+    ds_mask = ds_mask.reindex(latitude=ds_mask['latitude'][::-1])
+    mask_era5 = ds_mask['lsm']  # Open ocean is zero   
 
     for var_u, var_e in zip(ukesm_var_names, era5_var_names):
         # Read UKESM climatology; land already flood filled by ukesm_atm_forcing_3h
-        ds_ukesm = xr.open_dataset(ukesm_dir+'/'+var_u+ukesm_tail)
+        ds_ukesm = xr.open_dataset(ukesm_dir+'/'+var_u+ukesm_tail).transpose('month', 'latitude', 'longitude')
         # Read ERA5
-        ds_era5 = xr.open_dataset(era5_dir+'/'+era5_head+var_e+era5_tail).rename({var_e:var_u})
+        ds_era5 = xr.open_dataset(era5_dir+'/'+era5_head+var_e+era5_tail).rename({var_e:var_u}).transpose('month', 'latitude', 'longitude')
         # Regrid UM to the ERA5 grid
         ds_ukesm_interp = interp_latlon_cf(ds_ukesm, ds_era5, source_type='other', target_type='other', pster_src=False, pster_target=False, periodic_src=True, periodic_target=True, method='linear', time_dim='month')
         # Calculate bias correction
@@ -1255,15 +1258,21 @@ def ukesm_bias_corrections (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS
         # First trim mask if needed on first variable
         if mask_era5.sizes['latitude'] > ds_era5.sizes['latitude']:
             mask_era5 = mask_era5.isel(latitude=slice(0,ds_era5.sizes['latitude']))
-        data_tmp = xr.where(mask_era5==0, data_correction, missing_val)
+        data_tmp = xr.where(mask_era5==0, data_correction, missing_val).transpose('month', 'latitude', 'longitude')
         data_filled = np.empty(data_tmp.shape)
-        for t in range(data.sizes['month']):
-            data_filled[t,:] = extend_into_mask(data_tmp.isel(month=t).data, missing_val=missing_val, use_2d=True, num_iters=data.sizes['latitude'])
+        for t in range(data_tmp.sizes['month']):
+            data_filled[t,:] = extend_into_mask(data_tmp.isel(month=t).data, missing_val=missing_val, use_2d=True, num_iters=data_tmp.sizes['latitude'])
         data_correction.data = data_filled
         # Fill northern part with zeros (outside of domain)
         if ds_mask.sizes['latitude'] > ds_era5.sizes['latitude']:
             data_buffer = 0*ds_mask['lsm'].isel(latitude=slice(ds_era5.sizes['latitude'],None))
-            data_correction = xr.concatenate([data_correction, data_buffer], dim='latitude')
+            data_correction = xr.concat([data_correction, data_buffer], dim='latitude')
+        # Set up coordinates to agree with ERA5 forcing files
+        # Swap order of latitude
+        data_correction = data_correction.reindex(latitude=data_correction['latitude'][::-1])
+        # Longitude from -180 to 180
+        data_correction['longitude'] = fix_lon_range(data_correction['longitude'])
+        data_correction = data_correction.sortby('longitude').rename({'longitude':'lon', 'latitude':'lat'})
         out_file = out_dir+'/'+var_u+'_bias_correction.nc'
         print('Writing '+out_file)
         ds_correction.to_netcdf(out_file)
