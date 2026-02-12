@@ -9,7 +9,7 @@ import calendar
 from ..utils import select_bottom, distance_along_transect, moving_average, polar_stereo, latlon_name, xy_name
 from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli_melt, adusumilli_std, transport_obs, transport_std, region_edges, rEarth, deg2rad, zhou_TS, zhou_TS_std
 from ..plots import circumpolar_plot, finished_plot, plot_ts_distribution, plot_transect
-from ..plot_utils import set_colours, latlon_axis, get_extend, round_to_decimals
+from ..plot_utils import set_colours, latlon_axis, get_extend, round_to_decimals, default_colours
 from ..interpolation import interp_latlon_cf, interp_latlon_cf_blocks
 from ..file_io import read_schmidtko, read_woa, read_dutrieux, read_zhou
 from ..grid import extract_var_region, transect_coords_from_latlon_waypoints, region_mask, build_shelf_mask
@@ -1441,8 +1441,132 @@ def plot_evaluation_seaice (config='NEMO_AIS', in_file='seaice_avg.nc', obs_file
         plt.text(0.5, 0.95-0.48*n, var_titles[n], ha='center', va='bottom', transform=fig.transFigure, fontsize=14)
     finished_plot(fig, fig_name=fig_name, dpi=300)
 
+
+# Make a massive timeseries plot as in plot_evaluation_timeseries_shelf, but with multiple simulations in different colours.
+# in_dirs: list of directories corresopnding to the different experiments; each contains timeseries_file and hovmoller_file (which can be relative paths to account for subdirectories)
+# labels: optional list of names for labelling each simulation; if not set, will choose default from base directory of in_dirs
+# colours: optional list of colours (html colour names or rgb tubles) to plot; if not set, defaults will be chosen
+def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeseries_file='/files0/timeseries_T.nc', hovmoller_file='/files0/hovmollers.nc', obs_file_casts='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_casts.nc', fig_name=None):
+
+    regions = ['all', 'larsen', 'filchner_ronne', 'east_antarctica', 'amery', 'ross', 'west_antarctica', 'dotson_cosgrove']    
+    var_names = ['massloss', 'shelf_bwtemp', 'shelf_bwsalt']
+    var_names_ASE = ['massloss', 'shelf_temp', 'shelf_salt']
+    var_names_obs = [None, 'ct', 'sa']
+    units = ['Gt/y', deg_string+'C', gkg_string]
+    var_titles = ['Basal mass loss\n('+units[0]+')', 'Temperature ('+units[1]+')\n on continental shelf', 'Salinity on\n continental shelf']
+    num_regions = len(regions)
+    num_var = len(var_names)
+    smooth = 2*months_per_year
+    num_sim = len(in_dirs)
+
+    if labels is None:
+        # Set default labels: extract base directory for each
+        labels = [in_dir.split('/')[-1] for in_dir in in_dirs]
+    if colours is None:
+        # Set default colours
+        colours = default_colours(num_sim)
+
+    # Open all the files into lists of xarray Datasets
+    ds = []
+    ds_hov = []
+    for in_dir in in_dirs:
+        ds.append(xr.open_dataset(in_dir+timeseries_file, decode_times=time_coder))
+        ds_hov.append(xr.open_dataset(in_dir+hovmoller_file, decode_times=time_coder).mean('time_centered'))
+
+    # Find time bounds
+    time_start = np.amin([ds_tmp['time'][0] for ds_tmp in ds])
+    time_end = np.amax([ds_tmp['time'][-1] for ds_tmp in ds])
+
+    # Make plot
+    fig = plt.figure(figsize=(14,7.5))
+    rows = num_regions//2
+    columns = num_var*4*2 + 2
+    gs = plt.GridSpec(rows, columns)
+    gs.update(left=0.01, right=0.99, bottom=0.12, top=0.92, hspace=0.18, wspace=3)
+    for n in range(num_regions):
+        for v in range(num_var):
+            y0 = 1 + (4*num_var+1)*(n//rows) + v*4
+            ax = plt.subplot(gs[n%rows, y0:y0+4])
+            var = regions[n]+'_'
+            if regions[n] == 'dotson_cosgrove':
+                var += var_names_ASE[v]
+                hovmoller = v > 0
+            else:
+                var += var_names[v]
+                hovmoller = False
+            if not hovmoller:
+                # Simple timeseries
+                for n in range(num_sim):
+                    # Plot 2-year running mean
+                    data_smoothed = moving_average(ds[n][var], smooth)
+                    try:
+                        ax.plot(data_smoothed.time_centered, data_smoothed, color=colours[n], linewidth=1.5)
+                    except(TypeError):
+                        ax.plot_date(data_smoothed.time_centered, data_smoothed, '-', color=colours[n], linewidth=1.5)
+                # Plot obs
+                if 'massloss' in var:
+                    obs_mean = adusumilli_melt[regions[n]]
+                    obs_std = adusumilli_std[regions[n]]                
+                else:
+                    if 'temp' in var:
+                        m = 0
+                    elif 'salt' in var:
+                        m = 1
+                    obs_mean = zhou_TS[regions[n]][m]
+                    obs_std = zhou_TS_std[regions[n]][m]
+                ax.axhline(obs_mean, color='blue', linestyle='dashed', linewidth=1)
+                ax.axhspan(obs_mean-obs_std, obs_mean+obs_std, color='DodgerBlue', alpha=0.1)
+                ax.set_xlim([time_start, time_end])
+                if n%rows == rows-1:
+                    ax.tick_params(axis='x', labelrotation=90)
+                else:
+                    ax.set_xticklabels([])
+            else:
+                for n in range(num_sim):
+                    depth = ds_hov[n]['deptht']
+                    depth_masked = depth.where(ds_hov[n][var].notnull())
+                    ax.plot(ds_hov[n][var], depth, color=colours[n], label=labels[n], linewidth=1.5)
+                # Plot obs
+                obs_mean = ds_obs[var_names_obs[v]+'_cast_'+regions[n]]
+                obs_err = ds_obs[var_names_obs[v]+'_mse_cast_'+regions[n]]
+                obs_min = obs_mean-obs_err
+                obs_max = obs_mean+obs_err
+                obs_depth = ds_obs['pressure']
+                ax.fill_betweenx(obs_depth, obs_min, obs_max, color='DodgerBlue', alpha=0.1)
+                ax.plot(obs_mean, obs_depth, color='blue', linestyle='dashed', linewidth=1)
+                ax.set_ylim([depth_masked.max(), depth_masked.min()])
+                if v == 2:
+                    ax.set_yticklabels([])
+                    ax.set_ylabel('depth (m)')
+                ax.set_xlabel(units[v])
+            ax.grid(linestyle='dotted')
+            ax.tick_params(axis='both', labelsize=7)
+            if n%(rows) == 0:
+                # Variable title and units on top
+                ax.set_title(var_titles[v], fontsize=11)
+            if v == 0:
+                # Label region on the left
+                plt.text(-0.3, 0.5, region_names[regions[n]], fontsize=10, ha='center', va='center', transform=ax.transAxes, rotation=90)
+            else:
+                # Label depth
+                if n == 0:
+                    depth_label = '(bottom)'
+                    xpos = 0.05
+                elif hovmoller:
+                    depth_label = '(cast)'
+                    xpos = 0.7
+                else:
+                    depth_label = ''
+                    xpos = 0
+                plt.text(xpos, 0.95, depth_label, fontsize=8, ha='left', va='top', transform=ax.transAxes)
+            if n == rows-1 and v == columns-1:
+                # Legend at bottom
+                ax.legend(loc='lower left', bbox_to_anchor=(-2.5, -0.5), ncol=num_sim, fontsize=11)
+    finished_plot(fig, fig_name=fig_name, dpi=300)
+
+                
+                    
     
-                        
         
                     
                     
