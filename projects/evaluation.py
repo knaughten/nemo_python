@@ -1169,6 +1169,7 @@ def plot_evaluation_bottom_TS (in_file='bottom_TS_avg.nc', obs_file='/gws/ssde/j
     if 'x_grid_T_inner' in ds_model.dims:
         ds_model = ds_model.rename({'x_grid_T_inner':'x', 'y_grid_T_inner':'y'})
     ds_model = ds_model.assign({'ocean_mask':ds_model[var_names[0]].notnull()})
+    ds_model = ds_model.swap_dims({'x':'x_grid_T', 'y':'y_grid_T'})
 
     # Read observations and interpolate to model grid
     ds_obs = xr.open_dataset(obs_file)
@@ -1176,7 +1177,7 @@ def plot_evaluation_bottom_TS (in_file='bottom_TS_avg.nc', obs_file='/gws/ssde/j
         return xr.DataArray(ds_obs[var_name].data, coords=[ds_obs['latitude'].data, ds_obs['longitude'].data], dims=['lat', 'lon'])
     [temp, salt] = [set_var(var_names_obs[v]) for v in range(2)]
     ds_obs_rename = xr.Dataset({var_names[0]:temp, var_names[1]:salt})
-    ds_obs_interp = interp_latlon_cf(ds_obs_rename, ds_model, method='bilinear')
+    ds_obs_interp = interp_latlon_cf(ds_obs_rename, ds_model, method='bilinear', periodic_src=True, periodic_target=True)
     
     # Plot
     fig = plt.figure(figsize=(8,6))
