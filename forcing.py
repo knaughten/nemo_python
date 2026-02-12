@@ -1239,7 +1239,6 @@ def ukesm_bias_corrections (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS
     missing_val = -9999
 
     # Read ERA5 mask and trim to existing climatology file
-    # To do: this is the wrong size in latitude? extra time dimension? Look into it.
     ds_mask = xr.open_dataset(era5_mask_file).isel(time=0).drop_vars({'time'})
     # Flip order of latitude to agree with ERA5 climatology files
     ds_mask = ds_mask.reindex(latitude=ds_mask['latitude'][::-1])
@@ -1275,11 +1274,8 @@ def ukesm_bias_corrections (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS
         data_correction = data_correction.sortby('longitude').rename({'longitude':'lon', 'latitude':'lat'})
         out_file = out_dir+'/'+var_u+'_bias_correction.nc'
         print('Writing '+out_file)
-        ds_correction.to_netcdf(out_file)
-        
-    
-        # Plot one and make sure agrees with longitude ordering of ERA5 files used previously with weights file
-        
+        data_correction.to_netcdf(out_file)
+            
         
         
     
