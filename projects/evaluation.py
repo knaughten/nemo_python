@@ -6,11 +6,11 @@ import cmocean
 import os
 import gsw
 import calendar
-from ..utils import select_bottom, distance_along_transect, moving_average, polar_stereo, latlon_name, xy_name
+from ..utils import select_bottom, distance_along_transect, moving_average, polar_stereo, latlon_name, xy_name, dz_name
 from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli_melt, adusumilli_std, transport_obs, transport_std, region_edges, rEarth, deg2rad, zhou_TS, zhou_TS_std, rho_ice, rho_fw, sec_per_year
 from ..plots import circumpolar_plot, finished_plot, plot_ts_distribution, plot_transect
 from ..plot_utils import set_colours, latlon_axis, get_extend, round_to_decimals, default_colours
-from ..interpolation import interp_latlon_cf, interp_latlon_cf_blocks
+from ..interpolation import interp_latlon_cf, interp_latlon_cf_blocks, interp_grid
 from ..file_io import read_schmidtko, read_woa, read_dutrieux, read_zhou
 from ..grid import extract_var_region, transect_coords_from_latlon_waypoints, region_mask, build_shelf_mask
 from ..timeseries import update_simulation_timeseries, overwrite_file
@@ -991,12 +991,13 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
         elif config == 'UKESM1':
             raise Exception('Not coded precompute_avg for CICE variables yet')
     elif option == 'ismr':
+        # Convert from kg/m2/s of freshwater to m/y of ice
+        factor = rho_ice/(rho_fw**2)*sec_per_year
         if config == 'NEMO_AIS':
             var_names = ['fwfisf']
         elif config == 'UKESM1':
             var_names = ['sowflisf']
-        # Convert from kg/m2/s of freshwater to m/y of ice
-        factor = -rho_ice/(rho_fw**2)*sec_per_year
+            factor *= -1
     elif option == 'vel':
         var_names = ['uo', 'vo']
         
@@ -1062,6 +1063,28 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
     for file_path in nemo_files:
         print('Processing '+file_path)
         ds = xr.open_dataset(file_path, decode_times=time_coder)
+        if option == 'vel':
+            # Inner function to process one component of velocity
+            # Inner function to open the corresponding u or v file, depth-average velocity, and interpolate to the tracer grid
+            def process_vel (ds, gtype, var):
+                # Open the u or v file corresponding to this tracer file
+                ds_vel = xr.open_dataset(file_path.replace('T.nc', gtype+'.nc'))
+                # Mask where identically zero
+                mask_3d = xr.where(ds_vel[var].isel(time_counter==0)==0, 0, 1)
+                # Vertically average
+                dz = ds_vel[dz_name(ds_vel, gtype=gtype)]*mask_3d
+                z_name = 'depth'+gtype.lower()
+                vel_avg = (ds_vel[var]*dz).sum(dim=z_name)/dz.sum(dim=z_name)
+                # Interpolate to tracer grid
+                vel_interp = interp_grid(vel_avg, gtype, 'T', halo=False)
+                # Put back into the T-grid dataset - careful with coordinates, and allow for the case where the old and new coordinates have the same names (x, y) but different values 
+                x_name_old, y_name_old = xy_name(ds_vel)
+                x_name_new, y_name_new = xy_name(ds)
+                vel_interp = vel_interp.assign_coords({'x_new':ds[x_name_new].values, 'y_new':ds[y_name_new].values}).swap_dims({x_name_old:'x_new', y_name_old:'y_new'}).drop_vars({x_name_old, y_name_old}).rename({'x_new':x_name_new, 'y_new':y_name_new})
+                ds = ds.assign({var:vel_interp})
+                return ds
+            ds = process_vel(ds, 'U', var_names[0])
+            ds = process_vel(ds, 'V', var_names[0])                
         if config == 'UKESM1' and ds['nav_lat'].max() > 0:
             # Need to drop everything except the Southern Ocean
             ds = ds.isel(y=slice(0,114))
@@ -1153,7 +1176,7 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
     ds_avg = ds_accum/num_t
     if option == 'ismr':
         # Convert units
-        ds_avg[var_names[0]] = ds_avg[var_names[0]]*factor
+        ds_avg[var_names[0]] = (ds_avg[var_names[0]]*factor).assign_attrs(units='m/y of ice')
 
     print('Writing '+out_file)
     ds_avg.to_netcdf(out_file)
