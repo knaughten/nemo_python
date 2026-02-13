@@ -1102,7 +1102,7 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
                 ds = ds.assign({var:vel_interp})
                 return ds
             ds = process_vel(ds, 'U', var_names[0])
-            ds = process_vel(ds, 'V', var_names[0])                
+            ds = process_vel(ds, 'V', var_names[1])                
         if config == 'UKESM1' and ds['nav_lat'].max() > 0:
             # Need to drop everything except the Southern Ocean
             ds = ds.isel(y=slice(0,114))
