@@ -14,10 +14,11 @@ python -c "from nemo_python.projects.evaluation import *; update_timeseries_eval
 python -c "from nemo_python.projects.evaluation import *; update_hovmollers_evaluation_UKESM1('"${SUITE}"', in_dir='./')"
 
 # Time-averaged fields - remove if they exist, then calculate from scratch
-for f in bottom_TS_avg.nc zonal_TS_avg.nc; do
-    if [ -f $f ]; then
-	rm $f
+OPTIONS=( bottom_TS zonal_TS seaice ismr vel )
+for OPTION in "${OPTIONS[@]}"; do
+    filename = ${OPTION}_avg.nc
+    if [ -f $filename; then
+	rm $filename
     fi
+    python -c "from nemo_python.projects.evaluation import *; precompute_avg(option='"${OPTION}"', config='UKESM1', suite_id='"${SUITE}"', in_dir='./')"
 done
-python -c "from nemo_python.projects.evaluation import *; precompute_avg(option='bottom_TS', config='UKESM1', suite_id='"${SUITE}"', in_dir='./', out_file='bottom_TS_avg.nc')"
-python -c "from nemo_python.projects.evaluation import *; precompute_avg(option='zonal_TS', config='UKESM1', suite_id='"${SUITE}"', in_dir='./', out_file='zonal_TS_avg.nc')"

@@ -16,8 +16,8 @@ OPTIONS=( bottom_TS zonal_TS seaice ismr vel )
 for OPTION in "${OPTIONS[@]}"; do
     filename = ${OPTION}_avg.nc
     if [ -f $filename; then
-	   rm $filename
+	rm $filename
     fi
-	 python -c "from nemo_python.projects.evaluation import *; precompute_avg(option='"$OPTION"')"
+    python -c "from nemo_python.projects.evaluation import *; precompute_avg(option='"${OPTION}"')"
 done
 	 

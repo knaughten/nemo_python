@@ -1074,6 +1074,8 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
                 ds_vel = xr.open_dataset(file_path.replace('T.nc', gtype+'.nc'))
                 z_name = 'depth'+gtype.lower()
                 dz_name_vel = dz_name(ds_vel, gtype=gtype)
+                lon_name_vel, lat_name_vel = latlon_name(ds_vel)
+                ds_vel = ds_vel.drop_vars({lon_name_vel, lat_name_vel})
                 # Loop over time indices to save memory
                 vel_interp = None
                 mask_3d = None
