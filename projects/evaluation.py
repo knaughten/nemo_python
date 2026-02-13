@@ -7,7 +7,7 @@ import os
 import gsw
 import calendar
 from ..utils import select_bottom, distance_along_transect, moving_average, polar_stereo, latlon_name, xy_name
-from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli_melt, adusumilli_std, transport_obs, transport_std, region_edges, rEarth, deg2rad, zhou_TS, zhou_TS_std
+from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli_melt, adusumilli_std, transport_obs, transport_std, region_edges, rEarth, deg2rad, zhou_TS, zhou_TS_std, rho_ice, rho_fw, sec_per_year
 from ..plots import circumpolar_plot, finished_plot, plot_ts_distribution, plot_transect
 from ..plot_utils import set_colours, latlon_axis, get_extend, round_to_decimals, default_colours
 from ..interpolation import interp_latlon_cf, interp_latlon_cf_blocks
@@ -975,7 +975,7 @@ def preproc_shenjie (obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_cl
 
 # Precompute variables averaged over the last part of the simulation (default 20 years). Convert to TEOS-10 if it's not already.
 # config can be NEMO_AIS or UKESM1
-# option: 'bottom_TS' (bottom T and S), 'zonal_TS' (zonal mean T and S), 'seaice' (sea ice area and thickness in Feb and Sept)
+# option: 'bottom_TS' (bottom T and S), 'zonal_TS' (zonal mean T and S), 'seaice' (sea ice area and thickness in Feb and Sept), 'ismr' (ice shelf basal melt rate converted to m/y), 'vel' (barotropic u and v on the tracer grid)
 def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir=None, num_years=20, out_file='bottom_TS_avg.nc'):
 
     if option == 'bottom_TS':
@@ -990,6 +990,15 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
             var_names = ['siconc', 'sivolu']
         elif config == 'UKESM1':
             raise Exception('Not coded precompute_avg for CICE variables yet')
+    elif option == 'ismr':
+        if config == 'NEMO_AIS':
+            var_names = ['fwfisf']
+        elif config == 'UKESM1':
+            var_names = ['sowflisf']
+        # Convert from kg/m2/s of freshwater to m/y of ice
+        factor = -rho_ice/(rho_fw**2)*sec_per_year
+    elif option == 'vel':
+        var_names = ['uo', 'vo']
         
     if config == 'NEMO_AIS':
         if suite_id is None:
@@ -999,6 +1008,8 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
         file_head = 'eANT025.'+suite_id+'_1m_'
         if option == 'seaice':
             file_tail = '_icemod.nc'
+        elif option == 'ismr':
+            file_tail = '_SBC.nc'
         else:
             file_tail = '_grid_T.nc'
         eos = 'teos10'
@@ -1008,7 +1019,10 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
         if in_dir is None:
             in_dir = suite_id + '/'
         file_head = 'nemo_'+suite_id+'o_1m_'
-        file_tail = 'grid-T.nc'
+        if option == 'ismr':
+            file_tail = 'isf-T.nc'
+        else:
+            file_tail = 'grid-T.nc'
         eos = 'eos80'
 
     # Find all the output filenames
@@ -1137,6 +1151,9 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
     if option == 'seaice':
         ds_accum = ds_accum[0].merge(ds_accum[1])
     ds_avg = ds_accum/num_t
+    if option == 'ismr':
+        # Convert units
+        ds_avg[var_names[0]] = ds_avg[var_names[0]]*factor
 
     print('Writing '+out_file)
     ds_avg.to_netcdf(out_file)
