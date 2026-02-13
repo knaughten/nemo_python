@@ -976,8 +976,11 @@ def preproc_shenjie (obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_cl
 # Precompute variables averaged over the last part of the simulation (default 20 years). Convert to TEOS-10 if it's not already.
 # config can be NEMO_AIS or UKESM1
 # option: 'bottom_TS' (bottom T and S), 'zonal_TS' (zonal mean T and S), 'seaice' (sea ice area and thickness in Feb and Sept), 'ismr' (ice shelf basal melt rate converted to m/y), 'vel' (barotropic u and v on the tracer grid)
-def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir=None, num_years=20, out_file='bottom_TS_avg.nc'):
+def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir=None, num_years=20, out_file=None):
 
+    if out_file is None:
+        out_file = option+'_avg.nc'
+        
     if option == 'bottom_TS':
         var_names_1 = ['tob', 'sob']
         var_names_2 = ['sbt', 'sbs']
@@ -1069,18 +1072,33 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
             def process_vel (ds, gtype, var):
                 # Open the u or v file corresponding to this tracer file
                 ds_vel = xr.open_dataset(file_path.replace('T.nc', gtype+'.nc'))
-                # Mask where identically zero
-                mask_3d = xr.where(ds_vel[var].isel(time_counter==0)==0, 0, 1)
-                # Vertically average
-                dz = ds_vel[dz_name(ds_vel, gtype=gtype)]*mask_3d
                 z_name = 'depth'+gtype.lower()
-                vel_avg = (ds_vel[var]*dz).sum(dim=z_name)/dz.sum(dim=z_name)
-                # Interpolate to tracer grid
-                vel_interp = interp_grid(vel_avg, gtype, 'T', halo=False)
+                dz_name_vel = dz_name(ds_vel, gtype=gtype)
+                # Loop over time indices to save memory
+                vel_interp = None
+                mask_3d = None
+                for t in range(ds_vel.sizes['time_counter']):
+                    ds_tmp = ds_vel.isel(time_counter=slice(t,t+1))
+                    ds_tmp = ds_tmp[[var, dz_name_vel]]
+                    ds_tmp.load()
+                    if mask_3d is None:
+                        # Land mask: where identically zero
+                        mask_3d = xr.where(ds_tmp[var]==0, 0, 1)
+                    # Vertically average
+                    dz = ds_tmp[dz_name_vel]*mask_3d
+                    vel_avg = (ds_tmp[var]*dz).sum(dim=z_name)/dz.sum(dim=z_name)
+                    # Interpolate to tracer grid
+                    vel_tmp = interp_grid(vel_avg, gtype, 'T', halo=False)
+                    if vel_interp is None:
+                        vel_interp = vel_tmp
+                    else:
+                        vel_interp = xr.concat([vel_interp, vel_tmp], dim='time_counter')
                 # Put back into the T-grid dataset - careful with coordinates, and allow for the case where the old and new coordinates have the same names (x, y) but different values 
                 x_name_old, y_name_old = xy_name(ds_vel)
                 x_name_new, y_name_new = xy_name(ds)
-                vel_interp = vel_interp.assign_coords({'x_new':ds[x_name_new].values, 'y_new':ds[y_name_new].values}).swap_dims({x_name_old:'x_new', y_name_old:'y_new'}).drop_vars({x_name_old, y_name_old}).rename({'x_new':x_name_new, 'y_new':y_name_new})
+                vel_interp = vel_interp.assign_coords({x_name_old:ds[x_name_new].values, y_name_old:ds[y_name_old].values})
+                if x_name_old != x_name_new:
+                    vel_interp = vel_interp.rename({x_name_old:x_name_new, y_name_old:y_name_new})
                 ds = ds.assign({var:vel_interp})
                 return ds
             ds = process_vel(ds, 'U', var_names[0])
