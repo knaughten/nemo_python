@@ -1096,7 +1096,7 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
                 # Put back into the T-grid dataset - careful with coordinates, and allow for the case where the old and new coordinates have the same names (x, y) but different values 
                 x_name_old, y_name_old = xy_name(ds_vel)
                 x_name_new, y_name_new = xy_name(ds)
-                vel_interp = vel_interp.assign_coords({x_name_old:ds[x_name_new].values, y_name_old:ds[y_name_old].values})
+                vel_interp = vel_interp.assign_coords({x_name_old:ds[x_name_new].values, y_name_old:ds[y_name_new].values})
                 if x_name_old != x_name_new:
                     vel_interp = vel_interp.rename({x_name_old:x_name_new, y_name_old:y_name_new})
                 ds = ds.assign({var:vel_interp})
