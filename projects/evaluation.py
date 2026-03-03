@@ -1455,7 +1455,7 @@ def plot_evaluation_seaice (config='NEMO_AIS', in_file='seaice_avg.nc', obs_file
     vmin = [0, 0]
     vmax = [1, 3]
     if config == 'NEMO_AIS':
-        domain_cfg = '/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20260121.nc'
+        domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/domain_cfg-20260121.nc'
     elif config == 'UKESM1':
         raise Exception('CICE output not yet supported')
     siconc0 = 0.15
