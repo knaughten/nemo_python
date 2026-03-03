@@ -17,7 +17,7 @@ python -c "from nemo_python.projects.evaluation import *; update_hovmollers_eval
 OPTIONS=( bottom_TS zonal_TS seaice ismr vel )
 for OPTION in "${OPTIONS[@]}"; do
     filename = ${OPTION}_avg.nc
-    if [ -f $filename; then
+    if [ -f $filename ]; then
 	rm $filename
     fi
     python -c "from nemo_python.projects.evaluation import *; precompute_avg(option='"${OPTION}"', config='UKESM1', suite_id='"${SUITE}"', in_dir='./')"
