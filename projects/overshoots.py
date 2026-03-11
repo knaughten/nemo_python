@@ -4180,6 +4180,23 @@ def plot_ross_special_cases (base_dir='./'):
             ax.legend(loc='lower center', bbox_to_anchor=(0.5, -0.37), ncol=2, fontsize=13)
     plt.suptitle(var_title, fontsize=16)
     finished_plot(fig, fig_name='figures/ross_special_cases.png', dpi=300)
+
+
+def plot_fris_freshening_vs_ross_tipping ():
+
+    ross_tip_date = []
+    fris_bwsalt = []
+
+    
+
+    # Loop over all simulations
+    #  Check if Ross tips
+    #   Check if parent tips before branching point
+    #   Save tipping date and FRIS salinity timeseries
+
+    # Plot all timeseries (smoothed) indexed as years since tipping
+
+    # Later: quantify breakpoints in trends: how to measure when it speeds up?
         
     
 
