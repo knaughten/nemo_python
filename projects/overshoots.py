@@ -4224,16 +4224,81 @@ def plot_fris_freshening_vs_ross_tipping (base_dir='./'):
         slope1, intercept1 = linregress(time[:t], bwsalt[:t])[:2]
         x_vals = np.array([time[0], time[t-1]])
         y_vals = slope1*x_vals + intercept1 + offset*n
-        ax.plot(x_vals, y_vals, '-', color='black', linewidth=1)
+        ax.plot(x_vals, y_vals, '-', color='black', linewidth=0.5)
         slope2, intercept2 = linregress(time[t:], bwsalt[t:])[:2]
         x_vals = np.array([time[t], time[-1]])
         y_vals = slope2*x_vals + intercept2 + offset*n
-        ax.plot(x_vals, y_vals, '-', color='black', linewidth=1)        
+        ax.plot(x_vals, y_vals, '-', color='black', linewidth=0.5)        
     ax.grid(linestyle='dotted')
     ax.axvline(0, color='black', linestyle='dashed')
     ax.set_xlabel('Years relative to Ross tipping')
     ax.set_ylabel('Filchner-Ronne shelf bottom salinity (+ offset)')
     finished_plot(fig, fig_name='figures/fris_freshening_vs_ross_tipping.png', dpi=300)
+
+
+# Precompute freshwater flux terms time-averaged between Ross tipping and FRIS tipping for the first ramp-up member, and over all years for the evolving ice piControl.
+def precompute_fw_avg (base_dir='./'):
+
+    ramp_up_suite = 'cx209'
+    pi_suite = 'cs568'
+    var_names = ['sowflisf', 'fsitherm', 'pr', 'prsn', 'evs', 'friver', 'ficeberg', 'nav_lat', 'nav_lon', 'bounds_lat', 'bounds_lon', 'area']
+    file_tail = '-T.nc'
+
+    for suite in [ramp_up_suite, pi_suite]:
+        if suite == ramp_up_suite:
+            # Time-average between two tipping points
+            ross_date_tip = check_tip(suite=suite, region='ross', return_date=True)[1]
+            fris_date_tip = check_tip(suite=suite, region='filchner_ronne', return_date=True)[1]
+            start_year = ross_date_tip.dt.year.item() + 1
+            end_year = fris_date_tip.dt.year.item()
+        else:
+            # Time-average over all years
+            start_year = None
+            end_year = None
+        # Find all the output filenames
+        nemo_files = []
+        file_head = 'nemo_'+suite+'o_1m_'
+        sim_dir = base_dir+'/'+suite
+        for f in os.listdir(sim_dir):
+            if f.startswith(file_head) and f.endswith(file_tail):
+                date_codes = re.findall(r'\d{4}\d{2]\d{2}', f)
+                file_date = datetime.strptime(date_codes[0], '%Y%m%d').date()
+                if start_year is not None and file_date.year < start_year or end_year is not None and file_date.year >= end_year:
+                    # Outside of date range
+                    continue
+                file_pattern = f'{file_head}{date_code[0]}?{date_code[1]}*{file_tail}'
+                if file_pattern not in nemo_files:
+                    nemo_files.append(file_pattern)
+        # Loop over the files and construct a dataset
+        ds_accum = None
+        num_t = 0
+        for file_pattern in nemo_files:
+            print('Processing '+file_pattern)
+            for ftype in ['_isf', '_grid']:
+                if not os.path.isfile(f"{sim_dir}/{file_pattern.replace('*',ftype)}"):
+                    print('Warning: missing file for '+file_pattern)
+                    continue
+                # Read all files together, select only variables we want, and time-mean
+                ds = xr.open_mfdataset(f'{sim_dir}/{file_pattern}', decode_times=time_coder)[var_names].mean(dim='time_counter')
+                ds.load()
+                # Now add to accumulation array
+                if ds_accum is None:
+                    ds_accum = ds
+                else:
+                    ds_accum += ds
+                num_t += 1
+        # Convert from time-integral to average
+        ds_avg = ds_accum/num_t
+        # Write to file
+        out_file = base_dir+'/'+suite+'/fw_'
+        if start_year is not None:
+            out_file += '_'+str(start_year)+'_'+str(end_year)
+        out_file += '_avg.nc'
+        print('Writing '+out_file)
+        ds_avg.to_netcdf(out_file)
+                
+                
+                
         
     
 
