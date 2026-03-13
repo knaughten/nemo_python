@@ -21,8 +21,8 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 from ..timeseries import update_simulation_timeseries, update_simulation_timeseries_um, check_nans, fix_missing_months, calc_timeseries, overwrite_file
 from ..plots import timeseries_by_region, timeseries_by_expt, finished_plot, timeseries_plot, circumpolar_plot
-from ..plot_utils import truncate_colourmap
-from ..utils import moving_average, add_months, rotate_vector, polar_stereo, convert_ismr, bwsalt_abs
+from ..plot_utils import truncate_colourmap, lon_label
+from ..utils import moving_average, add_months, rotate_vector, polar_stereo, convert_ismr, bwsalt_abs, fix_lon_range
 from ..grid import region_mask, calc_geometry, build_ice_mask, build_shelf_mask
 from ..constants import line_colours, region_names, deg_string, gkg_string, months_per_year, rho_fw, rho_ice, sec_per_year, vaf_to_gmslr
 from ..file_io import read_schmidtko, read_woa, read_zhou_bottom_climatology
@@ -4236,7 +4236,7 @@ def plot_fris_freshening_vs_ross_tipping (base_dir='./'):
     finished_plot(fig, fig_name='figures/fris_freshening_vs_ross_tipping.png', dpi=300)
 
 
-# Precompute freshwater flux terms time-averaged between Ross tipping and FRIS tipping for the first ramp-up member, and over all years for the evolving ice piControl.
+# Precompute freshwater flux terms time-averaged (1) before Ross tipping for first ramp-up member; (2) between Ross tipping and FRIS tipping for the first ramp-up member; (3) over all years for the evolving ice piControl.
 def precompute_fw_avg (base_dir='./'):
 
     from datetime import datetime
@@ -4245,27 +4245,26 @@ def precompute_fw_avg (base_dir='./'):
     pi_suite = 'cs568'
     var_names = ['sowflisf', 'fsitherm', 'pr', 'prsn', 'evs', 'friver', 'ficeberg', 'nav_lat', 'nav_lon', 'bounds_lat', 'bounds_lon', 'area']
     file_tail = '-T.nc'
+    out_file_head = 'fw_tavg'
 
-    for suite in [ramp_up_suite, pi_suite]:
-        if suite == ramp_up_suite:
-            # Time-average between two tipping points
-            ross_date_tip = check_tip(suite=suite, region='ross', return_date=True)[1]
-            fris_date_tip = check_tip(suite=suite, region='filchner_ronne', return_date=True)[1]
-            start_year = ross_date_tip.dt.year.item() + 1
-            end_year = fris_date_tip.dt.year.item()
-        else:
-            # Time-average over all years
-            start_year = None
-            end_year = None
+    ross_date_tip = check_tip(suite=ramp_up_suite, region='ross', return_date=True)[1].dt.year.item()
+    fris_date_tip = check_tip(suite=ramp_up_suite, region='filchner_ronne', return_date=True)[1].dt.year.item()
+
+    suites = [ramp_up_suite, ramp_up_suite, pi_suite]
+    start_year = [None, ross_date_tip+1, None]
+    end_year = [ross_date_tip, fris_date_tip, None]
+    out_file_tail = ['_before_ross.nc', '_after_ross_before_fris.nc', '.nc']
+
+    for n in range(len(suites)):
         # Find all the output filenames
         nemo_files = []
-        file_head = 'nemo_'+suite+'o_1m_'
-        sim_dir = base_dir+'/'+suite
+        file_head = 'nemo_'+suites[n]+'o_1m_'
+        sim_dir = base_dir+'/'+suites[n]
         for f in os.listdir(sim_dir):
             if f.startswith(file_head) and f.endswith(file_tail):
                 date_codes = re.findall(r'\d{4}\d{2}\d{2}', f)
                 file_date = datetime.strptime(date_codes[0], '%Y%m%d').date()
-                if start_year is not None and file_date.year < start_year or end_year is not None and file_date.year >= end_year:
+                if start_year[n] is not None and file_date.year < start_year[n] or end_year[n] is not None and file_date.year >= end_year[n]:
                     # Outside of date range
                     continue
                 file_pattern = f'{file_head}{date_codes[0]}?{date_codes[1]}*{file_tail}'
@@ -4277,12 +4276,9 @@ def precompute_fw_avg (base_dir='./'):
         num_t = 0
         for file_pattern in nemo_files:
             print('Processing '+file_pattern)
-            for ftype in ['_isf', '_grid']:
-                # Read all files together, select only variables we want, and time-mean
-                try:
-                    ds = xr.open_mfdataset(f'{sim_dir}/{file_pattern}', decode_times=time_coder)[var_names].mean(dim='time_counter')
-                except(KeyError):
-                    print('Warning: missing variable(s) for '+file_pattern)
+            # Read all files together, select only variables we want, and time-mean
+            try:
+                ds = xr.open_mfdataset(f'{sim_dir}/{file_pattern}', decode_times=time_coder)[var_names].mean(dim='time_counter')
                 ds.load()
                 # Now add to accumulation array
                 if ds_accum is None:
@@ -4290,10 +4286,12 @@ def precompute_fw_avg (base_dir='./'):
                 else:
                     ds_accum += ds
                 num_t += 1
+            except(KeyError):
+                print('Warning: missing variable(s) for '+file_pattern)
         # Convert from time-integral to average
         ds_avg = ds_accum/num_t
         # Write to file
-        out_file = base_dir+'/'+suite+'/fw_tavg.nc'
+        out_file = base_dir+'/'+suites[n]+'/'+out_file_head+out_file_tail[n]
         print('Writing '+out_file)
         ds_avg.to_netcdf(out_file)
 
@@ -4302,20 +4300,30 @@ def plot_fw_by_longitude (base_dir='./'):
 
     suite = 'cx209'
     pi_suite = 'cs568'
-    var_titles = ['Ice shelves', 'Sea ice', 'Precip - evap', 'Surface melt',  'Icebergs']
-    nemo_var = ['sowflisf', 'fsitherm', 'pminuse', 'friver', 'ficeberg']
-    # Everything * 1e-6 gets to mSv; otherwise kg/s of FW
+    var_titles = ['Ice shelves', 'Sea ice', 'Precip - evap', 'Icebergs', 'Surface melt']
+    nemo_var = ['sowflisf', 'fsitherm', 'pminuse', 'ficeberg', 'friver']
+    colours = ['DarkGrey', 'LightPink', 'MediumSeaGreen', 'Gold', 'SteelBlue']
+    num_vars = len(nemo_var)
+    break_lon = -60
+    factor = 1e-6
+    units = 'mSv'
 
     # Read one output file to get continental shelf mask
     mask_file = base_dir+'/cx209/nemo_cx209o_1m_18500101-18500201_grid-T.nc'
-    ds = xr.open_dataset(mask_file, decode_times=time_coder).squeeze()
+    ds = xr.open_dataset(mask_file, decode_times=time_coder)
     shelf_mask = build_shelf_mask(ds)[0]
 
     # Open both datasets at once to get anomalies at every grid point
     ds_ru = xr.open_dataset(base_dir+'/'+suite+'/fw_tavg.nc')
-    ds_pi = xr.open_dataset(base_dir+'/'+pi_suite+'/fw_tavg.nc')
+    ds_pi = xr.open_dataset(base_dir+'/'+pi_suite+'/sfc_links/fw_tavg.nc')
     ds = ds_ru - ds_pi
-    data_plot = []    
+    # Area integrand including continental shelf only
+    dA = ds_ru['area']*shelf_mask
+    # Calculate area-mean longitude for x-axis
+    lon_plot = (ds_ru['nav_lon']*dA).sum(dim='y')/dA.sum(dim='y')
+    # Break at 90W for best visibility
+    lon_plot = fix_lon_range(lon_plot, max_lon=break_lon).data
+    data_plot = []
     for var in nemo_var:
         if var == 'pminuse':
             data = ds['pr'] + ds['prsn'] - ds['evs']
@@ -4323,15 +4331,39 @@ def plot_fw_by_longitude (base_dir='./'):
             data = ds[var]
         if var == 'sowflisf':
             data *= -1
-        # Area-integral over y direction (effectively latitude); continental shelf only
-        dA = ds_ru['area']*shelf_mask
-        data_int = (data*dA).sum(dim='y')
+        data *= factor
+        # Area-integral over y direction (effectively latitude)
+        data_int = (data*dA).sum(dim='y').data
+        # Add longitude coordinate
+        data_int = xr.DataArray(data_int, coords={'lon':lon_plot}).sortby('lon')
         data_plot.append(data_int)
-        if var == nemo_var[0]:
-            # Also save area-mean longitude for x-axis
-            lon_plot = (ds_ru['nav_lon']*dA).sum(dim='y')/dA.sum(dim='y')
+
+    lon_vals = data_plot[0].lon.data
+    lon_edges = np.concatenate(([2*lon_vals[0] - lon_vals[1]], 0.5*(lon_vals[:-1] + lon_vals[1:]), [2*lon_vals[-1] - lon_vals[-2]]))
+    dlon = lon_edges[1:] - lon_edges[:-1]
 
     # Plot
+    fig = plt.figure(figsize=(8,3.5))
+    gs = plt.GridSpec(1,1)
+    gs.update(left=0.08, right=0.99, bottom=0.15, top=0.9, hspace=0.05)
+    ax = plt.subplot(gs[0,0])
+    base = 0*data_plot[0]
+    for v in range(num_vars):
+        ax.fill_between(data_plot[v].lon, base, base+data_plot[v], color=colours[v], label=var_titles[v])
+        base += data_plot[v]
+    ax.grid(linestyle='dotted')
+    ax.axhline(0, color='black')
+    ax.legend(loc='upper left')
+    ax.set_ylabel(units)
+    # Choose longitude ticks and label nicely
+    lon_ticks = np.arange(break_lon, break_lon+360, 30)
+    lon_ticklabels = [lon_label(fix_lon_range(tick)) for tick in lon_ticks]
+    lon_ticks = fix_lon_range(lon_ticks, max_lon=break_lon)
+    ax.set_xticks(lon_ticks)
+    ax.set_xticklabels(lon_ticklabels)
+    ax.set_ylim([-0.5, 2])
+    ax.set_xlim([break_lon-360, break_lon])
+    finished_plot(fig, fig_name=None, dpi=300)
             
         
         
