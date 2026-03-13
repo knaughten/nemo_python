@@ -2284,7 +2284,8 @@ def truncate_rampdown_PI (suite):
 
 # Helper function to get time axis in years since beginning; pass DataArray with coordinate 'time_centered'
 def time_in_years (data, year0=None, return_year0=False):
-    year0 = data.time_centered[0].dt.year.item()
+    if year0 is None:
+        year0 = data.time_centered[0].dt.year.item()
     years = np.array([(date.dt.year.item() - year0) + (date.dt.month.item() - 1)/months_per_year + 0.5 for date in data.time_centered])
     if return_year0:
         return years, year0
@@ -4182,21 +4183,57 @@ def plot_ross_special_cases (base_dir='./'):
     finished_plot(fig, fig_name='figures/ross_special_cases.png', dpi=300)
 
 
-def plot_fris_freshening_vs_ross_tipping ():
+def plot_fris_freshening_vs_ross_tipping (base_dir='./'):
 
     ross_tip_date = []
+    fris_tip_date = []
     fris_bwsalt = []
+    timeseries_file = 'timeseries.nc'
+    smooth = 12
+    offset = 0.2
 
-    
+    # Loop over ramp-up ensemble members plus the stabilisation runs where Ross tips which aren't special cases of half-tipping
+    for suite in suites_by_scenario['ramp_up'] + ['cz374', 'db587', 'db597']:
+        # We know Ross tips but get the dates anyway
+        tips, date_tip = check_tip(suite=suite, region='ross', return_date=True, base_dir=base_dir)
+        # Save tipping date and FRIS shelf salinity timeseries
+        ross_tip_date.append(date_tip)
+        ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file, decode_times=time_coder)
+        if suites_branched[suite] is not None:
+            fris_bwsalt.append(build_timeseries_trajectory([suites_branched[suite], suite], 'filchner_ronne_shelf_bwsalt', base_dir=base_dir, timeseries_file=timeseries_file))
+        else:
+            fris_bwsalt.append(ds['filchner_ronne_shelf_bwsalt'])
+        # Get FRIS tipping date
+        tips, date_tip = check_tip(suite=suite, region='filchner_ronne', return_date=True, base_dir=base_dir)
+        fris_tip_date.append(date_tip)
 
-    # Loop over all simulations
-    #  Check if Ross tips
-    #   Check if parent tips before branching point
-    #   Save tipping date and FRIS salinity timeseries
-
-    # Plot all timeseries (smoothed) indexed as years since tipping
-
-    # Later: quantify breakpoints in trends: how to measure when it speeds up?
+    # Plot
+    fig, ax = plt.subplots()
+    for n in range(len(ross_tip_date)):
+        # Smooth
+        bwsalt = moving_average(fris_bwsalt[n], smooth)
+        # Truncate after FRIS tips
+        if fris_tip_date[n] is not None:
+            bwsalt = bwsalt.where(bwsalt.time_centered < fris_tip_date[n], drop=True)
+        # Index as years since tipping
+        time = time_in_years(bwsalt, year0=ross_tip_date[n].dt.year.item())
+        # Add to plot with offset
+        ax.plot(time, bwsalt+offset*n, '-')
+        # Calculate trend lines before and after tipping
+        t = np.argwhere(time>0)[0][0]
+        slope1, intercept1 = linregress(time[:t], bwsalt[:t])[:2]
+        x_vals = np.array([time[0], time[t-1]])
+        y_vals = slope1*x_vals + intercept1 + offset*n
+        ax.plot(x_vals, y_vals, '-', color='black', linewidth=1)
+        slope2, intercept2 = linregress(time[t:], bwsalt[t:])[:2]
+        x_vals = np.array([time[t], time[-1]])
+        y_vals = slope2*x_vals + intercept2 + offset*n
+        ax.plot(x_vals, y_vals, '-', color='black', linewidth=1)        
+    ax.grid(linestyle='dotted')
+    ax.axvline(0, color='black', linestyle='dashed')
+    ax.set_xlabel('Years relative to Ross tipping')
+    ax.set_ylabel('Filchner-Ronne shelf bottom salinity (+ offset)')
+    finished_plot(fig, fig_name='figures/fris_freshening_vs_ross_tipping.png', dpi=300)
         
     
 
