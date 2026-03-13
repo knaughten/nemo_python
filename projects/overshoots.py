@@ -23,7 +23,7 @@ from ..timeseries import update_simulation_timeseries, update_simulation_timeser
 from ..plots import timeseries_by_region, timeseries_by_expt, finished_plot, timeseries_plot, circumpolar_plot
 from ..plot_utils import truncate_colourmap
 from ..utils import moving_average, add_months, rotate_vector, polar_stereo, convert_ismr, bwsalt_abs
-from ..grid import region_mask, calc_geometry, build_ice_mask
+from ..grid import region_mask, calc_geometry, build_ice_mask, build_shelf_mask
 from ..constants import line_colours, region_names, deg_string, gkg_string, months_per_year, rho_fw, rho_ice, sec_per_year, vaf_to_gmslr
 from ..file_io import read_schmidtko, read_woa, read_zhou_bottom_climatology
 from ..interpolation import interp_latlon_cf, interp_grid
@@ -4239,6 +4239,8 @@ def plot_fris_freshening_vs_ross_tipping (base_dir='./'):
 # Precompute freshwater flux terms time-averaged between Ross tipping and FRIS tipping for the first ramp-up member, and over all years for the evolving ice piControl.
 def precompute_fw_avg (base_dir='./'):
 
+    from datetime import datetime
+
     ramp_up_suite = 'cx209'
     pi_suite = 'cs568'
     var_names = ['sowflisf', 'fsitherm', 'pr', 'prsn', 'evs', 'friver', 'ficeberg', 'nav_lat', 'nav_lon', 'bounds_lat', 'bounds_lon', 'area']
@@ -4261,25 +4263,26 @@ def precompute_fw_avg (base_dir='./'):
         sim_dir = base_dir+'/'+suite
         for f in os.listdir(sim_dir):
             if f.startswith(file_head) and f.endswith(file_tail):
-                date_codes = re.findall(r'\d{4}\d{2]\d{2}', f)
+                date_codes = re.findall(r'\d{4}\d{2}\d{2}', f)
                 file_date = datetime.strptime(date_codes[0], '%Y%m%d').date()
                 if start_year is not None and file_date.year < start_year or end_year is not None and file_date.year >= end_year:
                     # Outside of date range
                     continue
-                file_pattern = f'{file_head}{date_code[0]}?{date_code[1]}*{file_tail}'
+                file_pattern = f'{file_head}{date_codes[0]}?{date_codes[1]}*{file_tail}'
                 if file_pattern not in nemo_files:
                     nemo_files.append(file_pattern)
+        nemo_files.sort()
         # Loop over the files and construct a dataset
         ds_accum = None
         num_t = 0
         for file_pattern in nemo_files:
             print('Processing '+file_pattern)
             for ftype in ['_isf', '_grid']:
-                if not os.path.isfile(f"{sim_dir}/{file_pattern.replace('*',ftype)}"):
-                    print('Warning: missing file for '+file_pattern)
-                    continue
                 # Read all files together, select only variables we want, and time-mean
-                ds = xr.open_mfdataset(f'{sim_dir}/{file_pattern}', decode_times=time_coder)[var_names].mean(dim='time_counter')
+                try:
+                    ds = xr.open_mfdataset(f'{sim_dir}/{file_pattern}', decode_times=time_coder)[var_names].mean(dim='time_counter')
+                except(KeyError):
+                    print('Warning: missing variable(s) for '+file_pattern)
                 ds.load()
                 # Now add to accumulation array
                 if ds_accum is None:
@@ -4290,14 +4293,49 @@ def precompute_fw_avg (base_dir='./'):
         # Convert from time-integral to average
         ds_avg = ds_accum/num_t
         # Write to file
-        out_file = base_dir+'/'+suite+'/fw_'
-        if start_year is not None:
-            out_file += '_'+str(start_year)+'_'+str(end_year)
-        out_file += '_avg.nc'
+        out_file = base_dir+'/'+suite+'/fw_tavg.nc'
         print('Writing '+out_file)
         ds_avg.to_netcdf(out_file)
-                
-                
+
+
+def plot_fw_by_longitude (base_dir='./'):
+
+    suite = 'cx209'
+    pi_suite = 'cs568'
+    var_titles = ['Ice shelves', 'Sea ice', 'Precip - evap', 'Surface melt',  'Icebergs']
+    nemo_var = ['sowflisf', 'fsitherm', 'pminuse', 'friver', 'ficeberg']
+    # Everything * 1e-6 gets to mSv; otherwise kg/s of FW
+
+    # Read one output file to get continental shelf mask
+    mask_file = base_dir+'/cx209/nemo_cx209o_1m_18500101-18500201_grid-T.nc'
+    ds = xr.open_dataset(mask_file, decode_times=time_coder).squeeze()
+    shelf_mask = build_shelf_mask(ds)[0]
+
+    # Open both datasets at once to get anomalies at every grid point
+    ds_ru = xr.open_dataset(base_dir+'/'+suite+'/fw_tavg.nc')
+    ds_pi = xr.open_dataset(base_dir+'/'+pi_suite+'/fw_tavg.nc')
+    ds = ds_ru - ds_pi
+    data_plot = []    
+    for var in nemo_var:
+        if var == 'pminuse':
+            data = ds['pr'] + ds['prsn'] - ds['evs']
+        else:
+            data = ds[var]
+        if var == 'sowflisf':
+            data *= -1
+        # Area-integral over y direction (effectively latitude); continental shelf only
+        dA = ds_ru['area']*shelf_mask
+        data_int = (data*dA).sum(dim='y')
+        data_plot.append(data_int)
+        if var == nemo_var[0]:
+            # Also save area-mean longitude for x-axis
+            lon_plot = (ds_ru['nav_lon']*dA).sum(dim='y')/dA.sum(dim='y')
+
+    # Plot
+            
+        
+        
+        
                 
         
     
