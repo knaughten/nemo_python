@@ -109,8 +109,8 @@ def read_woa (woa_files='/gws/ssde/j25b/terrafirma/kaight/input_data/WOA18/woa18
     woa = xr.Dataset({'temp':woa_temp, 'salt':woa_salt}).drop_vars('depth').squeeze()
     return woa
 
-def read_dutrieux(fileT='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/observations/pierre-dutrieux/ASEctd_griddedMean_PT.nc',
-                fileS='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/observations/pierre-dutrieux/ASEctd_griddedMean_S.nc', 
+def read_dutrieux(fileT='/gws/ssde/j25b/anthrofail/birgal/NEMO_AIS/observations/pierre-dutrieux/ASEctd_griddedMean_PT.nc',
+                fileS='/gws/ssde/j25b/anthrofail/birgal/NEMO_AIS/observations/pierre-dutrieux/ASEctd_griddedMean_S.nc', 
                 eos='teos10'):
     import gsw 
     # Load observations on Amundsen Shelf from Pierre Dutrieux
@@ -131,8 +131,8 @@ def read_dutrieux(fileT='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/observations/p
         
     return obs_conv
 
-def read_zhou(fileT='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/observations/shenjie-zhou/SO_CT_monthly/Merge_all_SO_CT_10dbar_monthly_1.nc',
-              fileS='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/observations/shenjie-zhou/SO_SA_monthly/Merge_all_SO_SA_10dbar_monthly_1.nc', 
+def read_zhou(fileT='/gws/ssde/j25b/anthrofail/birgal/NEMO_AIS/observations/shenjie-zhou/SO_CT_monthly/Merge_all_SO_CT_10dbar_monthly_1.nc',
+              fileS='/gws/ssde/j25b/anthrofail/birgal/NEMO_AIS/observations/shenjie-zhou/SO_SA_monthly/Merge_all_SO_SA_10dbar_monthly_1.nc', 
               eos='teos10'):
     
     import gsw 
@@ -172,7 +172,7 @@ def read_zhou_bottom_climatology (in_file='/gws/ssde/j25b/terrafirma/kaight/inpu
 # Generate the file name and starting/ending index for a CESM variable for the given experiment, year and ensemble member.
 # for example, expt = 'LE2', ensemble_member='1011.001', domain ='atm', freq = 'daily'
 def find_cesm2_file(expt, var_name, domain, freq, ensemble_member, year,
-                    base_dir='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/climate-forcing/CESM2/'):
+                    base_dir='/gws/ssde/j25b/anthrofail/birgal/NEMO_AIS/climate-forcing/CESM2/'):
 
     import glob
     from datetime import datetime
@@ -250,7 +250,7 @@ def find_cesm2_file(expt, var_name, domain, freq, ensemble_member, year,
                 found_date=True
                 break
         else:
-            if (datetime(year,12,31) <= end_date) and (datetime(year,1,1) >= start_date): # found the file we're looking for
+            if (datetime(year,12,30) <= end_date) and (datetime(year,1,1) >= start_date): # found the file we're looking for
                 found_date = True
                 break
 
@@ -277,7 +277,7 @@ def find_cesm2_file(expt, var_name, domain, freq, ensemble_member, year,
 # Inputs:
 # bias_corr (optional) : boolean indicating whether you are looking for the bias corrected files
 def find_processed_cesm2_file(expt, var_name, ensemble_member, year, freq='daily', highres=False,
-                              base_dir='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/climate-forcing/CESM2/'):
+                              base_dir='/gws/ssde/j25b/anthrofail/birgal/NEMO_AIS/climate-forcing/CESM2/'):
 
     import glob
     from datetime import datetime

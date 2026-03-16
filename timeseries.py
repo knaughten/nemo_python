@@ -635,8 +635,8 @@ def update_simulation_timeseries_um (suite_id, timeseries_types, timeseries_file
         precompute_timeseries(fname, timeseries_types, sim_dir+'/'+timeseries_file, pp=True)
         
 def calc_hovmoeller_region(var, region,
-                           run_folder='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/output/reference-4.2.2/',
-                           nemo_mesh='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20260121.nc'):
+                           run_folder='/gws/ssde/j25b/anthrofail/birgal/NEMO_AIS/output/reference-4.2.2/',
+                           nemo_mesh='/gws/ssde/j25b/anthrofail/birgal/NEMO_AIS/bathymetry/mesh_mask-20260121.nc'):
     
     # Load gridT files into dataset:
     gridT_files = glob.glob(f'{run_folder}*grid_T*')

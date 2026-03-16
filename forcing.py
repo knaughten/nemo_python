@@ -453,7 +453,7 @@ def cesm2_expt_all_ocn_forcing(expt, ens_strs=None, out_dir=None, start_year=185
 # - (optional) year_start : start year for time averaging
 # - (optional) end_year   : end year for time averaging
 def era5_time_mean_forcing(variable, year_start=1979, year_end=2024, freq='daily', lat_slice=slice(-90,-50),
-                           era5_folder='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/ERA5-forcing/', era5_folder_in=None, processed=True, varname=None):
+                           era5_folder='/gws/ssde/j25b/anthrofail/birgal/NEMO_AIS/ERA5-forcing/', era5_folder_in=None, processed=True, varname=None):
 
     if era5_folder_in is None:
         if freq=='3-hourly':
@@ -676,9 +676,9 @@ def cesm2_all_variables_ensemble_mean(expt, out_dir, year_start=1979, year_end=2
 # - (optional) era5_folder, source_folder : string paths to era5 forcing climatology and source to correct (CESM2) forcing climatology/ensemble mean
 # - (optional) out_folder : string to location to save the bias correction file
 def calc_bias_correction(source, variable, expt='LE2', year_start=1979, year_end=2024, freq='daily', fill_land=False, monthly=False,
-                         era5_folder='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/ERA5-forcing/climatology/',
-                         source_folder='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/climate-forcing/CESM2/LE2/ensemble_mean/',
-                         out_folder='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/climate-forcing/CESM2/LE2/ensemble_mean/bias_corr/'):
+                         era5_folder='/gws/ssde/j25b/anthrofail/birgal/NEMO_AIS/ERA5-forcing/climatology/',
+                         source_folder='/gws/ssde/j25b/anthrofail/birgal/NEMO_AIS/climate-forcing/CESM2/LE2/ensemble_mean/',
+                         out_folder='/gws/ssde/j25b/anthrofail/birgal/NEMO_AIS/climate-forcing/CESM2/LE2/ensemble_mean/bias_corr/'):
 
     if source=='CESM2':
         
@@ -723,7 +723,7 @@ def calc_bias_correction(source, variable, expt='LE2', year_start=1979, year_end
 # - (optional) dist_coast : 
 # - (optional) coastal_correction_limit : float indicating the distance from the coastline (in km) considered for the coastal wind angle correction
 def thermo_dynamic_correction(source_mean, ERA5_mean, variable, out_file, fill_land=True, monthly=False, coastal=False, 
-                              dist_coast='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/bathymetry/distance_coast-20250715.nc', coastal_correction_limit=400):
+                              dist_coast='/gws/ssde/j25b/anthrofail/birgal/NEMO_AIS/bathymetry/distance_coast-20250715.nc', coastal_correction_limit=400):
     if variable in ['wind_speed','UBOT','VBOT']:
         print('Correcting dynamics')
         bias = ERA5_mean / source_mean
@@ -778,8 +778,8 @@ def thermo_dynamic_correction(source_mean, ERA5_mean, variable, out_file, fill_l
 # - (optional) out_dir    : string path where to save bias corrected forcing files
 # - (optional) bias_dir   : string path to bias correction field files produced by the function calc_bias_correction
 def apply_bias_correction(variable, ens, expt='LE2', start_year=1900, end_year=2050, monthly=True, freq='daily', highres=True,
-                          out_dir='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/climate-forcing/CESM2/LE2/bias-corrected/',
-                          bias_dir='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/climate-forcing/CESM2/LE2/ensemble_mean/bias_corr/'):
+                          out_dir='/gws/ssde/j25b/anthrofail/birgal/NEMO_AIS/climate-forcing/CESM2/LE2/bias-corrected/',
+                          bias_dir='/gws/ssde/j25b/anthrofail/birgal/NEMO_AIS/climate-forcing/CESM2/LE2/ensemble_mean/bias_corr/'):
     from tqdm import tqdm
     print(f'Processing {variable} files for ensemble member {ens} from {start_year}-{end_year} with bias correction file from {freq} means')
 
@@ -885,7 +885,7 @@ def apply_bias_correction(variable, ens, expt='LE2', start_year=1900, end_year=2
 # - (optional) year_start  : start year of range to process
 # - (optional) year_end    : end year
 # - (optinoal) era5_folder : path to ERA5 forcing files
-def process_era5_forcing(variable, year_start=1979, year_end=2024, era5_folder='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/ERA5-forcing/daily/'):
+def process_era5_forcing(variable, year_start=1979, year_end=2024, era5_folder='/gws/ssde/j25b/anthrofail/birgal/NEMO_AIS/ERA5-forcing/daily/'):
 
     for year in range(year_start,year_end+1):
         if variable=='d2m':
@@ -1236,7 +1236,7 @@ def ukesm_apply_bias_corrections_test (forcing_dir='/gws/ssde/j25b/terrafirma/ka
 
 
 # Make proper bias correction files: monthly, on the ERA5 grid, flood filled, proper interpolation with cf. These will be used to correct biases online.
-def ukesm_bias_corrections (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ensemble_mean_climatology/', era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ERA5_hourly/climatology/', out_dir='./', era5_mask_file='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/ERA5-forcing/climatology/land_sea_mask.nc'):
+def ukesm_bias_corrections (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ensemble_mean_climatology/', era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ERA5_hourly/climatology/', out_dir='./', era5_mask_file='/gws/ssde/j25b/anthrofail/birgal/NEMO_AIS/ERA5-forcing/climatology/land_sea_mask.nc'):
 
     ukesm_var_names = ['tair', 'qair', 'precip', 'snow', 'swrad', 'lwrad']
     era5_var_names = ['t2m', 'sph2m', 'mtpr', 'msr', 'msdwswrf', 'msdwlwrf']

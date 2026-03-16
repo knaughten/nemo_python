@@ -327,7 +327,7 @@ def convert_precip(file_precip='era5_tp_1979_daily_averages.nc', variable='tp',
 # ds_dew, ds_slp: optional xarray Datasets to use instead of opening file_dew, file_slp. This can be useful if you want to loop over time for memory reasons. If they exist, will return a dataset containing specific humidity, instead of writing to file.
 def dewpoint_to_specific_humidity(file_dew='d2m_y1979.nc', variable_dew='d2m',
                                   file_slp='msl_y1979.nc', variable_slp='msl',
-                                  dataset='ERA5', folder='/gws/nopw/j04/anthrofail/birgal/NEMO_AIS/ERA5-forcing/daily/files/', ds_dew=None, ds_slp=None):
+                                  dataset='ERA5', folder='/gws/ssde/j25b/anthrofail/birgal/NEMO_AIS/ERA5-forcing/daily/files/', ds_dew=None, ds_slp=None):
     if dataset=='ERA5':
         # ERA5 does not provide specific humidity, but gives the 2 m dewpoint temperature in K
         # Conversion assumes temperature is in K and pressure in Pa.
