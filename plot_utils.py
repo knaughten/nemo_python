@@ -204,4 +204,11 @@ def get_extend (vmin=None, vmax=None):
         return 'both'
             
 
-    
+# Helper function to set colours automatically.
+def default_colours (n):
+
+    colours = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    if n > len(colours):
+        print(('Error (default_colours): must specify colours if there are more than ' + len(colours)))
+        sys.exit()
+    return colours[:n]

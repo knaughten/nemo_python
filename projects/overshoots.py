@@ -21,9 +21,9 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 from ..timeseries import update_simulation_timeseries, update_simulation_timeseries_um, check_nans, fix_missing_months, calc_timeseries, overwrite_file
 from ..plots import timeseries_by_region, timeseries_by_expt, finished_plot, timeseries_plot, circumpolar_plot
-from ..plot_utils import truncate_colourmap
-from ..utils import moving_average, add_months, rotate_vector, polar_stereo, convert_ismr, bwsalt_abs
-from ..grid import region_mask, calc_geometry, build_ice_mask
+from ..plot_utils import truncate_colourmap, lon_label
+from ..utils import moving_average, add_months, rotate_vector, polar_stereo, convert_ismr, bwsalt_abs, fix_lon_range
+from ..grid import region_mask, calc_geometry, build_ice_mask, build_shelf_mask
 from ..constants import line_colours, region_names, deg_string, gkg_string, months_per_year, rho_fw, rho_ice, sec_per_year, vaf_to_gmslr
 from ..file_io import read_schmidtko, read_woa, read_zhou_bottom_climatology
 from ..interpolation import interp_latlon_cf, interp_grid
@@ -2284,7 +2284,8 @@ def truncate_rampdown_PI (suite):
 
 # Helper function to get time axis in years since beginning; pass DataArray with coordinate 'time_centered'
 def time_in_years (data, year0=None, return_year0=False):
-    year0 = data.time_centered[0].dt.year.item()
+    if year0 is None:
+        year0 = data.time_centered[0].dt.year.item()
     years = np.array([(date.dt.year.item() - year0) + (date.dt.month.item() - 1)/months_per_year + 0.5 for date in data.time_centered])
     if return_year0:
         return years, year0
@@ -4180,6 +4181,194 @@ def plot_ross_special_cases (base_dir='./'):
             ax.legend(loc='lower center', bbox_to_anchor=(0.5, -0.37), ncol=2, fontsize=13)
     plt.suptitle(var_title, fontsize=16)
     finished_plot(fig, fig_name='figures/ross_special_cases.png', dpi=300)
+
+
+def plot_fris_freshening_vs_ross_tipping (base_dir='./'):
+
+    ross_tip_date = []
+    fris_tip_date = []
+    fris_bwsalt = []
+    timeseries_file = 'timeseries.nc'
+    smooth = 12
+    offset = 0.2
+
+    # Loop over ramp-up ensemble members plus the stabilisation runs where Ross tips which aren't special cases of half-tipping
+    for suite in suites_by_scenario['ramp_up'] + ['cz374', 'db587', 'db597']:
+        # We know Ross tips but get the dates anyway
+        tips, date_tip = check_tip(suite=suite, region='ross', return_date=True, base_dir=base_dir)
+        # Save tipping date and FRIS shelf salinity timeseries
+        ross_tip_date.append(date_tip)
+        ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file, decode_times=time_coder)
+        if suites_branched[suite] is not None:
+            fris_bwsalt.append(build_timeseries_trajectory([suites_branched[suite], suite], 'filchner_ronne_shelf_bwsalt', base_dir=base_dir, timeseries_file=timeseries_file))
+        else:
+            fris_bwsalt.append(ds['filchner_ronne_shelf_bwsalt'])
+        # Get FRIS tipping date
+        tips, date_tip = check_tip(suite=suite, region='filchner_ronne', return_date=True, base_dir=base_dir)
+        fris_tip_date.append(date_tip)
+
+    # Plot
+    fig, ax = plt.subplots()
+    for n in range(len(ross_tip_date)):
+        # Smooth
+        bwsalt = moving_average(fris_bwsalt[n], smooth)
+        # Truncate after FRIS tips
+        if fris_tip_date[n] is not None:
+            bwsalt = bwsalt.where(bwsalt.time_centered < fris_tip_date[n], drop=True)
+        # Index as years since tipping
+        time = time_in_years(bwsalt, year0=ross_tip_date[n].dt.year.item())
+        # Add to plot with offset
+        ax.plot(time, bwsalt+offset*n, '-')
+        # Calculate trend lines before and after tipping
+        t = np.argwhere(time>0)[0][0]
+        slope1, intercept1 = linregress(time[:t], bwsalt[:t])[:2]
+        x_vals = np.array([time[0], time[t-1]])
+        y_vals = slope1*x_vals + intercept1 + offset*n
+        ax.plot(x_vals, y_vals, '-', color='black', linewidth=0.5)
+        slope2, intercept2 = linregress(time[t:], bwsalt[t:])[:2]
+        x_vals = np.array([time[t], time[-1]])
+        y_vals = slope2*x_vals + intercept2 + offset*n
+        ax.plot(x_vals, y_vals, '-', color='black', linewidth=0.5)        
+    ax.grid(linestyle='dotted')
+    ax.axvline(0, color='black', linestyle='dashed')
+    ax.set_xlabel('Years relative to Ross tipping')
+    ax.set_ylabel('Filchner-Ronne shelf bottom salinity (+ offset)')
+    finished_plot(fig, fig_name='figures/fris_freshening_vs_ross_tipping.png', dpi=300)
+
+
+# Precompute freshwater flux terms time-averaged (1) before Ross tipping for first ramp-up member; (2) between Ross tipping and FRIS tipping for the first ramp-up member; (3) over all years for the evolving ice piControl.
+def precompute_fw_avg (base_dir='./'):
+
+    from datetime import datetime
+
+    ramp_up_suite = 'cx209'
+    pi_suite = 'cs568'
+    var_names = ['sowflisf', 'fsitherm', 'pr', 'prsn', 'evs', 'friver', 'ficeberg', 'nav_lat', 'nav_lon', 'bounds_lat', 'bounds_lon', 'area']
+    file_tail = '-T.nc'
+    out_file_head = 'fw_tavg'
+
+    ross_date_tip = check_tip(suite=ramp_up_suite, region='ross', return_date=True)[1].dt.year.item()
+    fris_date_tip = check_tip(suite=ramp_up_suite, region='filchner_ronne', return_date=True)[1].dt.year.item()
+
+    suites = [ramp_up_suite, ramp_up_suite, pi_suite]
+    start_year = [None, ross_date_tip+1, None]
+    end_year = [ross_date_tip, fris_date_tip, None]
+    out_file_tail = ['_before_ross.nc', '_after_ross_before_fris.nc', '.nc']
+
+    for n in range(len(suites)):
+        # Find all the output filenames
+        nemo_files = []
+        file_head = 'nemo_'+suites[n]+'o_1m_'
+        sim_dir = base_dir+'/'+suites[n]
+        for f in os.listdir(sim_dir):
+            if f.startswith(file_head) and f.endswith(file_tail):
+                date_codes = re.findall(r'\d{4}\d{2}\d{2}', f)
+                file_date = datetime.strptime(date_codes[0], '%Y%m%d').date()
+                if start_year[n] is not None and file_date.year < start_year[n] or end_year[n] is not None and file_date.year >= end_year[n]:
+                    # Outside of date range
+                    continue
+                file_pattern = f'{file_head}{date_codes[0]}?{date_codes[1]}*{file_tail}'
+                if file_pattern not in nemo_files:
+                    nemo_files.append(file_pattern)
+        nemo_files.sort()
+        # Loop over the files and construct a dataset
+        ds_accum = None
+        num_t = 0
+        for file_pattern in nemo_files:
+            print('Processing '+file_pattern)
+            # Read all files together, select only variables we want, and time-mean
+            try:
+                ds = xr.open_mfdataset(f'{sim_dir}/{file_pattern}', decode_times=time_coder)[var_names].mean(dim='time_counter')
+                ds.load()
+                # Now add to accumulation array
+                if ds_accum is None:
+                    ds_accum = ds
+                else:
+                    ds_accum += ds
+                num_t += 1
+            except(KeyError):
+                print('Warning: missing variable(s) for '+file_pattern)
+        # Convert from time-integral to average
+        ds_avg = ds_accum/num_t
+        # Write to file
+        out_file = base_dir+'/'+suites[n]+'/'+out_file_head+out_file_tail[n]
+        print('Writing '+out_file)
+        ds_avg.to_netcdf(out_file)
+
+
+def plot_fw_by_longitude (base_dir='./'):
+
+    suite = 'cx209'
+    pi_suite = 'cs568'
+    var_titles = ['Ice shelves', 'Sea ice', 'Precip - evap', 'Icebergs', 'Surface melt']
+    nemo_var = ['sowflisf', 'fsitherm', 'pminuse', 'ficeberg', 'friver']
+    colours = ['DarkGrey', 'LightPink', 'MediumSeaGreen', 'Gold', 'SteelBlue']
+    num_vars = len(nemo_var)
+    break_lon = -60
+    factor = 1e-6
+    units = 'mSv'
+
+    # Read one output file to get continental shelf mask
+    mask_file = base_dir+'/cx209/nemo_cx209o_1m_18500101-18500201_grid-T.nc'
+    ds = xr.open_dataset(mask_file, decode_times=time_coder)
+    shelf_mask = build_shelf_mask(ds)[0]
+
+    # Open both datasets at once to get anomalies at every grid point
+    ds_ru = xr.open_dataset(base_dir+'/'+suite+'/fw_tavg.nc')
+    ds_pi = xr.open_dataset(base_dir+'/'+pi_suite+'/sfc_links/fw_tavg.nc')
+    ds = ds_ru - ds_pi
+    # Area integrand including continental shelf only
+    dA = ds_ru['area']*shelf_mask
+    # Calculate area-mean longitude for x-axis
+    lon_plot = (ds_ru['nav_lon']*dA).sum(dim='y')/dA.sum(dim='y')
+    # Break at 90W for best visibility
+    lon_plot = fix_lon_range(lon_plot, max_lon=break_lon).data
+    data_plot = []
+    for var in nemo_var:
+        if var == 'pminuse':
+            data = ds['pr'] + ds['prsn'] - ds['evs']
+        else:
+            data = ds[var]
+        if var == 'sowflisf':
+            data *= -1
+        data *= factor
+        # Area-integral over y direction (effectively latitude)
+        data_int = (data*dA).sum(dim='y').data
+        # Add longitude coordinate
+        data_int = xr.DataArray(data_int, coords={'lon':lon_plot}).sortby('lon')
+        data_plot.append(data_int)
+
+    lon_vals = data_plot[0].lon.data
+    lon_edges = np.concatenate(([2*lon_vals[0] - lon_vals[1]], 0.5*(lon_vals[:-1] + lon_vals[1:]), [2*lon_vals[-1] - lon_vals[-2]]))
+    dlon = lon_edges[1:] - lon_edges[:-1]
+
+    # Plot
+    fig = plt.figure(figsize=(8,3.5))
+    gs = plt.GridSpec(1,1)
+    gs.update(left=0.08, right=0.99, bottom=0.15, top=0.9, hspace=0.05)
+    ax = plt.subplot(gs[0,0])
+    base = 0*data_plot[0]
+    for v in range(num_vars):
+        ax.fill_between(data_plot[v].lon, base, base+data_plot[v], color=colours[v], label=var_titles[v])
+        base += data_plot[v]
+    ax.grid(linestyle='dotted')
+    ax.axhline(0, color='black')
+    ax.legend(loc='upper left')
+    ax.set_ylabel(units)
+    # Choose longitude ticks and label nicely
+    lon_ticks = np.arange(break_lon, break_lon+360, 30)
+    lon_ticklabels = [lon_label(fix_lon_range(tick)) for tick in lon_ticks]
+    lon_ticks = fix_lon_range(lon_ticks, max_lon=break_lon)
+    ax.set_xticks(lon_ticks)
+    ax.set_xticklabels(lon_ticklabels)
+    ax.set_ylim([-0.5, 2])
+    ax.set_xlim([break_lon-360, break_lon])
+    finished_plot(fig, fig_name=None, dpi=300)
+            
+        
+        
+        
+                
         
     
 
