@@ -378,6 +378,13 @@ def cesm2_atm_forcing (expt, var, ens, out_dir, start_year=1850, end_year=2100, 
                     print('leap year')
                     arr.loc[dict(time=(arr.time.dt.month==2)*(arr.time.dt.day==29))] = fill_value.data
 
+            # Daily variables of ensemble members 004-009 of the SF-xAER experiment are missing the day 2014-12-31 --- fill with the conditions from the previous day
+            if expt=='SF-xAER':
+                if ens in ['004','005','006','007','008','009']:
+                    fill_value = arr.isel(time=((arr.time.dt.month==12)*(arr.time.dt.day==30)))
+                    if freq=='daily':
+                        arr.loc[dict(time=(arr.time.dt.month==12)*(arr.time.dt.day==31))] = fill_value.data
+
             # Change variable names and units in the dataset:
             varname = arr.name 
             if var=='PRECS':
