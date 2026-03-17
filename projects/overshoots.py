@@ -2300,24 +2300,22 @@ def plot_FW_timeseries (base_dir='./'):
     suite_list = suite_string.split('-')
     pi_suite = 'cs568'  # Want evolving ice PI control so the ice mass is partitioned the same way into calving, basal melting, runoff.
     pi_years = 50
-    var_names = ['all_massloss', 'all_seaice_meltfreeze', 'all_pminuse', 'all_runoff', 'all_iceberg_melt']
-    var_titles = ['Ice shelves', 'Sea ice', 'Precip - evap', 'Surface melt',  'Icebergs']
-    timeseries_files = ['timeseries.nc'] + 4*['timeseries_sfc.nc']
-    factors = [rho_fw/rho_ice*1e6/sec_per_year] + 4*[1e-3/sec_per_year]
+    var_names = ['all_massloss', 'ross_massloss', 'all_seaice_meltfreeze', 'all_pminuse', 'all_runoff', 'all_iceberg_melt']
+    var_titles = ['Ice shelves', 'Ross Ice Shelf', 'Sea ice', 'Precip - evap', 'Surface melt',  'Icebergs']
+    timeseries_files = 2*['timeseries.nc'] + 4*['timeseries_sfc.nc']
+    factors = 2*[rho_fw/rho_ice*1e6/sec_per_year] + 4*[1e-3/sec_per_year]
+    glacial = [True, True, False, False, True, True]  # Ross is glacial of course, but don't want to double-count
     units = 'mSv'
-    colours = [(0.6,0.6,0.6), (0.8,0.47,0.65), (0,0.62,0.45), (0,0.45,0.7), (0.9,0.62,0)]   
-    #fw_colours = [(0.6,0.6,0.6), '#e41a1c', '#4daf4a', '#984ea3', '#dede00']
+    colours = [(0.6,0.6,0.6), 'black', (0.8,0.47,0.65), (0,0.62,0.45), (0,0.45,0.7), (0.9,0.62,0)]   
     num_vars = len(var_names)
-    #ismr_regions = ['ross', 'filchner_ronne', 'west_antarctica', 'east_antarctica', 'all']
-    #ismr_titles = [region_names[region] for region in ismr_regions[:-1]] + ['Total']
-    #ismr_colours = [(0,0.45,0.7), (0.8,0.47,0.65), (0,0.62,0.45), (0.9,0.62,0), (0.6,0.6,0.6)]
     tip_regions = ['ross', 'filchner_ronne'] 
     tip_titles = ['Ross', 'FRIS']
     smooth = 10*months_per_year
     stage_colours = ['Crimson', 'white', 'DodgerBlue']
     label_y = 120
-    #sample_file = base_dir+'/time_averaged/piControl_grid-T.nc'
-    #ds_grid = xr.open_dataset(sample_file).squeeze()
+    percent_titles = ['% total anomaly from glacial sources', '% total anomaly from Ross Ice Shelf']
+    threshold = 5  # Do not show percent contributions when total FW flux is < 5 mSv
+    percent_colours = ['CornflowerBlue', 'RebeccaPurple']
     
     # Inner function to read the variable from the main trajectory and subtract the PI baseline
     def read_var_anomaly (var, fname):
@@ -2337,11 +2335,25 @@ def plot_FW_timeseries (base_dir='./'):
         # Convert units and smooth in time
         data = moving_average(data, smooth)*factors[v]
         data_plot.append(data)
-    #ismr_plot = []
-    #for region in ismr_regions:
-    #    data = read_var_anomaly(region+'_massloss', timeseries_files[0])
-    #    data = moving_average(data, smooth)*factors[0]
-    #    ismr_plot.append(data)
+
+    # Sum fields for bottom panel
+    # Total glacial sources, and total FW anomalies from all sources
+    data_glacial = 0*data_plot[0]
+    data_total = 0*data_plot[0]
+    for v in range(num_vars):
+        if var_names[v] == 'ross_massloss':
+            # Skip so don't double count
+            v_ross = v
+            continue
+        data = data_plot[v]
+        if glacial[v]:
+            data_glacial += data
+        data_total += data
+    # Calculate percentages
+    percent_glacial = (data_glacial/data_total*1e2).where(data_total > threshold)
+    percent_ross = (data_plot[v_ross]/data_total*1e2).where(data_total > threshold)
+    plot_percent = [percent_glacial, percent_ross]
+    print('Max Ross contribution to total is '+str(percent_ross.max().item())+'%')
 
     # Find the first and last year of each stage in the simulation
     stage_start, stage_end = find_stages_start_end(suite_list, base_dir=base_dir, timeseries_file=timeseries_files[0])
@@ -2355,37 +2367,49 @@ def plot_FW_timeseries (base_dir='./'):
     # Find the time of tipping and recovery for each cavity
     tip_times = [check_tip(suite=suite_string, region=region, return_date=True, base_dir=base_dir)[1] for region in tip_regions]
     recover_times = [check_recover(suite=suite_string, region=region, return_date=True, base_dir=base_dir)[1] for region in tip_regions]
+    # Get time axis in years since beginning
+    years = time_in_years(data_plot[0], year0=year0)
 
     # Plot
-    fig = plt.figure(figsize=(8,3.5))
-    gs = plt.GridSpec(1,1)
-    gs.update(left=0.08, right=0.99, bottom=0.15, top=0.9, hspace=0.05)
-    ax = plt.subplot(gs[0,0])
+    fig = plt.figure(figsize=(8,5.5))
+    gs = plt.GridSpec(5,1)
+    gs.update(left=0.08, right=0.99, bottom=0.1, top=0.93, hspace=0.5)
+    # Top panel
+    ax1 = plt.subplot(gs[:3,0])
     for v in range(len(data_plot)):
-        # Get time axis in years since beginning
-        years = time_in_years(data_plot[v], year0=year0)
-        ax.plot(years, data_plot[v], '-', color=colours[v], label=var_titles[v], linewidth=1)
+        ax1.plot(years, data_plot[v], '-', color=colours[v], label=var_titles[v], linewidth=1)
+    # Bottom panel
+    ax2 = plt.subplot(gs[3:,0])
+    for v in range(len(plot_percent)):
+        ax2.plot(years, plot_percent[v], '-', color=percent_colours[v], label=percent_titles[v], linewidth=1)
     # Shade each stage
     for t in range(len(stage_start)):
-        ax.axvspan(stage_start[t], stage_end[t], alpha=0.1, color=stage_colours[t])
+        for ax in [ax1, ax2]:
+            ax.axvspan(stage_start[t], stage_end[t], alpha=0.1, color=stage_colours[t])
     # Dashed lines to show tipping and recovery
     for r in range(len(tip_regions)):
         if tip_times[r] is not None:
             tip_year = tip_times[r].dt.year.item() - year0
-            ax.axvline(tip_year, color='black', linestyle='dashed', linewidth=1)
-            plt.text(tip_year, label_y, tip_titles[r]+' tips', ha='left', va='top', rotation=-90)
+            for ax in [ax1, ax2]:
+                ax.axvline(tip_year, color='black', linestyle='dashed', linewidth=1)
+            ax1.text(tip_year, label_y, tip_titles[r]+' tips', ha='left', va='top', rotation=-90)
             if recover_times[r] is not None:
                 recover_year = recover_times[r].dt.year.item() - year0
-                ax.axvline(recover_year, color='black', linestyle='dashed', linewidth=1)
-                plt.text(recover_year, label_y, tip_titles[r]+' recovers', ha='left', va='top', rotation=-90)
-    ax.grid(linestyle='dotted')
-    ax.axhline(0, color='black')
-    ax.set_ylabel(units)
-    ax.set_xlim([stage_start[0], stage_end[-1]])
-    ax.set_title('Antarctic freshwater fluxes (anomalies from preindustrial)', fontsize=14)
-    plt.text(615, ax.get_ylim()[0]-7, 'years', ha='left', va='top')
+                for ax in [ax1, ax2]:
+                    ax.axvline(recover_year, color='black', linestyle='dashed', linewidth=1)
+                ax1.text(recover_year, label_y, tip_titles[r]+' recovers', ha='left', va='top', rotation=-90)
+    ax2.set_ylim([-25, 150])
+    for ax, ypos in zip([ax1, ax2], [7, 11]):
+        ax.grid(linestyle='dotted')
+        ax.axhline(0, color='black')
+        ax.set_xlim([stage_start[0], stage_end[-1]])
+        ax.text(615, ax.get_ylim()[0]-ypos, 'years', ha='left', va='top')
+    ax1.legend(loc='upper left')
+    ax2.legend(loc='upper center', bbox_to_anchor=(0.65, 1))
+    ax1.set_ylabel(units)
+    ax2.set_ylabel('%')
+    ax1.set_title('Antarctic freshwater fluxes (anomalies from preindustrial)', fontsize=14)
     plt.text(0.5, 0.01, trajectory_title(suite_string), ha='center', va='bottom', transform=fig.transFigure, fontsize=12)
-    ax.legend(loc='upper left')
     finished_plot(fig, fig_name='figures/FW_timeseries.png', dpi=300)
 
 
