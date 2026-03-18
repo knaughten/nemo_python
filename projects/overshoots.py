@@ -4331,63 +4331,85 @@ def plot_fw_by_longitude (base_dir='./'):
     break_lon = -60
     factor = 1e-6
     units = 'mSv'
+    file_head = 'fw_tavg'
+    file_mid = ['_before_ross', '_after_ross_before_fris']
+    file_tail = '.nc'
+    titles = ['Before Ross tips', 'After Ross tips; before Filchner-Ronne tips']
+    labels = [['Ross', 'LABT', 'Amundsen', 'Bellingshausen', 'Peninsula'], ['Filchner-\nRonne', 'FT', 'Dronning Maud', 'Amery', 'Wilkes']]
+    label_x = [[-170, 158, -110, -80, -68], [-38, -35, 15, 63, 110]]
+    label_y = [[0.1, 0.25, 0.6, 0.7, 1.2], [0.65, 0.25, 0.5, 0.75, 0.85]]
+    rotate = [[False, True, True, True, True], [False, True, False, True, False]]
 
     # Read one output file to get continental shelf mask
     mask_file = base_dir+'/cx209/nemo_cx209o_1m_18500101-18500201_grid-T.nc'
     ds = xr.open_dataset(mask_file, decode_times=time_coder)
     shelf_mask = build_shelf_mask(ds)[0]
 
-    # Open both datasets at once to get anomalies at every grid point
-    ds_ru = xr.open_dataset(base_dir+'/'+suite+'/fw_tavg.nc')
-    ds_pi = xr.open_dataset(base_dir+'/'+pi_suite+'/sfc_links/fw_tavg.nc')
-    ds = ds_ru - ds_pi
+    # Open all datasets at once to get anomalies at every grid point
+    def open_ds (suite0, file_mid0):
+        return xr.open_dataset(base_dir+'/'+suite0+'/'+file_head+file_mid0+file_tail)
+    ds_pi = open_ds(pi_suite, '')
+    ds_ru_1 = open_ds(suite, file_mid[0])
+    ds_ru_2 = open_ds(suite, file_mid[1])
+    ds_plot = [ds_ru_1-ds_pi, ds_ru_2-ds_pi]
     # Area integrand including continental shelf only
-    dA = ds_ru['area']*shelf_mask
+    dA = ds_ru_1['area']*shelf_mask
     # Calculate area-mean longitude for x-axis
-    lon_plot = (ds_ru['nav_lon']*dA).sum(dim='y')/dA.sum(dim='y')
+    lon_plot = (ds_ru_1['nav_lon']*dA).sum(dim='y')/dA.sum(dim='y')
     # Break at 90W for best visibility
     lon_plot = fix_lon_range(lon_plot, max_lon=break_lon).data
-    data_plot = []
-    for var in nemo_var:
-        if var == 'pminuse':
-            data = ds['pr'] + ds['prsn'] - ds['evs']
-        else:
-            data = ds[var]
-        if var == 'sowflisf':
-            data *= -1
-        data *= factor
-        # Area-integral over y direction (effectively latitude)
-        data_int = (data*dA).sum(dim='y').data
-        # Add longitude coordinate
-        data_int = xr.DataArray(data_int, coords={'lon':lon_plot}).sortby('lon')
-        data_plot.append(data_int)
 
-    lon_vals = data_plot[0].lon.data
-    lon_edges = np.concatenate(([2*lon_vals[0] - lon_vals[1]], 0.5*(lon_vals[:-1] + lon_vals[1:]), [2*lon_vals[-1] - lon_vals[-2]]))
-    dlon = lon_edges[1:] - lon_edges[:-1]
-
-    # Plot
-    fig = plt.figure(figsize=(8,3.5))
-    gs = plt.GridSpec(1,1)
-    gs.update(left=0.08, right=0.99, bottom=0.15, top=0.9, hspace=0.05)
-    ax = plt.subplot(gs[0,0])
-    base = 0*data_plot[0]
-    for v in range(num_vars):
-        ax.fill_between(data_plot[v].lon, base, base+data_plot[v], color=colours[v], label=var_titles[v])
-        base += data_plot[v]
-    ax.grid(linestyle='dotted')
-    ax.axhline(0, color='black')
-    ax.legend(loc='upper left')
-    ax.set_ylabel(units)
-    # Choose longitude ticks and label nicely
-    lon_ticks = np.arange(break_lon, break_lon+360, 30)
-    lon_ticklabels = [lon_label(fix_lon_range(tick)) for tick in lon_ticks]
-    lon_ticks = fix_lon_range(lon_ticks, max_lon=break_lon)
-    ax.set_xticks(lon_ticks)
-    ax.set_xticklabels(lon_ticklabels)
-    ax.set_ylim([-0.5, 2])
-    ax.set_xlim([break_lon-360, break_lon])
-    finished_plot(fig, fig_name=None, dpi=300)
+    # Set up plot
+    fig = plt.figure(figsize=(8,7))
+    gs = plt.GridSpec(2,1)
+    gs.update(left=0.1, right=0.95, bottom=0.05, top=0.9, hspace=0.25)
+    for t in range(2):
+        ax = plt.subplot(gs[t,0])
+        base = None
+        for v in range(num_vars):
+            if nemo_var[v] == 'pminuse':
+                data = ds_plot[t]['pr'] + ds_plot[t]['prsn'] - ds_plot[t]['evs']
+            else:
+                data = ds_plot[t][nemo_var[v]].copy()
+            if nemo_var[v] == 'sowflisf':
+                data *= -1
+            data *= factor
+            # Area-integral over y direction (effectively latitude)
+            data_int = (data*dA).sum(dim='y').data
+            # Add longitude coordinate
+            data_int = xr.DataArray(data_int, coords={'lon':lon_plot}).sortby('lon')
+            if base is None:
+                base = 0*data_int
+            ax.bar(data_int.lon, data_int, bottom=base, color=colours[v], label=var_titles[v], width=1.2)
+            #ax.fill_between(data_int.lon, base, base+data_int, color=colours[v], label=var_titles[v])
+            base += data_int
+        ax.grid(linestyle='dotted')
+        ax.axhline(0, color='black')
+        if t == 0:
+            ax.legend(loc='upper left')
+        ax.set_title(titles[t], fontsize=14)
+        ax.set_ylabel(units)
+        # Choose longitude ticks and label nicely
+        lon_ticks = np.arange(break_lon, break_lon+360, 30)
+        lon_ticklabels = [lon_label(fix_lon_range(tick)) for tick in lon_ticks]
+        lon_ticks = fix_lon_range(lon_ticks, max_lon=break_lon)
+        ax.set_xticks(lon_ticks)
+        ax.set_xticklabels(lon_ticklabels)
+        ax.set_ylim([-0.5, 1.5])
+        ax.set_xlim([break_lon-360, break_lon])
+        # Label regions
+        for label, x, y, r in zip(labels[t], label_x[t], label_y[t], rotate[t]):
+            plt.text(fix_lon_range(x, max_lon=break_lon), y, label, fontsize=10, rotation=(-90 if r else 0), ha='center', va='center')
+        # Label coastal current
+        for x in range(0, break_lon+360, 90):
+            x0 = fix_lon_range(x, max_lon=break_lon)
+            x1 = x0-45
+            y0 = -0.42
+            ax.annotate('', xytext=(x0, y0), xy=(x1, y0), arrowprops=dict(arrowstyle='->'))
+        if t==0:
+            plt.text(fix_lon_range(68, max_lon=break_lon), -0.38, 'coastal current', ha='center', va='bottom')
+    plt.suptitle('Freshwater fluxes during ramp-up (anomalies from preindustrial)', fontsize=16)
+    finished_plot(fig, fig_name='figures/fw_by_longitude.png', dpi=300)
             
         
         
