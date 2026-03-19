@@ -220,6 +220,28 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         ds_nemo = ds_nemo.swap_dims({'x_grid_T_inner':'x_grid_T', 'y_grid_T_inner':'y_grid_T'})
 
     # Select region
+    # First check for longitude bounds: last character is W or E, and second last character is a number
+    lon_bounds = None
+    if region.endswith('W') or region.endswith('E'):
+        try:
+            test = int(region[-2])  # Will jump to except if the second last character isn't a number
+            # Extract longitude bounds, starting at the end and stripping them off
+            lon_bounds = []
+            for n in range(2):
+                i = region.rfind('_')
+                x_str = region[i+1:]
+                region = region[:i]
+                if x_str.endswith('W'):
+                    factor = -1
+                elif x_str.endswith('E'):
+                    factor = 1
+                else:
+                    raise Exception('Weird longitude bound '+x_str)
+                x = factor*int(x_str[:-1])
+                lon_bounds.insert(0, x)
+        except(ValueError):
+            pass
+    
     if region is not None and 'gyre' not in region:
         if region_type is None:
             if region.endswith('cavity'):
