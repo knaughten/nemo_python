@@ -4410,6 +4410,37 @@ def plot_fw_by_longitude (base_dir='./'):
             plt.text(fix_lon_range(68, max_lon=break_lon), -0.38, 'coastal current', ha='center', va='bottom')
     plt.suptitle('Freshwater fluxes during ramp-up (anomalies from preindustrial)', fontsize=16)
     finished_plot(fig, fig_name='figures/fw_by_longitude.png', dpi=300)
+
+
+# Calculate more timeseries for 
+def calc_additional_salt_timeseries (suite, base_dir='./'):
+
+    var_names = ['sss', 'salt', 'bwsalt']
+    regions = ['filchner_ronne']
+    start_lon = 165
+    end_lon = -30
+    dlon = 15
+    lon0 = start_lon
+    while True:
+        lon1 = fix_lon_range(lon0+dlon)
+        region = 'all_shelf'
+        for lon in [lon0, lon1]:
+            if lon < 0:
+                region += '_'+str(-1*lon)+'W'
+            else:
+                region += '_'+str(lon)+'E'
+        regions.append(region)
+        if lon1 == end_lon:
+            break
+        lon0 = lon1
+    timeseries_types = []
+    for region in regions:
+        for var in var_names:
+            timeseries_types.append(region+'_'+var)
+    
+    
+
+    
             
         
         
