@@ -4416,7 +4416,7 @@ def plot_fw_by_longitude (base_dir='./'):
 def calc_additional_salt_timeseries (suite_id, base_dir='./'):
 
     var_names = ['sss', 'salt', 'bwsalt']
-    regions = ['filchner_ronne']
+    regions = ['filchner_ronne_shelf']
     start_lon = 165
     end_lon = -30
     dlon = 15
