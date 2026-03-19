@@ -155,8 +155,8 @@ def single_cavity_mask (cavity, ds, return_name=False):
     else:
         return ice_mask, ds
 
-# Select a mask for the given region, either continental shelf only ('shelf'), cavities only ('cavity'), or continental shelf with cavities ('all'). Pass it an xarray Dataset as for build_shelf_mask.
-def region_mask (region, ds, option='all', return_name=False):
+# Select a mask for the given region, either continental shelf only ('shelf'), cavities only ('cavity'), or continental shelf with cavities ('all'). Pass it an xarray Dataset as for build_shelf_mask. Can optionally pass lon_bounds=[lon_w, lon_e] to further restrict to a segment of the given region.
+def region_mask (region, ds, option='all', return_name=False, lon_bounds=None):
 
     x_name, y_name = xy_name(ds)
 
@@ -319,8 +319,22 @@ def region_mask (region, ds, option='all', return_name=False):
     except:
         print('Warning: no cavities in this dataset')
 
+    mask_name = region+'_'+option+'_mask'
+    if lon_bounds is not None:
+        # Further restrict to a segment given by longitude
+        [xmin, xmax] = lon_bounds
+        lon_name = latlon_name(ds)[0]
+        lon = ds[lon_name]
+        mask = xr.where((lon >= xmin)*(lon <= xmax), mask, 0)
+        for x in lon_bounds:
+            if x < 0:
+                x_string = str(-x)+'W'
+            else:
+                x_string = str(x)+'E'
+            mask_name += '_'+x_string
+
     # Save to the Dataset in case it's useful later
-    ds = ds.assign({region+'_'+option+'_mask':mask})
+    ds = ds.assign({mask_name:mask})
 
     if return_name:
         return mask, ds, title
