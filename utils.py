@@ -6,10 +6,10 @@ from .constants import deg2rad, rho_fw, sec_per_hour, temp_C2K, Rdry, Rvap, vap_
 def fix_lon_range (lon, max_lon=180):
 
     if isinstance(lon, xr.DataArray):
-        lon = xr.where(lon > max_lon, lon-360, lon)
+        lon = xr.where(lon >= max_lon, lon-360, lon)
         lon = xr.where(lon < max_lon-360, lon+360, lon)
     elif isinstance(lon, np.ndarray):
-        index = lon > max_lon
+        index = lon >= max_lon
         lon[index] = lon[index] - 360
         index = lon < max_lon-360
         lon[index] = lon[index] + 360
