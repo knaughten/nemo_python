@@ -4412,8 +4412,8 @@ def plot_fw_by_longitude (base_dir='./'):
     finished_plot(fig, fig_name='figures/fw_by_longitude.png', dpi=300)
 
 
-# Calculate more timeseries for 
-def calc_additional_salt_timeseries (suite, base_dir='./'):
+# Calculate more timeseries for salinity (surface, bottom, and depth-mean) for 15-degree longitude regions along the EAIS continental shelf, as well as the FRIS continental shelf.
+def calc_additional_salt_timeseries (suite_id, base_dir='./'):
 
     var_names = ['sss', 'salt', 'bwsalt']
     regions = ['filchner_ronne']
@@ -4423,10 +4423,10 @@ def calc_additional_salt_timeseries (suite, base_dir='./'):
     lon0 = start_lon
     while True:
         lon1 = fix_lon_range(lon0+dlon)
+        if lon0 > 0 and lon1 == -180:
+            lon1 = 180
         if lon0 == 180 and lon1 < 0:
             lon0 = -180
-        if lon0 < 0 and lon1 == 180:
-            lon1 = 180
         region = 'all_shelf'
         for lon in [lon0, lon1]:
             if lon < 0:
@@ -4441,7 +4441,8 @@ def calc_additional_salt_timeseries (suite, base_dir='./'):
     for region in regions:
         for var in var_names:
             timeseries_types.append(region+'_'+var)
-    
+            
+    update_simulation_timeseries(suite_id, timeseries_types, timeseries_file='timeseries_salt.nc', sim_dir=base_dir+'/'+suite_id+'/', freq='m', halo=True, gtype='T')
     
 
     
