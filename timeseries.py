@@ -13,6 +13,7 @@ time_coder = xr.coders.CFDatetimeCoder(use_cftime=True)
 # <region>_massloss: basal mass loss from the given ice shelf or region of multiple ice shelves (eg brunt, amundsen_sea)
 # <region>_draft: area-averaged ice draft from the given ice shelf or region of multiple ice shelves - only useful if there's a coupled ice sheet
 # <region>_bwtemp, <region>_bwsalt: area-averaged bottom water temperature or salinity from the given region or cavity (eg ross_cavity, ross_shelf, ross)
+# <region>_sst, <region>_sss: area-averaged SST or SSS for the given region (cavities will be masked)
 # <region>_bwSA: as for bwsalt, but convert from practical salinity (assumes NEMO3.6 input) to absolute salinity
 # <region>_temp, <region>_salt: volume-averaged temperature or salinity from the given region or cavity
 # <region>_temp_btw_xxx_yyy_m, <region>_salt_btw_xxx_yyy_m: volume-averaged temperature or salinity from the given region or cavity, between xxx and yyy metres (positive integers, shallowest first)
@@ -75,6 +76,18 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         nemo_var = 'bwSA'  # will trigger special case
         units = gkg_string
         title = 'Bottom salinity'
+    elif var.endswith('_sst'):
+        option = 'area_avg'
+        region = var[:var.index('_sst')]
+        nemo_var = 'sst' # will trigger special case
+        units = deg_string+'C'
+        title = 'Sea surface temperature'
+    elif var.endswith('_sss'):
+        option = 'area_avg'
+        region = var[:var.index('_sss')]
+        nemo_var = 'sss' # will trigger special case
+        units = gkg_string
+        title = 'Sea surface salinity'
     elif var.endswith('_ssh'):
         option = 'area_avg'
         region = var[:var.index('_ssh')]
@@ -249,6 +262,10 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
             data_xy = calc_geometry(ds_nemo, keep_time_dim=True)[1]
         elif nemo_var == 'bwSA':
             data_xy = bwsalt_abs(ds_nemo)
+        elif nemo_var == 'sst':
+            data_xy = ds_nemo['thetao'].isel(deptht=0)
+        elif nemo_var == 'sss':
+            data_xy = ds_nemo['so'].isel(deptht=0)
         elif var.endswith('_thermocline'):
             # need to use the actual area of grid cells where thermocline was able to be calculated, so dA_actual < dA
             data_xy = ds_nemo['thermocline_depth']
