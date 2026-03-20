@@ -232,12 +232,12 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
                 x_str = region[i+1:]
                 region = region[:i]
                 if x_str.endswith('W'):
-                    factor = -1
+                    x_factor = -1
                 elif x_str.endswith('E'):
-                    factor = 1
+                    x_factor = 1
                 else:
                     raise Exception('Weird longitude bound '+x_str)
-                x = factor*int(x_str[:-1])
+                x = x_factor*int(x_str[:-1])
                 lon_bounds_region.insert(0, x)
         except(ValueError):
             pass
