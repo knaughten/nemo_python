@@ -221,12 +221,12 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
 
     # Select region
     # First check for longitude bounds: last character is W or E, and second last character is a number
-    lon_bounds = None
+    lon_bounds_region = None
     if region.endswith('W') or region.endswith('E'):
         try:
             test = int(region[-2])  # Will jump to except if the second last character isn't a number
             # Extract longitude bounds, starting at the end and stripping them off
-            lon_bounds = []
+            lon_bounds_region = []
             for n in range(2):
                 i = region.rfind('_')
                 x_str = region[i+1:]
@@ -238,7 +238,7 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
                 else:
                     raise Exception('Weird longitude bound '+x_str)
                 x = factor*int(x_str[:-1])
-                lon_bounds.insert(0, x)
+                lon_bounds_region.insert(0, x)
         except(ValueError):
             pass
     
@@ -262,10 +262,10 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         else:
             if nemo_mesh:
                 nemo_file = xr.open_dataset(domain_cfg, decode_times=time_coder)
-                mask, _, region_name = region_mask(region, nemo_file, option=region_type, return_name=True)
+                mask, _, region_name = region_mask(region, nemo_file, option=region_type, return_name=True, lon_bounds=lon_bounds_region)
                 print(region_name)
             else:
-                mask, ds_nemo, region_name = region_mask(region, ds_nemo, option=region_type, return_name=True)
+                mask, ds_nemo, region_name = region_mask(region, ds_nemo, option=region_type, return_name=True, lon_bounds=lon_bounds_region)
       
         title += ' for '+region_name
 

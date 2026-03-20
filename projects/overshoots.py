@@ -4209,12 +4209,13 @@ def plot_ross_special_cases (base_dir='./'):
 
 def plot_fris_freshening_vs_ross_tipping (base_dir='./'):
 
+    timeseries_file = 'timeseries_salt.nc'
+    smooth = 12
+    offset = 0.2
+    var_name = 'filchner_ronne_shelf_bwsalt'
     ross_tip_date = []
     fris_tip_date = []
     fris_bwsalt = []
-    timeseries_file = 'timeseries.nc'
-    smooth = 12
-    offset = 0.2
 
     # Loop over ramp-up ensemble members plus the stabilisation runs where Ross tips which aren't special cases of half-tipping
     for suite in suites_by_scenario['ramp_up'] + ['cz374', 'db587', 'db597']:
@@ -4224,9 +4225,9 @@ def plot_fris_freshening_vs_ross_tipping (base_dir='./'):
         ross_tip_date.append(date_tip)
         ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file, decode_times=time_coder)
         if suites_branched[suite] is not None:
-            fris_bwsalt.append(build_timeseries_trajectory([suites_branched[suite], suite], 'filchner_ronne_shelf_bwsalt', base_dir=base_dir, timeseries_file=timeseries_file))
+            fris_bwsalt.append(build_timeseries_trajectory([suites_branched[suite], suite], var_name, base_dir=base_dir, timeseries_file=timeseries_file))
         else:
-            fris_bwsalt.append(ds['filchner_ronne_shelf_bwsalt'])
+            fris_bwsalt.append(ds[var_name])
         # Get FRIS tipping date
         tips, date_tip = check_tip(suite=suite, region='filchner_ronne', return_date=True, base_dir=base_dir)
         fris_tip_date.append(date_tip)
@@ -4256,8 +4257,8 @@ def plot_fris_freshening_vs_ross_tipping (base_dir='./'):
     ax.grid(linestyle='dotted')
     ax.axvline(0, color='black', linestyle='dashed')
     ax.set_xlabel('Years relative to Ross tipping')
-    ax.set_ylabel('Filchner-Ronne shelf bottom salinity (+ offset)')
-    finished_plot(fig, fig_name='figures/fris_freshening_vs_ross_tipping.png', dpi=300)
+    ax.set_ylabel(var_name) #'Filchner-Ronne shelf bottom salinity (+ offset)')
+    finished_plot(fig) #, fig_name='figures/fris_freshening_vs_ross_tipping.png', dpi=300)
 
 
 # Precompute freshwater flux terms time-averaged (1) before Ross tipping for first ramp-up member; (2) between Ross tipping and FRIS tipping for the first ramp-up member; (3) over all years for the evolving ice piControl.
