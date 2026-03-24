@@ -4207,12 +4207,11 @@ def plot_ross_special_cases (base_dir='./'):
     finished_plot(fig, fig_name='figures/ross_special_cases.png', dpi=300)
 
 
-def plot_fris_freshening_vs_ross_tipping (base_dir='./'):
+def plot_fris_freshening_vs_ross_tipping (base_dir='./', var_name='filchner_ronne_shelf_bwsalt'):
 
     timeseries_file = 'timeseries_salt.nc'
     smooth = 12
     offset = 0.2
-    var_name = 'filchner_ronne_shelf_bwsalt'
     ross_tip_date = []
     fris_tip_date = []
     fris_bwsalt = []
@@ -4420,7 +4419,7 @@ def calc_additional_salt_timeseries (suite_id, base_dir='./'):
     regions = ['filchner_ronne_shelf']
     start_lon = 165
     end_lon = -30
-    dlon = 15
+    dlon = -15
     lon0 = start_lon
     while True:
         lon1 = fix_lon_range(lon0+dlon)
@@ -4429,7 +4428,7 @@ def calc_additional_salt_timeseries (suite_id, base_dir='./'):
         if lon0 == 180 and lon1 < 0:
             lon0 = -180
         region = 'all_shelf'
-        for lon in [lon0, lon1]:
+        for lon in [lon1, lon0]:
             if lon < 0:
                 region += '_'+str(-1*lon)+'W'
             else:
@@ -4444,6 +4443,65 @@ def calc_additional_salt_timeseries (suite_id, base_dir='./'):
             timeseries_types.append(region+'_'+var)
             
     update_simulation_timeseries(suite_id, timeseries_types, timeseries_file='timeseries_salt.nc', sim_dir=base_dir+'/'+suite_id+'/', freq='m', halo=True, gtype='T')
+
+
+# Plot salinity travelling along the EAIS coast to see if we can see any freshening signal from Ross tipping.
+def plot_salt_around_coast (suite='cx209', var_name='salt', fig_name=None, base_dir='./'):
+
+    regions = []
+    start_lon = 165
+    end_lon = -30
+    dlon = -15
+    lon0 = start_lon
+    while True:
+        lon1 = fix_lon_range(lon0+dlon)
+        if lon0 > 0 and lon1 == -180:
+            lon1 = 180
+        if lon0 == 180 and lon1 < 0:
+            lon0 = -180
+        region = 'all_shelf'
+        for lon in [lon1, lon0]:
+            if lon < 0:
+                region += '_'+str(-1*lon)+'W'
+            else:
+                region += '_'+str(lon)+'E'
+        regions.append(region)
+        if lon1 == end_lon:
+            break
+        lon0 = lon1
+    regions += ['filchner_ronne_shelf']
+
+    num_regions = len(regions)
+    colours = plt.get_cmap('viridis')(np.linspace(0,1,num=num_regions))
+    offset = 0.25
+    smooth = 12*3
+
+    ds = xr.open_dataset(base_dir+'/'+suite+'/timeseries_salt.nc')
+    ross_date_tip = check_tip(suite=suite, region='ross', return_date=True)[1].dt.year.item()
+    fris_tips, fris_date_tip = check_tip(suite=suite, region='filchner_ronne', return_date=True)
+    if fris_tips:
+        fris_date_tip = fris_date_tip.dt.year.item()
+
+    fig, ax = plt.subplots()
+    time = None
+    for n in range(num_regions):
+        data = moving_average(ds[regions[n]+'_'+var_name], smooth)
+        if time is None:
+            time = time_in_years(data, year0=ross_date_tip)
+        ax.plot(time, data+n*offset, '-', color=colours[n])
+    if fris_date_tip is not None:
+        max_years = fris_date_tip - ross_date_tip
+    else:
+        max_years = time[-1]
+    ax.set_xlim([time[0], max_years])
+    ax.grid(linestyle='dotted')
+    ax.axvline(0, color='black', linestyle='dashed')
+    ax.set_xlabel('Years since Ross tipping')
+    ax.set_ylabel('Salinity (psu) + offset')
+    ax.set_title(suite+' '+var_name+', counterclockwise along EAIS')
+    plt.text(0.1, 0.1, 'West of Ross', transform=ax.transAxes, color=colours[0], ha='left', va='bottom', fontsize=12)
+    plt.text(0.9, 0.9, 'Filchner-Ronne', transform=ax.transAxes, color=colours[-1], ha='right', va='top', fontsize=12)
+    finished_plot(fig, fig_name=fig_name)
 
 
 def plot_particle_tracking (base_dir='./'):
