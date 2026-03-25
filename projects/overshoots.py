@@ -4511,8 +4511,10 @@ def plot_particle_tracking (base_dir='./'):
     particle_file = '/gws/ssde/j25b/terrafirma/jjin/parcels/Ross_cavity_2000-2150_diffu_0.nc'
     suite = 'cx209'
     age_bounds = [[0, 5], [5, 10], [10, 50], [50, 100]]
-    bins_lon = np.linspace(-180, 180, 360)
-    bins_lat = np.linspace(-90, 90, 180)
+    bins_lon = np.linspace(-180, 180, 360+1)
+    bins_lat = np.linspace(-90, 90, 180+1)
+    lon_centres = 0.5*(bins_lon[:-1]+bins_lon[1:])
+    lat_centres = 0.5*(bins_lat[:-1]+bins_lat[1:])
 
     # Choose range of years to plot based on Ross tipping
     # Find year of Ross tipping
@@ -4525,8 +4527,8 @@ def plot_particle_tracking (base_dir='./'):
 
     # Get land mask from the most retreated grounding lines: last year that we're considering for particle tracking
     mask_year = release_range[1] + np.max(age_bounds)
-    mask_file = base_dir+'/'+suite+'nemo_'+suite+'o_1m_'+str(mask_year)+'0101-'+str(mask_year)+'0201_grid-T.nc'
-    ds_mask = xr.open_dataset(mask_file, decode_times=time_coder)
+    mask_file = base_dir+'/'+suite+'/nemo_'+suite+'o_1m_'+str(mask_year)+'0101-'+str(mask_year)+'0201_grid-T.nc'
+    ds_nemo = xr.open_dataset(mask_file, decode_times=time_coder)
 
     # Read particle file
     ds = xr.open_dataset(particle_file, decode_cf=True)
@@ -4536,8 +4538,6 @@ def plot_particle_tracking (base_dir='./'):
     year_release = xr.DataArray([Timestamp(t.item()).year for t in time_release], dims=time_release.dims)
     # Identify particles released during desired range
     index_release = (year_release >= release_range[0])*(year_release <= release_range[1])
-
-    # Remove quasi-stuck particles - do we have to do anything? checking with Jing about remove_empty_frame bug
 
     # Set up plot
     fig = plt.figure(figsize=(6,8))
@@ -4553,14 +4553,19 @@ def plot_particle_tracking (base_dir='./'):
         lat = ds_age['lat'].where(index_release, drop=True)
         # Remove NaNs in lat and lon
         # First make sure they have NaNs at the same places
-        if np.count_nonzero(lon.isnull()*lat.notnull()) > 0 or np.countnonzero(lon.notnull()*lat.isnull()) > 0:
+        if np.count_nonzero(lon.isnull()*lat.notnull()) > 0 or np.count_nonzero(lon.notnull()*lat.isnull()) > 0:
             raise Exception('NaNs in lon and lat do not match')
         lon = lon.where(lon.notnull())
         lat = lat.where(lat.notnull())
         # Put lon in the range -180 to 180
         lon = fix_lon_range(lon)
-        # Get probability distribution of particles using 2D histogram
-        hist = np.histogram2d(lat.values.flatten(), lon.values.flatten(), bins=[bins_lat, bins_lon])[0]
+        # Get probability distribution of particles using 2D histogram onto 10th-degree regular grid
+        hist = np.histogram2d(lat.values.flatten(), lon.values.flatten(), bins=[bins_lat, bins_lon], density=True)[0]
+        # Interpolate to NEMO grid; first have to put in xarray format
+        hist = xr.DataArray(hist, coords=[lat_centres,lon_centres], dims=['lat','lon'])
+        ds_hist = xr.Dataset({'density':hist})
+        hist_nemo = interp_latlon_cf(ds_hist, ds_nemo, source_type='other', target_type='nemo', pster_src=False, pster_target=False, periodic_src=True, periodic_target=True, method='conservative')
+        
         # Plot
         ax = plt.subplot(gs[t//2,t%2])
         # Grey land and white ocean

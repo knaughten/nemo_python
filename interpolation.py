@@ -217,7 +217,7 @@ def construct_cf_3d(data, x, y, z, lon=None, lat=None, depth=None):
 # - dataset : xarray dataset to calculate edges for (with dimensions x,y, and/or lon lat)
 # - (optional) ds_type : either src or nemo (type of grid to calculate edges of)
 # - (optional) method  : cf regridding method that the bounds will be used for
-def lonlat_bounds_cf(dataset, ds_type='src', method='linear', periodic_src=False, pster_src=False, periodic_nemo=True):
+def lonlat_bounds_cf(dataset, ds_type='src', method='linear', periodic_src=False, pster_src=False, periodic_nemo=True, x_name='x', y_name='y'):
 
     # Helper function to get an xarray DataArray of edges (size N+1, or N+1 by M+1) into a Numpy array of bounds for CF (size N x 2, or N x M x 4)
     def edges_to_bounds (edges):
@@ -237,7 +237,7 @@ def lonlat_bounds_cf(dataset, ds_type='src', method='linear', periodic_src=False
 
     if method == 'conservative':
         if ds_type=='src':
-            if len(dataset['x'].shape) != 1:
+            if len(dataset[x_name].shape) != 1:
                 raise Exception('Cannot find bounds if source dataset not a regular grid')
             # Get grid cell edges for x and y
             def construct_edges (array, dim):
@@ -250,8 +250,8 @@ def lonlat_bounds_cf(dataset, ds_type='src', method='linear', periodic_src=False
                     last_edge  = 2*array[-1] - array[-2]
                 edges = np.concatenate(([first_edge], centres, [last_edge]))
                 return xr.DataArray(edges, coords={dim:edges})
-            x_edges = construct_edges(dataset['x'].values, 'x')
-            y_edges = construct_edges(dataset['y'].values, 'y')
+            x_edges = construct_edges(dataset[x_name].values, x_name)
+            y_edges = construct_edges(dataset[y_name].values, y_name)
             if pster_src:
                 # Now convert to lat-lon
                 lon_edges, lat_edges = polar_stereo_inv(x_edges, y_edges)
@@ -391,7 +391,7 @@ def interp_latlon_cf (source, target, source_type='other', target_type='nemo', p
                 lat = None
             x = ds[x_name]
             y = ds[y_name]
-            lon_bounds, lat_bounds = lonlat_bounds_cf(ds, ds_type='src', method=method, periodic_src=periodic, pster_src=pster)
+            lon_bounds, lat_bounds = lonlat_bounds_cf(ds, ds_type='src', method=method, periodic_src=periodic, pster_src=pster, x_name=x_name, y_name=y_name)
         elif ds_type == 'nemo':
             if pster:
                 raise Exception('Cannot handle polar stereographic NEMO grid. Are you sure?')
