@@ -4564,10 +4564,14 @@ def plot_particle_tracking (base_dir='./'):
         # Interpolate to NEMO grid; first have to put in xarray format
         hist = xr.DataArray(hist, coords=[lat_centres,lon_centres], dims=['lat','lon'])
         ds_hist = xr.Dataset({'density':hist})
-        hist_nemo = interp_latlon_cf(ds_hist, ds_nemo, source_type='other', target_type='nemo', pster_src=False, pster_target=False, periodic_src=True, periodic_target=True, method='conservative')
-        
+        hist_nemo = interp_latlon_cf(ds_hist, ds_nemo, source_type='other', target_type='nemo', pster_src=False, pster_target=False, periodic_src=True, periodic_target=True, method='linear')['density']  # Also try finer grid and conservative - how much slower? Does it add up to 1? Any option for histogram with non-regular grid? Could I build my own?
+        # Mask zeros (no particles)
+        hist_nemo = hist_nemo.where(hist_nemo > 0)
         # Plot
         ax = plt.subplot(gs[t//2,t%2])
+        circumpolar_plot(hist_nemo, ds_nemo, ax=ax, make_cbar=False, masked=True, ctype='magma', lognorm=True, contour_ice=True, vmin=1e-8)  # Is lognorm the best approach? Is it better to do number of particles? 
+        
+        
         # Grey land and white ocean
         # Contour ice fronts in black
         # Probability distribution on top (use norm=LogNorm(vmin=1, vmax=1e5); cmap could be magma)
