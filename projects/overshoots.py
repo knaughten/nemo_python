@@ -4511,10 +4511,18 @@ def plot_particle_tracking (base_dir='./'):
     particle_file = '/gws/ssde/j25b/terrafirma/jjin/parcels/Ross_cavity_2000-2150_diffu_0.nc'
     suite = 'cx209'
     age_bounds = [[0, 5], [5, 10], [10, 50], [50, 100]]
-    bins_lon = np.linspace(-180, 180, 360+1)
-    bins_lat = np.linspace(-90, 90, 180+1)
-    lon_centres = 0.5*(bins_lon[:-1]+bins_lon[1:])
-    lat_centres = 0.5*(bins_lat[:-1]+bins_lat[1:])
+    res = 0.25  # resolution in degrees of regular grid for 2D histogram
+    cmap = 'magma'
+    vmin = 1e-7
+    vmax = 0.1
+    mask_file = base_dir+'/'+suite+'/nemo_'+suite+'o_1m_22380101-22380201_grid-T_global.nc'
+
+    # Set up regular grid
+    bins_lon = np.linspace(-180, 180, int(360/res)+1)
+    bins_lat = np.linspace(-90, 90, int(180/res)+1)
+    # 2D edges for plotting
+    lon_2d, lat_2d = np.meshgrid(bins_lon, bins_lat)
+    x_edges, y_edges = polar_stereo(lon_2d, lat_2d)
 
     # Choose range of years to plot based on Ross tipping
     # Find year of Ross tipping
@@ -4524,11 +4532,12 @@ def plot_particle_tracking (base_dir='./'):
     massloss = moving_average(ds_ts['ross_massloss'], 10*months_per_year)
     year_max = massloss.time_centered[massloss.argmax()].dt.year.item()
     release_range = [year_tip, year_max]
+    print('Selecting particles released in first '+str(year_max-year_tip)+' years after tipping')
 
-    # Get land mask from the most retreated grounding lines: last year that we're considering for particle tracking
-    mask_year = release_range[1] + np.max(age_bounds)
-    mask_file = base_dir+'/'+suite+'/nemo_'+suite+'o_1m_'+str(mask_year)+'0101-'+str(mask_year)+'0201_grid-T.nc'
+    # Get land mask from the most retreated grounding lines: last year of suite; note global so can show full Southern Ocean
     ds_nemo = xr.open_dataset(mask_file, decode_times=time_coder)
+    # Delete Northern hemisphere
+    ds_nemo = ds_nemo.where(ds_nemo['nav_lat']<0, drop=True)
 
     # Read particle file
     ds = xr.open_dataset(particle_file, decode_cf=True)
@@ -4539,12 +4548,10 @@ def plot_particle_tracking (base_dir='./'):
     # Identify particles released during desired range
     index_release = (year_release >= release_range[0])*(year_release <= release_range[1])
 
-    # Set up plot
-    fig = plt.figure(figsize=(6,8))
-    gs = plt.GridSpec(2,2)
-    gs.update(left=0.05, right=0.95, bottom=0.05, top=0.9, hspace=0.2, wspace=0.2)
-    # Plot one panel for each age range
+    # Precompute histograms
+    hist_plot = []
     for t in range(len(age_bounds)):
+        print('Selecting age group '+str(t+1))
         # Subset dataset by particle age
         ds_age = ds.isel(time_counter=slice(age_bounds[t][0]*months_per_year, age_bounds[t][1]*months_per_year))
         # Now only select particles released during desired range, as identified earlier
@@ -4552,31 +4559,42 @@ def plot_particle_tracking (base_dir='./'):
         lon = ds_age['lon'].where(index_release, drop=True)
         lat = ds_age['lat'].where(index_release, drop=True)
         # Remove NaNs in lat and lon
-        # First make sure they have NaNs at the same places
+        # Error checking: make sure they have NaNs at the same places
         if np.count_nonzero(lon.isnull()*lat.notnull()) > 0 or np.count_nonzero(lon.notnull()*lat.isnull()) > 0:
             raise Exception('NaNs in lon and lat do not match')
         lon = lon.where(lon.notnull())
         lat = lat.where(lat.notnull())
         # Put lon in the range -180 to 180
         lon = fix_lon_range(lon)
-        # Get probability distribution of particles using 2D histogram onto 10th-degree regular grid
-        hist = np.histogram2d(lat.values.flatten(), lon.values.flatten(), bins=[bins_lat, bins_lon], density=True)[0]
-        # Interpolate to NEMO grid; first have to put in xarray format
-        hist = xr.DataArray(hist, coords=[lat_centres,lon_centres], dims=['lat','lon'])
-        ds_hist = xr.Dataset({'density':hist})
-        hist_nemo = interp_latlon_cf(ds_hist, ds_nemo, source_type='other', target_type='nemo', pster_src=False, pster_target=False, periodic_src=True, periodic_target=True, method='linear')['density']  # Also try finer grid and conservative - how much slower? Does it add up to 1? Any option for histogram with non-regular grid? Could I build my own?
+        print('Calculating probability distribution')
+        # Get probability distribution of particles using 2D histogram onto regular grid
+        hist = np.histogram2d(lat.values.flatten(), lon.values.flatten(), bins=[bins_lat, bins_lon])[0]
         # Mask zeros (no particles)
-        hist_nemo = hist_nemo.where(hist_nemo > 0)
-        # Plot
-        ax = plt.subplot(gs[t//2,t%2])
-        circumpolar_plot(hist_nemo, ds_nemo, ax=ax, make_cbar=False, masked=True, ctype='magma', lognorm=True, contour_ice=True, vmin=1e-8)  # Is lognorm the best approach? Is it better to do number of particles? 
-        
-        
-        # Grey land and white ocean
-        # Contour ice fronts in black
-        # Probability distribution on top (use norm=LogNorm(vmin=1, vmax=1e5); cmap could be magma)
+        hist = np.ma.masked_where(hist==0, hist)
+        # Normalise by number of particles
+        hist = hist/np.sum(hist)*100
+        hist_plot.append(hist)        
 
-    # Now do a movie, each frame is a month since Ross tipped, showing all particles released since it tipped
+    # Plot
+    fig = plt.figure(figsize=(7,8))
+    gs = plt.GridSpec(2,2)
+    gs.update(left=0.05, right=0.95, bottom=0.12, top=0.9, hspace=0.15, wspace=0.1)
+    cax = fig.add_axes([0.3, 0.07, 0.4, 0.03])
+    for t in range(len(age_bounds)):
+        ax = plt.subplot(gs[t//2,t%2])
+        ax.axis('equal')
+        # Empty plot showing grounded ice (grey), ocean (white), ice fronts (black)
+        circumpolar_plot(ds_nemo['tob'].where(False), ds_nemo, ax=ax, make_cbar=False, masked=True, contour_ice=True, lat_max=-50)
+        # Plot histogram on top in the different grid
+        img = ax.pcolormesh(x_edges, y_edges, hist_plot[t], cmap=plt.get_cmap(cmap), norm=cl.LogNorm(vmin=vmin, vmax=vmax))
+        ax.set_title(str(age_bounds[t][0])+'-'+str(age_bounds[t][1])+' years after release', fontsize=14)
+        ax.axis('on')
+        ax.set_xticks([])
+        ax.set_yticks([])
+    plt.suptitle('Distribution of particles released with Ross meltwater', fontsize=16)
+    plt.colorbar(img, cax=cax, extend='both', orientation='horizontal')
+    plt.text(0.5, 0.01, 'probability (%)', ha='center', va='bottom', fontsize=14, transform=fig.transFigure)
+    finished_plot(fig, fig_name='figures/particle_tracking.png', dpi=300)
 
     
     
