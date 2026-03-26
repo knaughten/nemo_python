@@ -4596,6 +4596,83 @@ def plot_particle_tracking (base_dir='./'):
     plt.text(0.5, 0.01, 'probability (%)', ha='center', va='bottom', fontsize=14, transform=fig.transFigure)
     finished_plot(fig, fig_name='figures/particle_tracking.png', dpi=300)
 
+
+def precompute_particle_tracking_video (base_dir='./', out_file='particle_distribution.nc'):
+
+    from pandas import Timestamp
+    particle_file = '/gws/ssde/j25b/terrafirma/jjin/parcels/Ross_cavity_2000-2150_diffu_0.nc'
+    suite = 'cx209'
+    res = 0.25
+    end_year = 2150  # Last year of particle tracking
+
+    bins_lon = np.linspace(-180, 180, int(360/res)+1)
+    bins_lat = np.linspace(-90, 90, int(180/res)+1)
+    lon_centres = 0.5*(bins_lon[:-1] + bins_lon[1:])
+    lat_centres = 0.5*(bins_lat[:-1] + bins_lat[1:])
+
+    # Find year of Ross tipping
+    year_tip = check_tip(suite=suite, region='ross', return_date=True)[1].dt.year.item()
+
+    # Read particle file
+    ds = xr.open_dataset(particle_file, decode_cf=True)
+    # Get release year for every particle
+    time_release = ds['time'].isel(time_counter=0)
+    time_release.load()
+    year_release = xr.DataArray([Timestamp(t.item()).year for t in time_release], dims=time_release.dims)
+
+    # Set up array to hold histograms
+    histograms = np.empty([(end_year-year_tip+1)*months_per_year, lat_centres.size, lon_centres.size])
+    # Loop over years from Ross tipping point to the end
+    for year in range(year_tip, end_year+1):
+        print('Processing '+str(year))
+        lon = None
+        lat = None
+        # Loop over years between Ross tipping and now
+        for year0 in range(year_tip, year+1):
+            # Find particles released in this year
+            index_release = year_release == year0
+            # Figure out what their age should be to reach the year of the outer loop
+            age_min = (year0 - year_tip)*months_per_year
+            age_max = age_min + months_per_year
+            # Subset dataset by this age
+            ds_tmp = ds.isel(time_counter=slice(age_min, age_max))
+            # Now subset by release year (lon and lat individually)
+            lon_tmp = ds_tmp['lon'].where(index_release, drop=True)
+            lat_tmp = ds_tmp['lat'].where(index_release, drop=True)
+            # Add to master lon/lat array
+            if lon is None:
+                lon = lon_tmp
+                lat = lat_tmp
+            else:
+                lon = xr.concat([lon, lon_tmp], dim='number')
+                lat = xr.concat([lat, lat_tmp], dim='number')
+        # Remove NaNs and get lon in correct range
+        if np.count_nonzero(lon.isnull()*lat.notnull()) > 0 or np.count_nonzero(lon.notnull()*lat.isnull()) > 0:
+            raise Exception('NaNs in lon and lat do not match')
+        lon = lon.where(lon.notnull())
+        lat = lat.where(lat.notnull())
+        lon = fix_lon_range(lon)
+        print('Identified '+str(lon.sizes['number'])+' particles')
+        # Now calculate one distribution per month and save to master array
+        for t in range(months_per_year):
+            hist = np.histogram2d(lat.isel(time_counter=0).values.flatten(), lon.isel(time_counter=0).values.flatten(), bins=[bins_lat, bins_lon])[0]
+            # Mask zeros (no particles)
+            hist = np.ma.masked_where(hist==0, hist)
+            # Don't normalise by number of particles because we want to see the accumulation
+            histograms[(year-year_tip)*months_per_year+t,:] = hist
+    histograms = xr.DataArray(histograms, coords={'month':np.arange(histograms.shape[0]), 'lat':lat_centres, 'lon':lon_centres})
+    print('Writing '+out_file)
+    histograms.to_netcdf(out_file)
+        
+            
+        
+        
+        
+        
+    
+
+    
+
     
     
 
