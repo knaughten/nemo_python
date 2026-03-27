@@ -4666,9 +4666,9 @@ def precompute_particle_tracking_video (base_dir='./', out_file='particle_distri
             hist = np.ma.masked_where(hist==0, hist)
             # Don't normalise by number of particles because we want to see the accumulation
             histograms[(year-year_tip)*months_per_year+t,:] = hist
-    histograms = xr.DataArray(histograms, coords={'month':np.arange(histograms.shape[0]), 'lat':lat_centres, 'lon':lon_centres})
+    ds_hist = xr.Dataset({'num_particles':xr.DataArray(histograms, coords={'month':np.arange(histograms.shape[0]), 'lat':lat_centres, 'lon':lon_centres})})
     print('Writing '+out_file)
-    histograms.to_netcdf(out_file)
+    ds_hist.to_netcdf(out_file)
         
             
         
