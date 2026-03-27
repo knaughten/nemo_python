@@ -4597,12 +4597,12 @@ def plot_particle_tracking (base_dir='./'):
     finished_plot(fig, fig_name='figures/particle_tracking.png', dpi=300)
 
 
-def precompute_particle_tracking_video (base_dir='./', out_file='particle_distribution.nc'):
+def precompute_particle_tracking_video (base_dir='./', out_file='particle_distribution_025deg.nc'):
 
     from pandas import Timestamp
     particle_file = '/gws/ssde/j25b/terrafirma/jjin/parcels/Ross_cavity_2000-2150_diffu_0.nc'
     suite = 'cx209'
-    res = 1
+    res = 0.25
     end_year = 2150  # Last year of particle tracking
 
     bins_lon = np.linspace(-180, 180, int(360/res)+1)
@@ -4673,11 +4673,14 @@ def precompute_particle_tracking_video (base_dir='./', out_file='particle_distri
 
 def animate_particle_numbers (in_file='particle_distribution.nc', out_file='particle_distribution.mp4', base_dir='./'):
 
+    import warnings
+    warnings.filterwarnings('ignore')
+
     suite = 'cx209'
     mask_file = base_dir+'/'+suite+'/nemo_'+suite+'o_1m_22380101-22380201_grid-T_global.nc'
     vmin = 1
     vmax = 1e2
-    res = 0.25
+    res = 1 
     cmap = 'magma'
 
     # Reconstruct edges of regular grid for plotting
@@ -4745,10 +4748,30 @@ def animate_particle_numbers (in_file='particle_distribution.nc', out_file='part
 
 def remove_stuck_particles (in_file='/gws/ssde/j25b/terrafirma/jjin/parcels/Ross_cavity_2000-2150_diffu_0.nc', out_file='Ross_cavity_2000-2150_diffu_0_removed_stuck.nc'):
 
-    ds = xr.open_dataset(particle_file, decode_cf=True)
-    for n in range(tqdm(ds.sizes['number'])):
-        # 
-        pass
+    threshold = 1e-5
+
+    # Loop over particles
+    ds = xr.open_dataset(in_file, decode_cf=True)
+    for n in tqdm(range(ds.sizes['number'])):
+        ds_n = ds.isel(number=n)
+        # Process lon and lat for this particle
+        lon = ds_n['lon']
+        lat = ds_n['lat']
+        lon.load()
+        lat.load()
+        lon = lon.where(lon.notnull())
+        lat = lat.where(lat.notnull())
+        lon = fix_lon_range(lon)
+        # Estimate distance travelled per month
+        dlon = lon.diff(dim='time_counter')
+        dlon = xr.where(dlon>300, dlon-360, dlon)
+        dlon = xr.where(dlon<-300, dlon+360, dlon)
+        dlat = lat.diff(dim='time_counter')
+        dist = np.sqrt(np.square(dlon)+np.square(dlat))
+        if dist.min() < threshold:
+            break
+        
+        # Testing: jump out of loop here to see what it looks like. Is it stuck the whole time (remove particle entirely)? Is it stuck after a little while (truncate/fill with NaNs after stuck time)? The first might be preferable
         
             
         
