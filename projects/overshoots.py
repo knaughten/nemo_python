@@ -4635,7 +4635,7 @@ def precompute_particle_tracking_video (base_dir='./', out_file='particle_distri
                 print('Warning: no particles released in '+str(year0))
                 continue
             # Figure out what their age should be to reach the year of the outer loop
-            age_min = (year - year_tip)*months_per_year
+            age_min = (year - year0)*months_per_year
             age_max = age_min + months_per_year
             # Subset dataset by this age
             ds_tmp = ds.isel(time_counter=slice(age_min, age_max))
