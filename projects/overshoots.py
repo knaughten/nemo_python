@@ -4597,7 +4597,7 @@ def plot_particle_tracking (base_dir='./'):
     finished_plot(fig, fig_name='figures/particle_tracking.png', dpi=300)
 
 
-def precompute_particle_tracking_video (base_dir='./', in_file='/gws/ssde/j25b/terrafirma/jjin/parcels/Ross_cavity_2000-2150_diffu_0.nc', out_file='particle_distribution_05deg.nc'):
+def precompute_particle_tracking_video (base_dir='./', in_file='/gws/ssde/j25b/terrafirma/jjin/parcels/Ross_cavity_2000-2150_diffu_0.nc', out_file='particle_distribution_05deg.nc', meltwater=False):
 
     from pandas import Timestamp
     suite = 'cx209'
@@ -4612,15 +4612,21 @@ def precompute_particle_tracking_video (base_dir='./', in_file='/gws/ssde/j25b/t
     # Find year of Ross tipping
     year_tip = check_tip(suite=suite, region='ross', return_date=True)[1].dt.year.item()
 
+    if meltwater:
+        # Read Ross melt rate
+        ds_ts = xr.open_dataset(base_dir+'/'+suite+'/timeseries.nc')
+        ross_massloss = ds_ts['ross_massloss']
+
     # Read particle file
     ds = xr.open_dataset(in_file, decode_cf=True)
     # Get release year for every particle
     time_release = ds['time'].isel(time_counter=0)
     time_release.load()
     year_release = xr.DataArray([Timestamp(t.item()).year for t in time_release], dims=time_release.dims)
+    month_release = xr.DataArray([Timestamp(t.item()).month for t in time_release], dims=time_release.dims)
 
     # Set up array to hold histograms
-    histograms = np.empty([(end_year-year_tip+1)*months_per_year, lat_centres.size, lon_centres.size])
+    data_out = np.empty([(end_year-year_tip+1)*months_per_year, lat_centres.size, lon_centres.size])
     # Loop over years from Ross tipping point to the end
     for year in range(year_tip, end_year+1):
         print('Processing '+str(year))
@@ -4664,13 +4670,13 @@ def precompute_particle_tracking_video (base_dir='./', in_file='/gws/ssde/j25b/t
             # Mask zeros (no particles)
             hist = np.ma.masked_where(hist==0, hist)
             # Don't normalise by number of particles because we want to see the accumulation
-            histograms[(year-year_tip)*months_per_year+t,:] = hist
-    ds_hist = xr.Dataset({'num_particles':xr.DataArray(histograms, coords={'month':np.arange(histograms.shape[0]), 'lat':lat_centres, 'lon':lon_centres})})
+            data_out[(year-year_tip)*months_per_year+t,:] = hist
+    ds_hist = xr.Dataset({'num_particles':xr.DataArray(data_out, coords={'month':np.arange(data_out.shape[0]), 'lat':lat_centres, 'lon':lon_centres})})
     print('Writing '+out_file)
     ds_hist.to_netcdf(out_file)
 
 
-def animate_particle_numbers (in_file='particle_distribution_025deg.nc', out_file='particle_distribution_05deg.mp4', base_dir='./'):
+def animate_particle_numbers (in_file='particle_distribution_05deg.nc', out_file='particle_distribution_05deg.mp4', base_dir='./'):
 
     suite = 'cx209'
     mask_file = base_dir+'/'+suite+'/nemo_'+suite+'o_1m_22380101-22380201_grid-T_global.nc'
