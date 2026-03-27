@@ -4602,7 +4602,7 @@ def precompute_particle_tracking_video (base_dir='./', out_file='particle_distri
     from pandas import Timestamp
     particle_file = '/gws/ssde/j25b/terrafirma/jjin/parcels/Ross_cavity_2000-2150_diffu_0.nc'
     suite = 'cx209'
-    res = 0.25
+    res = 1
     end_year = 2150  # Last year of particle tracking
 
     bins_lon = np.linspace(-180, 180, int(360/res)+1)
