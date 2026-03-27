@@ -4661,7 +4661,7 @@ def precompute_particle_tracking_video (base_dir='./', out_file='particle_distri
         print('Identified '+str(lon.sizes['number'])+' particles')
         # Now calculate one distribution per month and save to master array
         for t in range(months_per_year):
-            hist = np.histogram2d(lat.isel(time_counter=0).values.flatten(), lon.isel(time_counter=0).values.flatten(), bins=[bins_lat, bins_lon])[0]
+            hist = np.histogram2d(lat.isel(time_counter=t).values.flatten(), lon.isel(time_counter=t).values.flatten(), bins=[bins_lat, bins_lon])[0]
             # Mask zeros (no particles)
             hist = np.ma.masked_where(hist==0, hist)
             # Don't normalise by number of particles because we want to see the accumulation
@@ -4676,8 +4676,8 @@ def animate_particle_numbers (in_file='particle_distribution.nc', out_file='part
     suite = 'cx209'
     mask_file = base_dir+'/'+suite+'/nemo_'+suite+'o_1m_22380101-22380201_grid-T_global.nc'
     vmin = 1
-    vmax = 1e3
-    res = 1
+    vmax = 1e2
+    res = 0.25
     cmap = 'magma'
 
     # Reconstruct edges of regular grid for plotting
@@ -4701,17 +4701,16 @@ def animate_particle_numbers (in_file='particle_distribution.nc', out_file='part
     ds = xr.open_dataset(in_file)
 
     print('Initialising plot')
-    fig = plt.figure(figsize=(6,8))
+    fig = plt.figure(figsize=(6,7))
     gs = plt.GridSpec(1,1)
-    gs.update(left=0.05, right=0.95, bottom=0.1, top=0.9)
-    cax = fig.add_axes([0.3, 0.07, 0.4, 0.03])
-    plt.text(0.5, 0.01, 'number of particles', ha='center', va='bottom', fontsize=14, transform=fig.transFigure)
+    gs.update(left=0.05, right=0.95, bottom=0.2, top=0.9)
+    cax = fig.add_axes([0.2, 0.15, 0.6, 0.03])
+    plt.text(0.5, 0.05, 'number of particles', ha='center', va='bottom', fontsize=14, transform=fig.transFigure)
     ax = plt.subplot(gs[0,0])
     ax.axis('equal')
 
     # Inner function to plot a frame
     def plot_one_frame (t):
-        print('...month '+str(t+1)+' of '+str(ds.sizes['month']))
         ax.cla()
         # Plot land mask and ice fronts
         circumpolar_plot(ds_nemo['tob'].where(False), ds_nemo, ax=ax, make_cbar=False, masked=True, contour_ice=True, lat_max=-50)
@@ -4728,7 +4727,7 @@ def animate_particle_numbers (in_file='particle_distribution.nc', out_file='part
         ax.set_xticks([])
         ax.set_yticks([])
         if t == 0:
-            cbar = plt.colorbar(img, cax=cax, extend='max', orientation='horizontal')
+            cbar = plt.colorbar(img, cax=cax, orientation='horizontal')
 
     # First frame
     plot_one_frame(0)
@@ -4737,7 +4736,7 @@ def animate_particle_numbers (in_file='particle_distribution.nc', out_file='part
         plot_one_frame(t)
     # Call this for each frame
     anim = animation.FuncAnimation(fig, func=animate, frames=list(range(ds.sizes['month'])))
-    writer = animation.FFMpegWriter(bitrate=5000, fps=12)
+    writer = animation.FFMpegWriter(bitrate=5000, fps=24)
     print('Saving animation')
     anim.save(out_file, writer=writer)
 
@@ -4748,6 +4747,7 @@ def remove_stuck_particles (in_file='/gws/ssde/j25b/terrafirma/jjin/parcels/Ross
 
     ds = xr.open_dataset(particle_file, decode_cf=True)
     for n in range(tqdm(ds.sizes['number'])):
+        # 
         pass
         
             
