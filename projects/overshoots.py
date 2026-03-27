@@ -4628,7 +4628,7 @@ def precompute_particle_tracking_video (base_dir='./', out_file='particle_distri
         lon = None
         lat = None
         # Loop over years between Ross tipping and now
-        for year0 in tqdm(range(year_tip, year+1)):
+        for year0 in range(year_tip, year+1):
             # Find particles released in this year
             index_release = year_release == year0
             if np.count_nonzero(index_release) == 0:
