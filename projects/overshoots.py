@@ -4650,7 +4650,7 @@ def precompute_particle_tracking_video (base_dir='./', out_file='particle_distri
                 lon = xr.concat([lon, lon_tmp], dim='number')
                 lat = xr.concat([lat, lat_tmp], dim='number')
         if lon is None:
-            print('Warning: no particles tracked in '+str(year)'. Will have empty histogram.')
+            print('Warning: no particles tracked in '+str(year)+'. Will have empty histogram.')
             continue
         # Remove NaNs and get lon in correct range
         if np.count_nonzero(lon.isnull()*lat.notnull()) > 0 or np.count_nonzero(lon.notnull()*lat.isnull()) > 0:
