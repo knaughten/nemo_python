@@ -4631,11 +4631,13 @@ def precompute_particle_tracking_video (base_dir='./', out_file='particle_distri
         for year0 in range(year_tip, year+1):
             # Find particles released in this year
             index_release = year_release == year0
+            print(index_release.sizes)
             # Figure out what their age should be to reach the year of the outer loop
             age_min = (year0 - year_tip)*months_per_year
             age_max = age_min + months_per_year
             # Subset dataset by this age
             ds_tmp = ds.isel(time_counter=slice(age_min, age_max))
+            print(ds_tmp.sizes)
             # Now subset by release year (lon and lat individually)
             lon_tmp = ds_tmp['lon'].where(index_release, drop=True)
             lat_tmp = ds_tmp['lat'].where(index_release, drop=True)
