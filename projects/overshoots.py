@@ -4682,7 +4682,7 @@ def precompute_particle_tracking_video (base_dir='./', out_file='particle_distri
     ds_hist.to_netcdf(out_file)
 
 
-def animate_particle_numbers (in_file='particle_distribution_05deg.nc', out_file='particle_distribution_05deg.mp4', base_dir='./'):
+def animate_particle_numbers (in_file='particle_distribution_05deg.nc', out_file='particle_distribution_05deg.mp4', base_dir='./', cavity='ross'):
 
     suite = 'cx209'
     mask_file = base_dir+'/'+suite+'/nemo_'+suite+'o_1m_22380101-22380201_grid-T_global.nc'
@@ -4727,12 +4727,15 @@ def animate_particle_numbers (in_file='particle_distribution_05deg.nc', out_file
         circumpolar_plot(ds_nemo['tob'].where(False), ds_nemo, ax=ax, make_cbar=False, masked=True, contour_ice=True, lat_max=-50)
         # Plot histogram on top (regular grid)
         img = ax.pcolormesh(x_edges, y_edges, ds['num_particles'].isel(month=t), cmap=plt.get_cmap(cmap), norm=cl.LogNorm(vmin=vmin, vmax=vmax))
-        # Calculate number of years since Ross tipping and print at the top
+        # Calculate number of years since cavity tipping and print at the top
         num_years = int(t//months_per_year)
-        title = str(num_years)+' years since Ross tipped'
-        if num_years > years_btw:
-            num_years_fris = num_years - years_btw
-            title += '\n'+str(num_years_fris)+' years since Filchner-Ronne tipped'
+        if cavity == 'filchner_ronne':
+            title = str(num_years)+' years since Filchner-Ronne tipped'
+        elif cavity == 'ross':
+            title = str(num_years)+' years since Ross tipped'
+            if num_years > years_btw:
+                num_years_fris = num_years - years_btw
+                title += '\n'+str(num_years_fris)+' years since Filchner-Ronne tipped'
         ax.set_title(title, fontsize=16)
         ax.axis('on')
         ax.set_xticks([])
