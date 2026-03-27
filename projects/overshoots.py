@@ -4669,6 +4669,86 @@ def precompute_particle_tracking_video (base_dir='./', out_file='particle_distri
     ds_hist = xr.Dataset({'num_particles':xr.DataArray(histograms, coords={'month':np.arange(histograms.shape[0]), 'lat':lat_centres, 'lon':lon_centres})})
     print('Writing '+out_file)
     ds_hist.to_netcdf(out_file)
+
+
+def animate_particle_numbers (in_file='particle_distribution.nc', out_file='particle_distribution.mp4', base_dir='./'):
+
+    suite = 'cx209'
+    mask_file = base_dir+'/'+suite+'/nemo_'+suite+'o_1m_22380101-22380201_grid-T_global.nc'
+    vmin = 1
+    vmax = 1e3
+    res = 1
+    cmap = 'magma'
+
+    # Reconstruct edges of regular grid for plotting
+    lon_edges = np.linspace(-180, 180, int(360/res)+1)
+    lat_edges = np.linspace(-90, 90, int(180/res)+1)
+    # 2D edges for plotting
+    lon_2d, lat_2d = np.meshgrid(lon_edges, lat_edges)
+    x_edges, y_edges = polar_stereo(lon_2d, lat_2d)
+
+    # Get land mask from the most retreated grounding lines: last year of suite; note global so can show full Southern Ocean
+    ds_nemo = xr.open_dataset(mask_file, decode_times=time_coder)
+    # Delete Northern hemisphere
+    ds_nemo = ds_nemo.where(ds_nemo['nav_lat']<0, drop=True)
+
+    # Get number of years between Ross and FRIS tipping
+    ross_tip_year = check_tip(suite=suite, region='ross', return_date=True)[1].dt.year.item()
+    fris_tip_year = check_tip(suite=suite, region='filchner_ronne', return_date=True)[1].dt.year.item()
+    years_btw = fris_tip_year - ross_tip_year
+
+    # Open precomputed file
+    ds = xr.open_dataset(in_file)
+
+    print('Initialising plot')
+    fig = plt.figure(figsize=(6,8))
+    gs = plt.GridSpec(1,1)
+    gs.update(left=0.05, right=0.95, bottom=0.1, top=0.9)
+    cax = fig.add_axes([0.3, 0.07, 0.4, 0.03])
+    plt.text(0.5, 0.01, 'number of particles', ha='center', va='bottom', fontsize=14, transform=fig.transFigure)
+    ax = plt.subplot(gs[0,0])
+    ax.axis('equal')
+
+    # Inner function to plot a frame
+    def plot_one_frame (t):
+        print('...month '+str(t+1)+' of '+str(ds.sizes['month']))
+        ax.cla()
+        # Plot land mask and ice fronts
+        circumpolar_plot(ds_nemo['tob'].where(False), ds_nemo, ax=ax, make_cbar=False, masked=True, contour_ice=True, lat_max=-50)
+        # Plot histogram on top (regular grid)
+        img = ax.pcolormesh(x_edges, y_edges, ds['num_particles'].isel(month=t), cmap=plt.get_cmap(cmap), norm=cl.LogNorm(vmin=vmin, vmax=vmax))
+        # Calculate number of years since Ross tipping and print at the top
+        num_years = int(t//months_per_year)
+        title = str(num_years)+' years since Ross tipped'
+        if num_years > years_btw:
+            num_years_fris = num_years - years_btw
+            title += '\n'+str(num_years_fris)+' years since Filchner-Ronne tipped'
+        ax.set_title(title, fontsize=16)
+        ax.axis('on')
+        ax.set_xticks([])
+        ax.set_yticks([])
+        if t == 0:
+            cbar = plt.colorbar(img, cax=cax, extend='max', orientation='horizontal')
+
+    # First frame
+    plot_one_frame(0)
+    # Function to update figure with the given frame
+    def animate(t):
+        plot_one_frame(t)
+    # Call this for each frame
+    anim = animation.FuncAnimation(fig, func=animate, frames=list(range(ds.sizes['month'])))
+    writer = animation.FFMpegWriter(bitrate=5000, fps=12)
+    print('Saving animation')
+    anim.save(out_file, writer=writer)
+
+    
+
+
+def remove_stuck_particles (in_file='/gws/ssde/j25b/terrafirma/jjin/parcels/Ross_cavity_2000-2150_diffu_0.nc', out_file='Ross_cavity_2000-2150_diffu_0_removed_stuck.nc'):
+
+    ds = xr.open_dataset(particle_file, decode_cf=True)
+    for n in range(tqdm(ds.sizes['number'])):
+        pass
         
             
         
