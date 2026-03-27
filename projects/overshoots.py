@@ -4597,12 +4597,12 @@ def plot_particle_tracking (base_dir='./'):
     finished_plot(fig, fig_name='figures/particle_tracking.png', dpi=300)
 
 
-def precompute_particle_tracking_video (base_dir='./', out_file='particle_distribution_025deg.nc'):
+def precompute_particle_tracking_video (base_dir='./', out_file='particle_distribution_05deg.nc'):
 
     from pandas import Timestamp
     particle_file = '/gws/ssde/j25b/terrafirma/jjin/parcels/Ross_cavity_2000-2150_diffu_0.nc'
     suite = 'cx209'
-    res = 0.25
+    res = 0.5
     end_year = 2150  # Last year of particle tracking
 
     bins_lon = np.linspace(-180, 180, int(360/res)+1)
@@ -4671,7 +4671,7 @@ def precompute_particle_tracking_video (base_dir='./', out_file='particle_distri
     ds_hist.to_netcdf(out_file)
 
 
-def animate_particle_numbers (in_file='particle_distribution.nc', out_file='particle_distribution.mp4', base_dir='./'):
+def animate_particle_numbers (in_file='particle_distribution_025deg.nc', out_file='particle_distribution_025deg.mp4', base_dir='./'):
 
     import warnings
     warnings.filterwarnings('ignore')
@@ -4680,7 +4680,7 @@ def animate_particle_numbers (in_file='particle_distribution.nc', out_file='part
     mask_file = base_dir+'/'+suite+'/nemo_'+suite+'o_1m_22380101-22380201_grid-T_global.nc'
     vmin = 1
     vmax = 1e2
-    res = 1 
+    res = 0.25
     cmap = 'magma'
 
     # Reconstruct edges of regular grid for plotting
@@ -4767,7 +4767,7 @@ def remove_stuck_particles (in_file='/gws/ssde/j25b/terrafirma/jjin/parcels/Ross
         dlon = xr.where(dlon>300, dlon-360, dlon)
         dlon = xr.where(dlon<-300, dlon+360, dlon)
         dlat = lat.diff(dim='time_counter')
-        dist = np.sqrt(np.square(dlon)+np.square(dlat))
+        dist = np.sqrt(dlon**2 + dlat**2)
         if dist.min() < threshold:
             break
         
