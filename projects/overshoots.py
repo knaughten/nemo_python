@@ -4613,9 +4613,10 @@ def precompute_particle_tracking_video (base_dir='./', in_file='/gws/ssde/j25b/t
     year_tip = check_tip(suite=suite, region='ross', return_date=True)[1].dt.year.item()
 
     if meltwater:
-        # Read Ross melt rate
+        # Read Ross melt rate and truncate to tipping point
         ds_ts = xr.open_dataset(base_dir+'/'+suite+'/timeseries.nc')
-        ross_massloss = ds_ts['ross_massloss']
+        t0 = np.argwhere(ds_ts['time_centered'].dt.year.data==year_tip)[0][0]
+        ross_massloss = ds_ts['ross_massloss'][t0:]        
 
     # Read particle file
     ds = xr.open_dataset(in_file, decode_cf=True)
@@ -4643,7 +4644,7 @@ def precompute_particle_tracking_video (base_dir='./', in_file='/gws/ssde/j25b/t
             age_min = (year - year0)*months_per_year
             age_max = age_min + months_per_year
             # Subset dataset by this age
-            ds_tmp = ds.isel(time_counter=slice(age_min, age_max))
+            ds_tmp = ds.isel(time_counter=slice(age_min, age_max))                
             # Now subset by release year (lon and lat individually)
             lon_tmp = ds_tmp['lon'].where(index_release, drop=True)
             lat_tmp = ds_tmp['lat'].where(index_release, drop=True)
