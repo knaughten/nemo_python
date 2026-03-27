@@ -4597,20 +4597,25 @@ def plot_particle_tracking (base_dir='./'):
     finished_plot(fig, fig_name='figures/particle_tracking.png', dpi=300)
 
 
-def precompute_particle_tracking_video (base_dir='./', in_file='/gws/ssde/j25b/terrafirma/jjin/parcels/Ross_cavity_2000-2150_diffu_0.nc', out_file='particle_distribution_05deg.nc', meltwater=False):
+def precompute_particle_tracking_video (base_dir='./', out_file='particle_distribution_05deg.nc', cavity='ross', meltwater=False):
 
     from pandas import Timestamp
     suite = 'cx209'
     res = 0.5
-    end_year = 2150  # Last year of particle tracking
 
     bins_lon = np.linspace(-180, 180, int(360/res)+1)
     bins_lat = np.linspace(-90, 90, int(180/res)+1)
     lon_centres = 0.5*(bins_lon[:-1] + bins_lon[1:])
     lat_centres = 0.5*(bins_lat[:-1] + bins_lat[1:])
 
-    # Find year of Ross tipping
-    year_tip = check_tip(suite=suite, region='ross', return_date=True)[1].dt.year.item()
+    if cavity == 'ross':
+        in_file = '/gws/ssde/j25b/terrafirma/jjin/parcels/Ross_cavity_2000-2150_diffu_0.nc'
+        end_year = 2150  # Last year of particle tracking
+    elif cavity == 'filchner_ronne':
+        in_file = '/gws/ssde/j25b/terrafirma/jjin/parcels/FRIS_cavity_2080-2230_diffu_0.nc'
+        end_year = 2230
+    # Find year of cavity tipping
+    year_tip = check_tip(suite=suite, region=cavity, return_date=True)[1].dt.year.item()
 
     if meltwater:
         # Read Ross melt rate and truncate to tipping point
@@ -4628,12 +4633,12 @@ def precompute_particle_tracking_video (base_dir='./', in_file='/gws/ssde/j25b/t
 
     # Set up array to hold histograms
     data_out = np.empty([(end_year-year_tip+1)*months_per_year, lat_centres.size, lon_centres.size])
-    # Loop over years from Ross tipping point to the end
+    # Loop over years from tipping point to the end
     for year in range(year_tip, end_year+1):
         print('Processing '+str(year))
         lon = None
         lat = None
-        # Loop over years between Ross tipping and now
+        # Loop over years between tipping and now
         for year0 in range(year_tip, year+1):
             # Find particles released in this year
             index_release = year_release == year0
