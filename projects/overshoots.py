@@ -2404,6 +2404,8 @@ def plot_FW_timeseries (base_dir='./'):
         ax.axhline(0, color='black')
         ax.set_xlim([stage_start[0], stage_end[-1]])
         ax.text(615, ax.get_ylim()[0]-ypos, 'years', ha='left', va='top')
+    ax1.text(0.01, 0.03, 'a)', ha='left', va='bottom', transform=ax1.transAxes, fontsize=12)
+    ax2.text(0.01, 0.95, 'b)', ha='left', va='top', transform=ax2.transAxes, fontsize=12)
     ax1.legend(loc='upper left')
     ax2.legend(loc='upper center', bbox_to_anchor=(0.65, 1))
     ax1.set_ylabel(units)
@@ -4334,7 +4336,7 @@ def plot_fw_by_longitude (base_dir='./'):
     file_head = 'fw_tavg'
     file_mid = ['_before_ross', '_after_ross_before_fris']
     file_tail = '.nc'
-    titles = ['Before Ross tips', 'After Ross tips; before Filchner-Ronne tips']
+    titles = ['a) Before Ross tips', 'b) After Ross tips; before Filchner-Ronne tips']
     labels = [['Ross', 'LABT', 'Amundsen', 'Bellingshausen', 'Peninsula'], ['Filchner-\nRonne', 'FT', 'Dronning Maud', 'Amery', 'Wilkes']]
     label_x = [[-170, 158, -110, -80, -68], [-38, -35, 15, 63, 110]]
     label_y = [[0.1, 0.25, 0.6, 0.7, 1.2], [0.65, 0.25, 0.5, 0.75, 0.85]]
@@ -4378,6 +4380,8 @@ def plot_fw_by_longitude (base_dir='./'):
             data_int = (data*dA).sum(dim='y').data
             # Add longitude coordinate
             data_int = xr.DataArray(data_int, coords={'lon':lon_plot}).sortby('lon')
+            if nemo_var[v] == 'friver':
+                print('Max surface melt is '+str(data_int.max().item())+' mSv')
             if base is None:
                 base = 0*data_int
             ax.bar(data_int.lon, data_int, bottom=base, color=colours[v], label=var_titles[v], width=1.2)
@@ -4511,6 +4515,7 @@ def plot_particle_tracking (base_dir='./'):
     particle_file = '/gws/ssde/j25b/terrafirma/jjin/parcels/Ross_cavity_2000-2150_diffu_0.nc'
     suite = 'cx209'
     age_bounds = [[0, 5], [5, 10], [10, 50], [50, 100]]
+    label_pre = ['a)', 'b)', 'c)', 'd)']
     res = 0.25  # resolution in degrees of regular grid for 2D histogram
     cmap = 'magma'
     vmin = 1e-7
@@ -4587,7 +4592,7 @@ def plot_particle_tracking (base_dir='./'):
         circumpolar_plot(ds_nemo['tob'].where(False), ds_nemo, ax=ax, make_cbar=False, masked=True, contour_ice=True, lat_max=-50)
         # Plot histogram on top in the different grid
         img = ax.pcolormesh(x_edges, y_edges, hist_plot[t], cmap=plt.get_cmap(cmap), norm=cl.LogNorm(vmin=vmin, vmax=vmax))
-        ax.set_title(str(age_bounds[t][0])+'-'+str(age_bounds[t][1])+' years after release', fontsize=14)
+        ax.set_title(label_pre[t]+' '+str(age_bounds[t][0])+'-'+str(age_bounds[t][1])+' years after release', fontsize=14)
         ax.axis('on')
         ax.set_xticks([])
         ax.set_yticks([])
