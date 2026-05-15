@@ -4682,13 +4682,12 @@ def precompute_particle_tracking_video (base_dir='./', out_file='particle_distri
     ds_hist.to_netcdf(out_file)
 
 
-def animate_particle_numbers (in_file='particle_distribution_025deg.nc', out_file='particle_distribution_025deg.mp4', base_dir='./', cavity='ross'):
+def animate_particle_numbers (in_file='particle_distribution_025deg.nc', out_file='particle_distribution_025deg.mp4', res=0.25, base_dir='./', cavity='ross'):
 
     suite = 'cx209'
     mask_file = base_dir+'/'+suite+'/nemo_'+suite+'o_1m_22380101-22380201_grid-T_global.nc'
     vmin = 1
     vmax = 1e2
-    res = 0.5
     cmap = 'magma'
 
     # Reconstruct edges of regular grid for plotting
