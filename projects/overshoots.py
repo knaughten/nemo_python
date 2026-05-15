@@ -4597,11 +4597,11 @@ def plot_particle_tracking (base_dir='./'):
     finished_plot(fig, fig_name='figures/particle_tracking.png', dpi=300)
 
 
-def precompute_particle_tracking_video (base_dir='./', out_file='particle_distribution_05deg.nc', cavity='ross', meltwater=False):
+def precompute_particle_tracking_video (base_dir='./', out_file='particle_distribution_025deg.nc', cavity='ross', meltwater=False):
 
     from pandas import Timestamp
     suite = 'cx209'
-    res = 0.5
+    res = 0.25
 
     bins_lon = np.linspace(-180, 180, int(360/res)+1)
     bins_lat = np.linspace(-90, 90, int(180/res)+1)
@@ -4682,7 +4682,7 @@ def precompute_particle_tracking_video (base_dir='./', out_file='particle_distri
     ds_hist.to_netcdf(out_file)
 
 
-def animate_particle_numbers (in_file='particle_distribution_05deg.nc', out_file='particle_distribution_05deg.mp4', base_dir='./', cavity='ross'):
+def animate_particle_numbers (in_file='particle_distribution_025deg.nc', out_file='particle_distribution_025deg.mp4', base_dir='./', cavity='ross'):
 
     suite = 'cx209'
     mask_file = base_dir+'/'+suite+'/nemo_'+suite+'o_1m_22380101-22380201_grid-T_global.nc'
@@ -4749,8 +4749,8 @@ def animate_particle_numbers (in_file='particle_distribution_05deg.nc', out_file
     def animate(t):
         plot_one_frame(t)
     # Call this for each frame
-    anim = animation.FuncAnimation(fig, func=animate, frames=list(range(ds.sizes['month'])))
-    writer = animation.FFMpegWriter(bitrate=5000, fps=24)
+    anim = animation.FuncAnimation(fig, func=animate, frames=list(range(ds.sizes['month']-3*24)))  # Don't show last 3 years because the particles disappear towards the end as they're not tracked any more.
+    writer = animation.FFMpegWriter(bitrate=10000, fps=24)
     print('Saving animation')
     anim.save(out_file, writer=writer)
 
