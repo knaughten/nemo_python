@@ -4337,10 +4337,10 @@ def plot_fw_by_longitude (base_dir='./'):
     file_mid = ['_before_ross', '_after_ross_before_fris']
     file_tail = '.nc'
     titles = ['a) Before Ross tips', 'b) After Ross tips; before Filchner-Ronne tips']
-    labels = [['Ross', 'LABT', 'Amundsen', 'Bellingshausen', 'Peninsula'], ['Filchner-\nRonne', 'FT', 'Dronning Maud', 'Amery', 'Wilkes']]
-    label_x = [[-170, 158, -110, -80, -68], [-38, -35, 15, 63, 110]]
-    label_y = [[0.1, 0.25, 0.6, 0.7, 1.2], [0.65, 0.25, 0.5, 0.75, 0.85]]
-    rotate = [[False, True, True, True, True], [False, True, False, True, False]]
+    labels = [['Ross', 'LABT', 'Amundsen', 'Bellingshausen', 'Peninsula'], ['Filchner-\nRonne', 'FT', 'Dronning Maud', 'Amery', 'Wilkes', 'Ross']]
+    label_x = [[-175, -157, -110, -80, -68], [-38, -35, 15, 63, 110, -170]]
+    label_y = [[0.1, 0.2, 0.6, 0.7, 1.2], [0.65, 0.25, 0.5, 0.75, 0.85, 0.85]]
+    rotate = [[False, True, True, True, True], [False, True, False, True, False, False]]
 
     # Read one output file to get continental shelf mask
     mask_file = base_dir+'/cx209/nemo_cx209o_1m_18500101-18500201_grid-T.nc'
