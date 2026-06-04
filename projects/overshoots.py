@@ -4759,6 +4759,57 @@ def animate_particle_numbers (in_file='particle_distribution_025deg.nc', out_fil
     print('Saving animation')
     anim.save(out_file, writer=writer)
 
+
+def plot_timeseries_fixed_cases (base_dir='./'):
+
+    suites = ['cx209', 'cz826', 'dn026']
+    suite_titles = ['Evolving melt, evolving geometry', 'Evolving melt, fixed geometry', 'Fixed melt, fixed geometry']
+    var_names = ['cavity_temp', 'cavity_salt', 'massloss']
+    regions = ['ross', 'filchner_ronne']
+    var_titles = ['Cavity temperature', 'Cavity salinity', 'Basal melting']
+    units = [deg_string+'C', 'psu', 'Gt/y']
+    colours = ['Crimson', 'DarkMagenta', 'DarkCyan']
+    num_regions = len(regions)
+    num_vars = len(var_names)
+    num_suites = len(suites)
+    timeseries_file = 'timeseries.nc'
+    smooth = 5*months_per_year
+
+    # Open datasets
+    all_ds = [xr.open_dataset(base_dir+'/'+suite_id+'/'+timeseries_file, decode_times=time_coder) for suite_id in suites]
+    year0 = all_ds[0].time_centered[0].dt.year.item()
+
+    # Plot
+    fig = plt.figure(figsize=(8,8))
+    gs = plt.GridSpec(num_vars, num_regions)
+    gs.update(left=0.1, right=0.98, bottom=0.2, top=0.95, hspace=0.1, wspace=0.2)
+    for n in range(num_regions):
+        tip_year = [check_tip(suite=suite_id, region=regions[n], return_date=True)[1] for suite_id in suites]
+        for v in range(num_vars):
+            ax = plt.subplot(gs[v,n])
+            for m in range(num_suites):
+                data = moving_average(all_ds[m][regions[n]+'_'+var_names[v]], smooth)
+                years = time_in_years(data, year0=year0)
+                ax.plot(years, data, '-', color=colours[m], linewidth=1.5, label=suite_titles[m])
+                if tip_year[m] is not None:
+                    ax.axvline(tip_year[m].dt.year.item()-year0, color=colours[m], linewidth=1, linestyle='dashed')
+            if v == 0:
+                ax.set_title(region_names[regions[n]], fontsize=14)
+                ax.axhline(tipping_threshold, color='black', linewidth=1, linestyle='dashed')
+            if n == 0:
+                ax.set_ylabel(var_titles[v]+' ('+units[v]+')', fontsize=12)
+            if v == num_vars-1:
+                if n == 0:
+                    ax.set_xlabel('Years', fontsize=12)
+            else:
+                ax.set_xticklabels([])
+            ax.grid(linestyle='dotted')
+            ax.set_xlim([0, None])
+    ax.legend(loc='lower center', bbox_to_anchor=(-0.13, -0.65), fontsize=12)
+    finished_plot(fig) #, fig_name='figures/timeseries_fixed_cases.png', dpi=300)
+            
+        
+
     
 
 
