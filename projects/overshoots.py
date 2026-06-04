@@ -38,6 +38,7 @@ suites_by_scenario = {'piControl_static_ice' : ['cs495'],
                       'piControl' : ['cs568'],
                       'ramp_up' : ['cx209', 'cw988', 'cw989', 'cw990'],
                       'ramp_up_static_ice': ['cz826'],
+                      'ramp_up_fixed_melt': ['dn026'],
                       '1.5K_stabilise': ['cy837','cz834','da087'],
                       '1.5K_ramp_down': ['da697', 'dc052', 'dc248'],
                       '2K_stabilise': ['cy838','cz855','da266'],
@@ -76,7 +77,7 @@ suites_overshoot_lengths = {'50 years': ['da697', 'dc052', 'di335', 'dc051', 'df
                             '30 years': ['dc032']}
 
 # Dictionary of which suites branch from which. None means it's a ramp-up suite (so branched from a piControl run, but we don't care about that for the purposes of integrated GW)
-suites_branched = {'cx209':None, 'cw988':None, 'cw989':None, 'cw990':None, 'cz826':None, 'cy837':'cx209', 'cy838':'cx209', 'cz374':'cx209', 'cz375':'cx209', 'cz376':'cx209', 'cz377':'cx209', 'cz378':'cx209', 'cz855':'cw988', 'cz859':'cw988', 'db587':'cw988', 'db723':'cw988', 'db731':'cw988', 'da087':'cw989', 'da266':'cw989', 'db597':'cw989', 'db733':'cw989', 'dc324':'cw989', 'da800':'cy838', 'da697':'cy837', 'da892':'cz376', 'dc051':'cy838', 'dc052':'cy837', 'dc248':'cy837', 'dc249':'cz375', 'dc251':'cz377', 'dc032':'cz375', 'do135':'cz376', 'dc130':'cz377', 'di335':'cy838', 'df453':'cz375', 'dc565':'cy838', 'dd210':'cz376', 'df028':'cz375', 'df025':'cy838', 'df027':'cy838', 'df021':'cz375', 'do136':'cz375', 'dh541':'cz376', 'dh859':'cz376', 'de943':'cz378', 'de962':'cz378', 'de963':'cz378', 'dg093':'cz377', 'dg094':'cz377', 'dg095':'cz377', 'dm357':'cz378', 'dm358':'cz378', 'dm359':'cz378', 'dn822':'da892'}
+suites_branched = {'cx209':None, 'cw988':None, 'cw989':None, 'cw990':None, 'cz826':None, 'cy837':'cx209', 'cy838':'cx209', 'cz374':'cx209', 'cz375':'cx209', 'cz376':'cx209', 'cz377':'cx209', 'cz378':'cx209', 'cz855':'cw988', 'cz859':'cw988', 'db587':'cw988', 'db723':'cw988', 'db731':'cw988', 'da087':'cw989', 'da266':'cw989', 'db597':'cw989', 'db733':'cw989', 'dc324':'cw989', 'da800':'cy838', 'da697':'cy837', 'da892':'cz376', 'dc051':'cy838', 'dc052':'cy837', 'dc248':'cy837', 'dc249':'cz375', 'dc251':'cz377', 'dc032':'cz375', 'do135':'cz376', 'dc130':'cz377', 'di335':'cy838', 'df453':'cz375', 'dc565':'cy838', 'dd210':'cz376', 'df028':'cz375', 'df025':'cy838', 'df027':'cy838', 'df021':'cz375', 'do136':'cz375', 'dh541':'cz376', 'dh859':'cz376', 'de943':'cz378', 'de962':'cz378', 'de963':'cz378', 'dg093':'cz377', 'dg094':'cz377', 'dg095':'cz377', 'dm357':'cz378', 'dm358':'cz378', 'dm359':'cz378', 'dn822':'da892', 'dn026':'cx209'}
 
 tipping_threshold = -1.9  # If cavity mean temp is warmer than surface freezing point, it's tipped
 temp_correction = 1.5450286133565283 # Precomputed by warming_implied_by_salinity_bias()
@@ -251,7 +252,7 @@ def minimal_expt_list (one_ens=False):
     for key in keys:
         dirs = []
         for scenario in suite_list:
-            if 'static_ice' in scenario:
+            if 'static_ice' in scenario or 'fixed_melt' in scenario:
                 continue
             if key in scenario:
                 if isinstance(suite_list[scenario], str):
@@ -1602,7 +1603,7 @@ def plot_ross_fris_by_bwsalt (base_dir='./', compare_jacobs=False):
         bwsalt_tip = []
         bwsalt_recover = []
         for scenario in suites_by_scenario:
-            if 'piControl' in scenario or 'static_ice' in scenario:
+            if 'piControl' in scenario or 'static_ice' in scenario or 'fixed_melt' in scenario:
                 continue
             for suite in suites_by_scenario[scenario]:
                 # Flag whether temperature is going up (ramp-up or stabilisation) or down (ramp-down)
@@ -3070,7 +3071,7 @@ def plot_SLR_timeseries (base_dir='./', draft=False):
         pi_slr = None
         # Loop over scenarios and check if file exists
         for scenario in suites_by_scenario:
-            if 'static_ice' in scenario:
+            if 'static_ice' in scenario or 'fixed_melt' in scenario:
                 continue
             for suite in suites_by_scenario[scenario]:
                 if draft:
@@ -3190,7 +3191,7 @@ def count_simulation_years (base_dir='./'):
 
     years = 0
     for scenario in suites_by_scenario:
-        if 'piControl' in scenario or 'static_ice' in scenario:
+        if 'piControl' in scenario or 'static_ice' in scenario or 'fixed_melt' in scenario:
             continue
         for suite in suites_by_scenario[scenario]:
             file_path = base_dir+'/'+suite+'/'+timeseries_file
@@ -3263,7 +3264,7 @@ def find_corrupted_files (base_dir='./', log=False):
     timestamps = []
     # Loop over all suites
     for scenario in suites_by_scenario:
-        if 'static_ice' in scenario:
+        if 'static_ice' in scenario or 'fixed_melt' in scenario:
             continue
         for suite in suites_by_scenario[scenario]:
             num_blocks = 0
