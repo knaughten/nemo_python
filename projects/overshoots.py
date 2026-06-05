@@ -4766,24 +4766,25 @@ def plot_timeseries_fixed_cases (base_dir='./'):
 
     suites = ['cx209', 'cz826', 'dn026']
     suite_titles = ['Evolving melt, evolving geometry', 'Evolving melt, fixed geometry', 'Fixed melt, fixed geometry']
-    var_names = ['cavity_temp', 'shelf_bwsalt', 'massloss']
+    var_names = ['bwtemp', 'massloss']
     regions = ['ross', 'filchner_ronne']
-    var_titles = ['Cavity temperature', 'Shelf bottom salinity', 'Basal melting']
-    units = [deg_string+'C', 'psu', 'Gt/y']
+    var_titles = ['Bottom temperature,\nshelf and cavity ('+deg_string+'C)', 'Basal melting (Gt/y)']
     colours = ['Crimson', 'DarkMagenta', 'DarkCyan']
+    panel_labels = ['a)', 'b)', 'c)', 'd)']
     num_regions = len(regions)
     num_vars = len(var_names)
     num_suites = len(suites)
     timeseries_file = 'timeseries.nc'
     smooth = 5*months_per_year
+    var_bounds = [[-2, 3.5], [0, 4000]]
 
     # Open datasets
     all_ds = [xr.open_dataset(base_dir+'/'+suite_id+'/'+timeseries_file, decode_times=time_coder) for suite_id in suites]
 
     # Plot
-    fig = plt.figure(figsize=(8,8))
+    fig = plt.figure(figsize=(7,6))
     gs = plt.GridSpec(num_vars, num_regions)
-    gs.update(left=0.15, right=0.98, bottom=0.2, top=0.95, hspace=0.1, wspace=0.2)
+    gs.update(left=0.11, right=0.97, bottom=0.25, top=0.95, hspace=0.1, wspace=0.18)
     for n in range(num_regions):
         tip_year = [check_tip(suite=suite_id, region=regions[n], return_date=True)[1].dt.year.item() for suite_id in suites]
         print(regions[n]+' tipping dates:')
@@ -4796,10 +4797,11 @@ def plot_timeseries_fixed_cases (base_dir='./'):
                 years = time_in_years(data, year0=tip_year[m])
                 ax.plot(years, data, '-', color=colours[m], linewidth=1.5, label=suite_titles[m])
             ax.axvline(0, color='black', linewidth=1, linestyle='dashed')
+            plt.text(0.02, 0.98, panel_labels[v*num_regions+n], fontsize=13, ha='left', va='top', transform=ax.transAxes)
             if v == 0:
                 ax.set_title(region_names[regions[n]], fontsize=14)
             if n == 0:
-                ax.set_ylabel(var_titles[v]+'\n('+units[v]+')', fontsize=12)
+                ax.set_ylabel(var_titles[v], fontsize=12)
             if v == num_vars-1:
                 if n == 0:
                     ax.set_xlabel('Years relative to tipping point', fontsize=12)
@@ -4808,21 +4810,29 @@ def plot_timeseries_fixed_cases (base_dir='./'):
             ax.grid(linestyle='dotted')
             end_year = 200 if n==0 else 100
             ax.set_xlim([-25, end_year])
-    ax.legend(loc='lower center', bbox_to_anchor=(-0.13, -0.8), fontsize=12)
+            ax.set_ylim(var_bounds[v])
+    ax.legend(loc='lower center', bbox_to_anchor=(-0.13, -0.73), fontsize=12)
     finished_plot(fig, fig_name='figures/timeseries_fixed_cases.png', dpi=300)
 
 
-# Maps of bottom temperature in and around each cavity for the three simulations above, for the given years relative to the tipping time.
-def map_snapshots_fixed_cases (base_dir='./', ross_years=40, fris_years=20, fig_name=None):
+# Maps of bottom temperature or salinity in and around each cavity for the three simulations above, for the given years relative to the tipping time.
+def map_snapshots_fixed_cases (base_dir='./', ross_years=40, fris_years=20, fig_name=None, var='bwtemp'):
 
     suites = ['cx209', 'cz826', 'dn026']
     suite_titles = ['Evolving melt,\nevolving geometry', 'Evolving melt,\nfixed geometry', 'Fixed melt,\nfixed geometry']
-    var_name = 'tob'
-    var_title = 'Bottom temperature ('+deg_string+'C)'
-    vmin = -2
-    vmax = 3.5
+    if var == 'bwtemp':
+        var_name = 'tob'
+        var_title = 'Bottom temperature ('+deg_string+'C)'
+        vmin = -2
+        vmax = 3.5
+    elif var == 'bwsalt':
+        var_name = 'sob'
+        var_title = 'Bottom salinity (psu)'
+        vmin = 33
+        vmax = 34.9
     ctype = 'RdBu_r'
     regions = ['ross', 'filchner_ronne']
+    title_prefixes = ['a)', 'b)']
     plot_bounds = [[-715e3, 535e3, -2154e3, -34e4], [-1817e3, -39e4, 9e4, 1548e3]]
     num_regions = len(regions)
     num_suites = len(suites)
@@ -4893,11 +4903,11 @@ def map_snapshots_fixed_cases (base_dir='./', ross_years=40, fris_years=20, fig_
             ax.set_ylim([plot_bounds[n][2], plot_bounds[n][3]])            
             ax.set_xticks([])
             ax.set_yticks([])
-        plt.text(0.5, 0.99-0.44*n, region_names[regions[n]]+' ('+str(region_years[n])+' years after tipping)', fontsize=16, ha='center', va='top', transform=fig.transFigure)
+        plt.text(0.5, 0.99-0.44*n, title_prefixes[n]+' '+region_names[regions[n]]+' ('+str(region_years[n])+' years after tipping)', fontsize=16, ha='center', va='top', transform=fig.transFigure)
     cbar = plt.colorbar(img, cax=cax, orientation='horizontal', extend='both')
-    plt.text(0.5, 0.01, var_title, fontsize=14, ha='center', va='bottom', transform=fig.transFigure)
+    plt.text(0.5, 0.01, var_title, fontsize=13, ha='center', va='bottom', transform=fig.transFigure)
     if fig_name is None:
-        fig_name = 'figures/map_snapshots_fixed_cases.png'
+        fig_name = 'figures/map_snapshots_fixed_cases_'+var+'.png'
     finished_plot(fig, fig_name=fig_name, dpi=300)
         
                 
