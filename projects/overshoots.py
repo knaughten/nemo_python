@@ -2927,7 +2927,7 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
         xmax = set_bound(imask_region, x, 'max')
         ymin = set_bound(omask_region, y, 'min')
         ymax = set_bound(omask_region, y, 'max')
-        print(regions[n]+': xmin='+str(xmin)+', xmax='+str(xmax)+', ymin='+str(ymin)+', ymax='+str(ymax))
+        #print(regions[n]+': xmin='+str(xmin.item())+', xmax='+str(xmax.item())+', ymin='+str(ymin.item())+', ymax='+str(ymax.item()))
         # Add a bit extra to some sides of the mask to show more grounded ice
         if regions[n] == 'ross':
             xmin -= mask_pad*4
@@ -4761,6 +4761,7 @@ def animate_particle_numbers (in_file='particle_distribution_025deg.nc', out_fil
     anim.save(out_file, writer=writer)
 
 
+# Timeseries of cavity temp, shelf bwsalt, and basal melting from three simulations (normal ramp-up, fixed geometry, fixed melt) for each cavity.
 def plot_timeseries_fixed_cases (base_dir='./'):
 
     suites = ['cx209', 'cz826', 'dn026']
@@ -4811,16 +4812,21 @@ def plot_timeseries_fixed_cases (base_dir='./'):
     finished_plot(fig, fig_name='figures/timeseries_fixed_cases.png', dpi=300)
 
 
+# Maps of bottom temperature in and around each cavity for the three simulations above, for the given years relative to the tipping time.
 def map_snapshots_fixed_cases (base_dir='./', ross_years=30, fris_years=20):
 
     suites = ['cx209', 'cz826', 'dn026']
-    suite_titles = ['Evolving melt, evolving geometry', 'Evolving melt, fixed geometry', 'Fixed melt, fixed geometry']
+    suite_titles = ['Evolving melt,\nevolving geometry', 'Evolving melt,\nfixed geometry', 'Fixed melt,\nfixed geometry']
     var_name = 'tob'
     var_title = 'Bottom temperature ('+deg_string+'C)'
     vmin = -2
     vmax = 3.5
     ctype = 'RdBu_r'
     regions = ['ross', 'filchner_ronne']
+    plot_bounds = [[-715e3, 535e3, -2154e3, -34e4], [-1817e3, -39e4, 9e4, 1548e3]]
+    num_regions = len(regions)
+    num_suites = len(suites)
+    region_years = [ross_years, fris_years]
 
     # Inner function to calculate year of output to read based on tipping times
     def year_to_read (suite, region):
@@ -4830,14 +4836,13 @@ def map_snapshots_fixed_cases (base_dir='./', ross_years=30, fris_years=20):
         elif region == 'filchner_ronne':
             return tip_year + fris_years
     data_plot = []
+    grid_plot = []
     for region in regions:
         data_plot_region = []
+        grid_plot_region = []
         for suite in suites:
             year = year_to_read(suite, region)
-            file_pattern = base_dir+'/'+suite+'/nemo_'+suite+'o_1m_'+str(year)+'*_grid-T.nc'
-            ds = xr.open_mfdataset(file_pattern, decode_times=time_coder)
-            ds.load()
-            ds = ds.swap_dims({'time_counter':'time_centered'}).drop_vars(['time_counter'])
+            print('Reading year '+str(year)+' from suite '+suite)
             # Find all the files for this year
             files_to_read = []
             for f in os.listdir(base_dir+'/'+suite):
@@ -4849,18 +4854,50 @@ def map_snapshots_fixed_cases (base_dir='./', ross_years=30, fris_years=20):
             if len(files_to_read) != months_per_year:
                 raise Exception(str(len(files_to_read))+' files found for '+suite+', year '+str(year))
             # Annually average
-            ds_full = None
+            data_full = None
+            ds_grid = None
             for file_path in files_to_read:
+                print('...'+file_path)
                 ds = xr.open_dataset(file_path)
                 ds.load()
                 ds = ds.swap_dims({'time_counter':'time_centered'}).drop_vars(['time_counter'])
-                if ds_full is None:
-                    ds_full = ds
+                if len(grid_plot_region) > 0 and ds.sizes['y'] != grid_plot_region[0].sizes['y']:
+                    # The last suite wasn't trimmed to Southern Ocean (downloaded by Jing). Do so it matches the others.
+                    ds = ds.isel(y=slice(0,grid_plot_region[0].sizes['y']))
+                if ds_grid is None:
+                    # Save one file to use for land masks - can change each year
+                    ds_grid = ds.copy()
+                if data_full is None:
+                    data_full = ds[var_name]
                 else:
-                    ds_full = xr.concat([ds_full, ds], dim='time_centered')
+                    data_full = xr.concat([data_full, ds[var_name]], dim='time_centered')
                 ds.close()
-            ds_mean = ds_full.mean(dim='time_centered')
-            data_plot_region.append
+            data_mean = data_full.mean(dim='time_centered')                
+            data_plot_region.append(data_mean)
+            grid_plot_region.append(ds_grid)
+        data_plot.append(data_plot_region)
+        grid_plot.append(grid_plot_region)
+
+    # Plot
+    fig = plt.figure(figsize=(6,6.5))
+    gs = plt.GridSpec(num_regions, num_suites)
+    gs.update(left=0.02, right=0.98, bottom=0.13, top=0.88, wspace=0.1, hspace=0.4)
+    cax = fig.add_axes([0.3, 0.08, 0.4, 0.03])
+    for n in range(num_regions):
+        for m in range(num_suites):
+            ax = plt.subplot(gs[n,m])
+            img = circumpolar_plot(data_plot[n][m], grid_plot[n][m], ax=ax, make_cbar=False, title=suite_titles[m], titlesize=13, vmin=vmin, vmax=vmax, ctype=ctype, contour_ice=True, icefront_colour='white')
+            ax.axis('equal')
+            # Zoom in to predefined limits
+            ax.set_xlim([plot_bounds[n][0], plot_bounds[n][1]])
+            ax.set_ylim([plot_bounds[n][2], plot_bounds[n][3]])            
+            ax.set_xticks([])
+            ax.set_yticks([])
+        plt.text(0.5, 0.99-0.44*n, region_names[regions[n]]+' ('+str(region_years[n])+' years after tipping)', fontsize=16, ha='center', va='top', transform=fig.transFigure)
+    cbar = plt.colorbar(img, cax=cax, orientation='horizontal', extend='both')
+    plt.text(0.5, 0.01, var_title, fontsize=14, ha='center', va='bottom', transform=fig.transFigure)
+    finished_plot(fig) #, fig_name='figures/map_snapshots_fixed_cases.png', dpi=300)
+        
                 
             
             
