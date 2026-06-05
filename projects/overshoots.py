@@ -4813,7 +4813,7 @@ def plot_timeseries_fixed_cases (base_dir='./'):
 
 
 # Maps of bottom temperature in and around each cavity for the three simulations above, for the given years relative to the tipping time.
-def map_snapshots_fixed_cases (base_dir='./', ross_years=30, fris_years=20):
+def map_snapshots_fixed_cases (base_dir='./', ross_years=30, fris_years=20, fig_name=None):
 
     suites = ['cx209', 'cz826', 'dn026']
     suite_titles = ['Evolving melt,\nevolving geometry', 'Evolving melt,\nfixed geometry', 'Fixed melt,\nfixed geometry']
@@ -4896,7 +4896,9 @@ def map_snapshots_fixed_cases (base_dir='./', ross_years=30, fris_years=20):
         plt.text(0.5, 0.99-0.44*n, region_names[regions[n]]+' ('+str(region_years[n])+' years after tipping)', fontsize=16, ha='center', va='top', transform=fig.transFigure)
     cbar = plt.colorbar(img, cax=cax, orientation='horizontal', extend='both')
     plt.text(0.5, 0.01, var_title, fontsize=14, ha='center', va='bottom', transform=fig.transFigure)
-    finished_plot(fig) #, fig_name='figures/map_snapshots_fixed_cases.png', dpi=300)
+    if fig_name is None:
+        fig_name = 'figures/map_snapshots_fixed_cases.png'
+    finished_plot(fig, fig_name=fig_name, dpi=300)
         
                 
             
