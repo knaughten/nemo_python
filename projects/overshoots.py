@@ -2727,7 +2727,7 @@ def check_all_nans (base_dir='./'):
             print('Checking '+suite)
             for timeseries_file, var_names in zip(file_names, var_lists):
                 check_nans(base_dir+'/'+suite+'/'+timeseries_file, var_names=var_names)
-
+                
 
 # Plot a series of maps showing snapshots of the given variable in each cavity for selected scenarios: initial state, tipping point, 100 years later, recovery point. Works for bwtemp, bwsalt, ismr. Also plot BISICLES ice speed in the grounded ice.
 def map_snapshots (var_name='bwtemp', base_dir='./'):
@@ -2927,6 +2927,7 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
         xmax = set_bound(imask_region, x, 'max')
         ymin = set_bound(omask_region, y, 'min')
         ymax = set_bound(omask_region, y, 'max')
+        print(regions[n]+': xmin='+str(xmin)+', xmax='+str(xmax)+', ymin='+str(ymin)+', ymax='+str(ymax))
         # Add a bit extra to some sides of the mask to show more grounded ice
         if regions[n] == 'ross':
             xmin -= mask_pad*4
@@ -4808,6 +4809,62 @@ def plot_timeseries_fixed_cases (base_dir='./'):
             ax.set_xlim([-25, end_year])
     ax.legend(loc='lower center', bbox_to_anchor=(-0.13, -0.8), fontsize=12)
     finished_plot(fig, fig_name='figures/timeseries_fixed_cases.png', dpi=300)
+
+
+def map_snapshots_fixed_cases (base_dir='./', ross_years=30, fris_years=20):
+
+    suites = ['cx209', 'cz826', 'dn026']
+    suite_titles = ['Evolving melt, evolving geometry', 'Evolving melt, fixed geometry', 'Fixed melt, fixed geometry']
+    var_name = 'tob'
+    var_title = 'Bottom temperature ('+deg_string+'C)'
+    vmin = -2
+    vmax = 3.5
+    ctype = 'RdBu_r'
+    regions = ['ross', 'filchner_ronne']
+
+    # Inner function to calculate year of output to read based on tipping times
+    def year_to_read (suite, region):
+        tip_year = check_tip(suite=suite, region=region, return_date=True)[1].dt.year.item()
+        if region == 'ross':
+            return tip_year + ross_years
+        elif region == 'filchner_ronne':
+            return tip_year + fris_years
+    data_plot = []
+    for region in regions:
+        data_plot_region = []
+        for suite in suites:
+            year = year_to_read(suite, region)
+            file_pattern = base_dir+'/'+suite+'/nemo_'+suite+'o_1m_'+str(year)+'*_grid-T.nc'
+            ds = xr.open_mfdataset(file_pattern, decode_times=time_coder)
+            ds.load()
+            ds = ds.swap_dims({'time_counter':'time_centered'}).drop_vars(['time_counter'])
+            # Find all the files for this year
+            files_to_read = []
+            for f in os.listdir(base_dir+'/'+suite):
+                if f.startswith('nemo_'+suite+'o_1m_'+str(year)) and f.endswith('_grid-T.nc'):
+                    if f not in files_to_read:
+                        files_to_read.append(base_dir+'/'+suite+'/'+f)
+            files_to_read.sort()
+            # Check there are 12 files
+            if len(files_to_read) != months_per_year:
+                raise Exception(str(len(files_to_read))+' files found for '+suite+', year '+str(year))
+            # Annually average
+            ds_full = None
+            for file_path in files_to_read:
+                ds = xr.open_dataset(file_path)
+                ds.load()
+                ds = ds.swap_dims({'time_counter':'time_centered'}).drop_vars(['time_counter'])
+                if ds_full is None:
+                    ds_full = ds
+                else:
+                    ds_full = xr.concat([ds_full, ds], dim='time_centered')
+                ds.close()
+            ds_mean = ds_full.mean(dim='time_centered')
+            data_plot_region.append
+                
+            
+            
+    
             
         
 

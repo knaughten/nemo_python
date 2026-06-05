@@ -13,15 +13,18 @@ from .utils import remove_disconnected, closest_point, latlon_name, xy_name
 # Helper function to get a 3D land mask from a NEMO output file, using either thetao or so.
 def build_mask_3d (ds):
 
+    if 'time_counter' in ds.dims:
+        ds = ds.isel(time_counter=0)
+
     mask_3d = None
     for var in ['thetao', 'so']:
         if var in ds:
             if ds[var].isnull().any():
                 # Use mask
-                mask_3d = xr.where(ds[var].isel(time_counter=0).isnull(), 0, 1).squeeze()
+                mask_3d = xr.where(ds[var].isnull(), 0, 1).squeeze()
             else:
                 # Use zeros
-                mask_3d = xr.where(ds[var].isel(time_counter=0)==0, 0, 1).squeeze()
+                mask_3d = xr.where(ds[var]==0, 0, 1).squeeze()
             break
     if mask_3d is None:
         raise Exception('No known 3D masked variable is present. Add another variable to the code?')
