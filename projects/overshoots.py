@@ -4813,7 +4813,7 @@ def plot_timeseries_fixed_cases (base_dir='./'):
 
 
 # Maps of bottom temperature in and around each cavity for the three simulations above, for the given years relative to the tipping time.
-def map_snapshots_fixed_cases (base_dir='./', ross_years=30, fris_years=20, fig_name=None):
+def map_snapshots_fixed_cases (base_dir='./', ross_years=40, fris_years=20, fig_name=None):
 
     suites = ['cx209', 'cz826', 'dn026']
     suite_titles = ['Evolving melt,\nevolving geometry', 'Evolving melt,\nfixed geometry', 'Fixed melt,\nfixed geometry']
@@ -4857,7 +4857,7 @@ def map_snapshots_fixed_cases (base_dir='./', ross_years=30, fris_years=20, fig_
             data_full = None
             ds_grid = None
             for file_path in files_to_read:
-                print('...'+file_path)
+                #print('...'+file_path)
                 ds = xr.open_dataset(file_path)
                 ds.load()
                 ds = ds.swap_dims({'time_counter':'time_centered'}).drop_vars(['time_counter'])
