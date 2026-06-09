@@ -663,6 +663,15 @@ def bwsalt_abs (ds_nemo):
     return gsw.SA_from_SP(SP, press, ds_nemo['nav_lon'], ds_nemo['nav_lat'])
 
 
+# Read conservative bottom temperature from a NEMO dataset in EOS80.
+def bwtemp_con (ds_nemo):
+    import gsw
+    PT = ds_nemo['tob']
+    depth_3d = xr.broadcast(ds_nemo['deptht'], ds_nemo['so'])[0].where(ds_nemo['so']!=0)
+    press = depth_3d.max(dim='deptht')
+    return gsw.CT_from_t(bwsalt_abs(ds_nemo), PT, press)
+
+
 # Select the correct variable for area in the dataset
 def area_name (ds, gtype='T'):
 

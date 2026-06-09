@@ -22,7 +22,7 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from ..timeseries import update_simulation_timeseries, update_simulation_timeseries_um, check_nans, fix_missing_months, calc_timeseries, overwrite_file
 from ..plots import timeseries_by_region, timeseries_by_expt, finished_plot, timeseries_plot, circumpolar_plot
 from ..plot_utils import truncate_colourmap, lon_label
-from ..utils import moving_average, add_months, rotate_vector, polar_stereo, convert_ismr, bwsalt_abs, fix_lon_range
+from ..utils import moving_average, add_months, rotate_vector, polar_stereo, convert_ismr, bwsalt_abs, bwtemp_con, fix_lon_range
 from ..grid import region_mask, calc_geometry, build_ice_mask, build_shelf_mask
 from ..constants import line_colours, region_names, deg_string, gkg_string, months_per_year, rho_fw, rho_ice, sec_per_year, vaf_to_gmslr
 from ..file_io import read_schmidtko, read_woa, read_zhou_bottom_climatology
@@ -1342,19 +1342,13 @@ def plot_bwtemp_massloss_by_gw_panels (base_dir='./', static_ice=False):
     finished_plot(fig, fig_name=fig_name, dpi=300)
 
 
-# Calculate UKESM's bias in bottom salinity on the continental shelf of Ross and FRIS (both regions together). To do this, find the range of observed global warming between 2000-present from HadCRUT, and identify the years of each ramp-up ensemble member corresponding to this range. Then, average bottom salinity over those years and ensemble members, compare to observational climatologies interpolated to NEMO grid, and calculate the area-averaged bias.
-# Before running this on Jasmin, do "source ~/pyenv/bin/activate" so we can use gsw
-def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt_bias.nc', region='both'):
+# Helper function to identify years of ramp-up model output to compare to obs. Find the rnage of observed global warming between 2000--present from HadCRUT, and identify the years of each ramp-up ensemble member corresponding to this range. Returns two lists of years (start years and end years), corresponding to the ramp-up ensemble members (4).
+def find_years_for_obs_compare (base_dir='./', obs_start=2000):
 
-    regions = ['ross', 'filchner_ronne']  # Both together
-    labels_lon = [-166, -45, -158, 162, -30, -70]
-    labels_lat = [-72, -71, -79, -75, -78, -76.5]
     pi_suite = 'cs495'  # Preindustrial, static cavities
     hadcrut_file = base_dir+'/'+'HadCRUT.5.0.2.0.analysis.summary_series.global.annual.nc'
-    obs_start = 2000  # Most of Shenjie's observations are from post-2005, so start date of 2000 allows for a small weighting of earlier data too. At time of access (28/08/2025) this presumably includes half of 2025.
     obs_pi = [1850, 1900]  # Suggested "pre-industrial" baseline for HadCRUT
     timeseries_file_um = 'timeseries_um.nc'
-    obs_file = '/gws/ssde/j25b/terrafirma/kaight/input_data/shenjie_climatology_bottom_TS.nc'  # Zhou 2025
 
     # Read observed global warming
     ds = xr.open_dataset(hadcrut_file)
@@ -1369,8 +1363,8 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
     print('Range of observed warming from '+str(obs_start)+'-present: '+str(obs_gw_min)+' to '+str(obs_gw_max)+' degC')
 
     # Loop over ramp-up suites (no static ice)
-    ramp_up_bwsalt = None
-    num_years = 0
+    start_years = []
+    end_years = []
     for suite in suites_by_scenario['ramp_up']:
         # Get timeseries of global warming relative to PI
         warming = global_warming(suite, pi_suite=pi_suite, base_dir=base_dir)
@@ -1378,40 +1372,76 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
         warming = warming.groupby('time_centered.year').mean('time_centered')
         # Find last year when warming is below obs_gw_min; start counting the next year
         t_start = np.argwhere(warming.data < obs_gw_min)[-1][0]
-        year_start = warming.year[t_start].item() + 1
+        start_year = warming.year[t_start].item() + 1
         # Find first year when warming is above obs_gw_max; finish counting the previous year
         t_end = np.argwhere(warming.data > obs_gw_max)[0][0]
-        year_end = warming.year[t_end].item() - 1
+        end_year = warming.year[t_end].item() - 1
         print(suite+' matches historical warming range from '+str(year_start)+'-'+str(year_end))
+        start_years.append(start_year)
+        end_years.append(end_year)
+
+    return start_years, end_years    
+
+
+# Calculate UKESM's bias in bottom salinity on the continental shelf of Ross and FRIS (both regions together). Over the years calculated above, average bottom salinity over those years and ensemble members, compare to observational climatologies interpolated to NEMO grid, and calculate the area-averaged bias.
+# Before running this on Jasmin, do "source ~/pyenv/bin/activate" so we can use gsw
+# If plot=True, will make a figure showing the comparison, and also showing temperature.
+def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt_bias.nc', region='both'):
+
+    regions = ['ross', 'filchner_ronne']  # Both together
+    labels_lon = [-166, -45, -158, 162, -30, -70]
+    labels_lat = [-72, -71, -79, -75, -78, -76.5]
+    obs_start = 2000  # Most of Shenjie's observations are from post-2005, so start date of 2000 allows for a small weighting of earlier data too. At time of access (28/08/2025) this presumably includes half of 2025.
+    obs_file = '/gws/ssde/j25b/terrafirma/kaight/input_data/shenjie_climatology_bottom_TS.nc'  # Zhou 2025
+
+    # Find years for comparison to obs for each ramp-up ensemble member
+    start_years, end_years = find_years_for_obs_compare(base_dir=base_dir, obs_start=obs_start)
+    # Now accumulate average over all these years and ensemble members
+    ramp_up_bwsalt = None
+    if plot:
+        ramp_up_bwtemp = None
+    num_years = 0
+    for suite, start_year, end_year in zip(suites_by_scenario['ramp_up'], start_year, end_year):
         # Read all the grid-T ocean files from these years
-        for year0 in range(year_start, year_end+1):
+        for year0 in range(start_year, end_year):
             num_years += 1
             for month0 in range(1, months_per_year+1):
                 year1, month1 = add_months(year0, month0, 1)
                 file_path = base_dir+'/'+suite+'/nemo_'+suite+'o_1m_'+str(year0)+str(month0).zfill(2)+'01-'+str(year1)+str(month1).zfill(2)+'01_grid-T.nc'
                 ds = xr.open_dataset(file_path, decode_times=time_coder)
-                bwsalt = ds['sob']
                 if eos == 'teos10':
                     # Convert to absolute salinity
                     bwsalt = bwsalt_abs(ds)
+                    if plot:
+                        bwtemp = bwtemp_con(ds)
                 elif eos == 'eos80':
                     bwsalt = ds['sob']
+                    if plot:
+                        bwtemp = ds['tob']
                 else:
                     raise Exception('Invalid EOS '+eos)
                 if ramp_up_bwsalt is None:
                     # Initialise
                     ramp_up_bwsalt = bwsalt
+                    if plot:
+                        ramp_up_bwtemp = bwtemp
                 else:
                     # Accumulate
                     ramp_up_bwsalt += bwsalt
+                    if plot:
+                        ramp_up_bwtemp += bwtemp
     # Convert from integral to average (over time and ensemble members)
     ramp_up_bwsalt /= (num_years*months_per_year)
+    if plot:
+        ramp_up_bwtemp /= (num_years*months_per_year)
 
     # Now read observations of bottom salinity and regrid to NEMO grid
     print('Reading Zhou 2025 data')
     obs = read_zhou_bottom_climatology(in_file=obs_file, eos=eos)
     obs_interp = interp_latlon_cf(obs, ds, method='bilinear')
     obs_bwsalt = obs_interp['salt']
+    if plot:
+        obs_bwtemp = obs_interp['temp']
 
     # Prepare masks of each region
     if region == 'both':
@@ -1425,33 +1455,40 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
     x, y = polar_stereo(ds['nav_lon'], ds['nav_lat'])
 
     if plot:
-        # Make a quick plot
-        fig = plt.figure(figsize=(8,3))
-        gs = plt.GridSpec(1,3)
-        gs.update(left=0.1, right=0.9, bottom=0.05, top=0.8, wspace=0.1)
-        ukesm_plot = ramp_up_bwsalt.where(ramp_up_bwsalt!=0).squeeze()
+        fig = plt.figure(figsize=(8,6))
+        gs = plt.GridSpec(2,3)
+        gs.update(left=0.1, right=0.9, bottom=0.025, top=0.9, wspace=0.1, hspace=0.2)
         # Mask cavities in UKESM to match observations
         ice_mask = build_ice_mask(ds)[0]
-        ukesm_plot = ukesm_plot.where(~ice_mask)
-        obs_plot = obs_bwsalt.where(ukesm_plot.notnull()*obs_bwsalt.notnull())
-        obs_plot = obs_plot.where(ramp_up_bwsalt!=0).squeeze()
-        data_plot = [ukesm_plot, obs_plot, ukesm_plot-obs_plot]
-        titles = ['a) UKESM', 'b) Observations', 'c) Model bias']
-        vmin = [34, 34, -0.5]
-        vmax = [34.85, 34.85, 0.5]
-        ctype = ['RdBu_r', 'RdBu_r', 'plusminus']
-        region_colours = ['magenta']*2 + ['black']*4
-        for n in range(3):
-            ax = plt.subplot(gs[0,n])
-            ax.axis('equal')
-            img = circumpolar_plot(data_plot[n], ds, ax=ax, masked=True, make_cbar=False, title=titles[n], titlesize=13, vmin=vmin[n], vmax=vmax[n], ctype=ctype[n], lat_max=-63)
-            if n == 2:
-                ax.contour(x, y, mask, levels=[0.5], colors=('magenta'), linewidths=0.5)
-            if n != 1:
-                cax = fig.add_axes([0.01+0.45*n, 0.1, 0.02, 0.6])
-                plt.colorbar(img, cax=cax, extend='both')
-        plt.suptitle('Bottom salinity (psu)', fontsize=18)
-        finished_plot(fig, fig_name='figures/bwsalt_bias.png', dpi=300)
+        ukesm_data = [ramp_up_bwtemp, ramp_up_bwsalt]
+        obs_data = [obs_bwsalt, obs_bwtemp]
+        var_titles = ['Bottom temperature ('+deg_string+'C)', 'Bottom salinity (psu)']
+        prefixes = ['a) ', 'b) ', 'c) ', 'd) ', 'e) ', 'f) ']
+        vmin = [-2.5, 34]
+        vmax = [2, 34.85]
+        vdiff = [1, 0.5]
+        num_var = len(ukesm_data)
+        for v in range(num_var):
+            ukesm_plot = ukesm_data[v].where(ukesm_data[v]!=0).squeeze()
+            ukesm_plot = ukesm_plot.where(~ice_mask)
+            obs_plot = obs_data[v].where(ukesm_plot.notnull()*obs_data[v].notnull())
+            obs_plot = obs_plot.where(ukesm_data[v]!=0).squeeze()
+            data_plot = [ukesm_plot, obs_plot, ukesm_plot-obs_plot]
+            titles = ['UKESM', 'Observations', 'Model bias']
+            vmin_plot = [vmin[v], vmin[v], -1*vdiff[v]]
+            vmax_plot = [vmax[v], vmax[v], vdiff[v]]
+            ctype = 'RdBu_r', 'RdBu_r', 'plusminus']
+            for n in range(3):
+                ax = plt.subplot(gs[v,n])
+                ax.axis('equal')
+                img = circumpolar_plot(data_plot[n], ds, ax=ax, masked=True, make_cbar=False, title=prefixes[v*num_var+n]+titles[n], titlesize=13, vmin=vmin_plot[n], vmax=vmax_plot[n], ctype=ctype[n], lat_max=-63)
+                if v == 1 and n == 2:
+                    ax.contour(x, y, mask, levels=[0.5], colors=('magenta'), linewidths=0.5)
+                if n != 1:
+                    cax = fig.add_axes([0.01+0.45*n, 0.5*v+0.05, 0.02, 0.3])
+                    plt.colorbar(img, cax=cax, extend='both')
+            plt.suptitle(var_titles[v], fontsize=16)
+        finished_plot(fig, fig_name='figures/bw_bias.png', dpi=300)
 
     # Save bias to NetCDF file
     data_diff = (ramp_up_bwsalt - obs_bwsalt).squeeze()
