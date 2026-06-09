@@ -1376,7 +1376,7 @@ def find_years_for_obs_compare (base_dir='./', obs_start=2000):
         # Find first year when warming is above obs_gw_max; finish counting the previous year
         t_end = np.argwhere(warming.data > obs_gw_max)[0][0]
         end_year = warming.year[t_end].item() - 1
-        print(suite+' matches historical warming range from '+str(year_start)+'-'+str(year_end))
+        print(suite+' matches historical warming range from '+str(start_year)+'-'+str(end_year))
         start_years.append(start_year)
         end_years.append(end_year)
 
@@ -1401,7 +1401,8 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
     if plot:
         ramp_up_bwtemp = None
     num_years = 0
-    for suite, start_year, end_year in zip(suites_by_scenario['ramp_up'], start_year, end_year):
+    for suite, start_year, end_year in zip(suites_by_scenario['ramp_up'], start_years, end_years):
+        print('Reading '+suite)
         # Read all the grid-T ocean files from these years
         for year0 in range(start_year, end_year):
             num_years += 1
@@ -1455,18 +1456,18 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
     x, y = polar_stereo(ds['nav_lon'], ds['nav_lat'])
 
     if plot:
-        fig = plt.figure(figsize=(8,6))
+        fig = plt.figure(figsize=(8,5.5))
         gs = plt.GridSpec(2,3)
-        gs.update(left=0.1, right=0.9, bottom=0.025, top=0.9, wspace=0.1, hspace=0.2)
+        gs.update(left=0.1, right=0.9, bottom=0.025, top=0.9, wspace=0.1, hspace=0.3)
         # Mask cavities in UKESM to match observations
         ice_mask = build_ice_mask(ds)[0]
         ukesm_data = [ramp_up_bwtemp, ramp_up_bwsalt]
-        obs_data = [obs_bwsalt, obs_bwtemp]
+        obs_data = [obs_bwtemp, obs_bwsalt]
         var_titles = ['Bottom temperature ('+deg_string+'C)', 'Bottom salinity (psu)']
         prefixes = ['a) ', 'b) ', 'c) ', 'd) ', 'e) ', 'f) ']
         vmin = [-2.5, 34]
-        vmax = [2, 34.85]
-        vdiff = [1, 0.5]
+        vmax = [3, 34.85]
+        vdiff = [2, 0.5]
         num_var = len(ukesm_data)
         for v in range(num_var):
             ukesm_plot = ukesm_data[v].where(ukesm_data[v]!=0).squeeze()
@@ -1481,14 +1482,14 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
             for n in range(3):
                 ax = plt.subplot(gs[v,n])
                 ax.axis('equal')
-                img = circumpolar_plot(data_plot[n], ds, ax=ax, masked=True, make_cbar=False, title=prefixes[v*num_var+n]+titles[n], titlesize=13, vmin=vmin_plot[n], vmax=vmax_plot[n], ctype=ctype[n], lat_max=-63)
+                img = circumpolar_plot(data_plot[n], ds, ax=ax, masked=True, make_cbar=False, title=prefixes[3*v+n]+titles[n], titlesize=13, vmin=vmin_plot[n], vmax=vmax_plot[n], ctype=ctype[n], lat_max=-63)
                 if v == 1 and n == 2:
                     ax.contour(x, y, mask, levels=[0.5], colors=('magenta'), linewidths=0.5)
                 if n != 1:
-                    cax = fig.add_axes([0.01+0.45*n, 0.5*v+0.05, 0.02, 0.3])
+                    cax = fig.add_axes([0.02+0.45*n, 0.56-0.5*v, 0.02, 0.3])
                     plt.colorbar(img, cax=cax, extend='both')
-            plt.suptitle(var_titles[v], fontsize=16)
-        finished_plot(fig, fig_name='figures/bw_bias.png', dpi=300)
+            plt.text(0.5, 0.99-0.49*v, var_titles[v], fontsize=16, ha='center', va='top', transform=fig.transFigure)
+        finished_plot(fig, fig_name='figures/bottom_TS_bias.png', dpi=300)
 
     # Save bias to NetCDF file
     data_diff = (ramp_up_bwsalt - obs_bwsalt).squeeze()
