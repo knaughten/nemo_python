@@ -1488,7 +1488,7 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
                 if n != 1:
                     cax = fig.add_axes([0.02+0.45*n, 0.56-0.5*v, 0.02, 0.3])
                     plt.colorbar(img, cax=cax, extend='both')
-            plt.text(0.5, 0.99-0.49*v, var_titles[v], fontsize=16, ha='center', va='top', transform=fig.transFigure)
+            plt.text(0.5, 0.99-0.495*v, var_titles[v], fontsize=16, ha='center', va='top', transform=fig.transFigure)
         finished_plot(fig, fig_name='figures/bottom_TS_bias.png', dpi=300)
 
     # Save bias to NetCDF file
