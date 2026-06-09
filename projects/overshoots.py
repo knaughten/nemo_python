@@ -1477,7 +1477,7 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
             titles = ['UKESM', 'Observations', 'Model bias']
             vmin_plot = [vmin[v], vmin[v], -1*vdiff[v]]
             vmax_plot = [vmax[v], vmax[v], vdiff[v]]
-            ctype = 'RdBu_r', 'RdBu_r', 'plusminus']
+            ctype = ['RdBu_r', 'RdBu_r', 'plusminus']
             for n in range(3):
                 ax = plt.subplot(gs[v,n])
                 ax.axis('equal')
