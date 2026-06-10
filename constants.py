@@ -208,7 +208,7 @@ adusumilli_melt = {
     'amery': 45.6,
     'wilkes': 201.4, 
     'east_antarctica': 407.7,  # Wilkes + Amery + Dronning Maud
-    'ross': 123.3,
+    'ross': 104.3, 
     'amundsen_sea': 334.5,
     'bellingshausen_sea': 204.8, 
     'west_antarctica': 539.3,  # Amundsen + Bellingshausen
@@ -222,11 +222,34 @@ adusumilli_std = {
     'amery': 40.0,
     'wilkes' : 54.1,
     'east_antarctica': 156.9,    
-    'ross': 83.5,
-    'amundsen' : 43.7,
-    'bellingshausen' : 69.7,
+    'ross': 84.2,
+    'amundsen_sea' : 43.7,
+    'bellingshausen_sea' : 69.7,
     'west_antarctica': 113.4,
     'dotson_cosgrove': 33.5,
+}
+# As above from Rignot et al. 2013
+rignot_melt = {
+    'all' : 1325,
+    'larsen' : 37.2,
+    'filchner_ronne' : 155.4,
+    'dronning_maud' : 101.2, # Filchner to Amery exclusive
+    'amery' : 35.5, 
+    'wilkes' : 255.9, # Ross to Amery exclusive
+    'ross' : 90.5, # Includes Land through Mariner
+    'amundsen_sea' : 435.8, # Cosgrove through Getz
+    'bellingshausen_sea' : 228.6, # Wordie through Abbot
+}
+rignot_std = {
+    'all' : 235,
+    'larsen' : 96.6,
+    'filchner_ronne' : 45,
+    'dronning_maud' : 60.8,
+    'amery' : 23,
+    'wilkes' : 59.7,
+    'ross' : 43.3,
+    'amundsen_sea' : 39,
+    'bellingshausen_sea' : 67,
 }
 # Dictionary of transport observations for Drake Passage (Donohue et al. 2016), Weddell Gyre (Klatt et al. 2005), Ross Gyre including ASC (Dotto et al. 2018)
 transport_obs = {

@@ -24,7 +24,7 @@ from ..plots import timeseries_by_region, timeseries_by_expt, finished_plot, tim
 from ..plot_utils import truncate_colourmap, lon_label
 from ..utils import moving_average, add_months, rotate_vector, polar_stereo, convert_ismr, bwsalt_abs, bwtemp_con, fix_lon_range, area_name
 from ..grid import region_mask, calc_geometry, build_ice_mask, build_shelf_mask
-from ..constants import line_colours, region_names, deg_string, gkg_string, months_per_year, rho_fw, rho_ice, sec_per_year, vaf_to_gmslr, adusumilli_melt, adusumilli_std
+from ..constants import line_colours, region_names, deg_string, gkg_string, months_per_year, rho_fw, rho_ice, sec_per_year, vaf_to_gmslr, adusumilli_melt, adusumilli_std, rignot_melt, rignot_std
 from ..file_io import read_schmidtko, read_woa, read_zhou_bottom_climatology
 from ..interpolation import interp_latlon_cf, interp_grid
 from ..diagnostics import barotropic_streamfunction
@@ -1359,10 +1359,13 @@ def find_years_for_obs_compare (base_dir='./', obs_start=2000, obs_end=None):
     obs_gw = obs_gw.where(ds['time'].dt.year >= obs_start)
     if obs_end is not None:
         obs_gw = obs_gw.where(ds['time'].dt.year <= obs_end)
+        end_year_str = str(obs_end)
+    else:
+        end_year_str = 'present'
     # Save range of data
     obs_gw_min = obs_gw.min().item()
     obs_gw_max = obs_gw.max().item()
-    print('Range of observed warming from '+str(obs_start)+'-present: '+str(obs_gw_min)+' to '+str(obs_gw_max)+' degC')
+    print('Range of observed warming from '+str(obs_start)+'-'+end_year_str+': '+str(obs_gw_min)+' to '+str(obs_gw_max)+' degC')
 
     # Loop over ramp-up suites (no static ice)
     start_years = []
@@ -4952,9 +4955,13 @@ def map_snapshots_fixed_cases (base_dir='./', ross_years=40, fris_years=20, fig_
 
 
 # Make a bar chart of mean basal melting from particular regions in the sections of the ramp-up ensemble members equivalent to 1994-2018 in terms of global warming. Compare to Adusumilli satellite obs.
-def ismr_vs_obs_bar_chart (base_dir='./'):
+def ismr_obs_bar_chart (base_dir='./'):
 
-    regions = ['all', 'larsen', 'filchner_ronne', 'dronning_maud', 'amery', 'wilkes', 'ross', 'amundsen', 'bellingshausen']
+    regions = ['larsen', 'filchner_ronne', 'dronning_maud', 'amery', 'wilkes', 'ross', 'amundsen_sea', 'bellingshausen_sea', 'all']
+    region_titles = ['1. Larsen', '2. Filchner-\nRonne', '3. Dronning\nMaud Land', '4. Amery', '5. Wilkes\nLand', '6. Ross', '7. Amundsen\nSea', '8. Bellingshausen\nSea', 'Total']
+    region_colours = ['SandyBrown', 'Khaki', 'SeaGreen', 'MediumAquaMarine', 'SteelBlue', 'Plum', 'LightPink', 'Crimson']
+    region_label_lon = [-55, -45, 20, 73, 135, 180, -120, -83]
+    region_label_lat = [-66, -75, -67, -65, -63, -74, -70, -69]
     num_regions = len(regions)
     obs_start = 1994
     obs_end = 2018
@@ -4964,9 +4971,10 @@ def ismr_vs_obs_bar_chart (base_dir='./'):
     start_years, end_years = find_years_for_obs_compare(base_dir=base_dir, obs_start=obs_start, obs_end=obs_end)
     ismr_accum = np.zeros([num_regions])
     num_years = 0
+    region_masks = None
     for suite, start_year, end_year in zip(suites_by_scenario['ramp_up'], start_years, end_years):
         print('Reading '+suite)
-        for year0 in range(start_year, end_year):
+        for year0 in tqdm(range(start_year, end_year), desc='years'):
             num_years += 1
             for month0 in range(1, months_per_year+1):
                 year1, month1 = add_months(year0, month0, 1)
@@ -4976,16 +4984,71 @@ def ismr_vs_obs_bar_chart (base_dir='./'):
                 ds.load()
                 ismr = ds['sowflisf']*factor
                 dA = ds['area']
+                save_masks = region_masks is None
+                if save_masks:
+                    region_masks = []
+                    ds_grid = ds.copy()
                 for n in range(num_regions):
                     # Area-integral over the given region
-                    mask = region_mask(regions[n], ds, option='cavity')[0]
+                    mask, ds = region_mask(regions[n], ds, option='cavity')
+                    if save_masks:
+                        region_masks.append(mask)
                     ismr_tmp = (ismr*dA*mask).sum(dim=['x','y'])
                     ismr_accum[n] += ismr_tmp.item()
     ismr_mean = ismr_accum/(num_years*months_per_year)
+    print('Total UKESM melt '+str(ismr_mean[-1])+' Gt/y')
 
-    # Print results to screen
-    for n in range(num_regions):
-        print(regions[n]+': UKESM '+str(ismr_mean[n])+', obs '+str(adusumilli_melt[regions[n]])+' +/- '+str(adusumilli_std[regions[n]]))
+    # Assemble observational estimates for each region; wrap up all 3 datasets to plot
+    ismr_plot = [ismr_mean, [adusumilli_melt[region] for region in regions], [rignot_melt[region] for region in regions]]
+    ismr_plot_std = [None, [adusumilli_std[region] for region in regions], [rignot_std[region] for region in regions]]
+
+    # Plot
+    bar_width = 0.25
+    capsize = 2
+    err_colour = (0.2, 0.2, 0.2)
+    colours = ['IndianRed', 'CornflowerBlue', 'DarkSeaGreen']
+    labels = ['UKESM', 'Adusumilli', 'Rignot']
+    fig = plt.figure(figsize=(7,6))
+    gs = plt.GridSpec(1,1)
+    gs.update(left=0.1, right=0.9, bottom=0.35, top=0.92)
+    ax = plt.subplot(gs[0,0])    
+    # First plot all the individual regions
+    for m in range(3):
+        ax.bar(np.arange(num_regions-1)+(m-1)*bar_width, ismr_plot[m][:-1], width=bar_width, color=colours[m], label=labels[m])
+        if ismr_plot_std[m] is not None:
+            ax.errorbar(np.arange(num_regions-1)+(m-1)*bar_width, ismr_plot[m][:-1], yerr=ismr_plot_std[m][:-1], fmt='none', color=err_colour, capsize=capsize, linewidth=1)
+    ax.set_xticks(list(range(num_regions-1))+[num_regions-0.5])
+    ax.set_xticklabels(region_titles, rotation=-90)
+    # Now make just the last label bold
+    new_labels = []
+    for elm, n in zip(ax.get_xticklabels(), range(num_regions)):
+        if n == num_regions-1:
+            elm.set_fontweight('bold')
+        new_labels.append(elm)
+    ax.set_xticklabels(new_labels)        
+    ax.set_ylabel('Gt/y', fontsize=12)
+    ax.grid(linestyle='dotted')
+    ax.legend(loc='lower center', bbox_to_anchor=(0.5,-0.6), fontsize=12)
+    ax.set_ylim([0,None])
+    # Now the total on the right with a different y-axis
+    ax2 = ax.twinx()
+    for m in range(3):
+        ax2.bar(num_regions-0.5+(m-1)*bar_width, ismr_plot[m][-1], width=bar_width, color=colours[m])
+        if ismr_plot_std[m] is not None:
+            ax2.errorbar(num_regions-0.5+(m-1)*bar_width, ismr_plot[m][-1], yerr=ismr_plot_std[m][-1], fmt='none', color=err_colour, capsize=capsize, linewidth=1)
+    ax2.yaxis.tick_right()
+    ax2.set_ylabel('Gt/y', fontsize=12)
+    ax2.axvline(num_regions-1.25, color='black', linewidth=1.5)
+    ax2.set_ylim([0,None])
+    ax.set_title('Ice shelf basal mass loss vs observations', fontsize=16)
+    # Add an inset map to show regions
+    ax3 = inset_axes(ax, "35%", "50%",  loc='upper left')
+    ax3.axis('equal')
+    for n in range(num_regions-1):
+        circumpolar_plot(region_masks[n], ds_grid, ax=ax3, make_cbar=False, ctype=region_colours[n], lat_max=-65, shade_land=n==0, land_colour=(0.8,0.8,0.8))
+        x0, y0 = polar_stereo(region_label_lon[n], region_label_lat[n])
+        plt.text(x0, y0, str(n+1), fontsize=14, fontweight='bold', color=region_colours[n], ha='center', va='center')
+    finished_plot(fig) #, fig_name='figures/ismr_obs_bar_chart.png', dpi=300)
     
                 
     
