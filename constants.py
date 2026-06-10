@@ -100,7 +100,9 @@ region_edges = {
     'pine_island'       : [[-102.6, -75.1] , [-101.5, -74.2]],
     'pine_island_bay'   : [[-104.0, -74.8] , [-103, -74.2]], # just shelf
     'dotson_cosgrove'   : [[-114.7, -73.8] , [-102.91, -73.2]],
-    'east_antarctica'   : [[-26, -75.5]    , [169.5 , -71]], # includes Amery
+    'dronning_maud'     : [[-26, -75.5] , [66.5, -67.5]],
+    'wilkes'            : [[79.5, -68] , [169.5, -71]],
+    'east_antarctica'   : [[-26, -75.5]    , [169.5 , -71]], # Dronning Maud + Amery + Wilkes
     'filchner_ronne'    : [[-57, -71.5]    , [-26.0 , -75.5]],
     'getz'              : [[-135, -74.5]   , [-114.7, -73.8]],
     'larsen'            : [[-57.25, -62]   , [-57, -71.5]],
@@ -117,6 +119,8 @@ region_edges_flag = {
     'dotson_crosson'    : ['NS', 'NS'],
     'dotson_front'      : ['EW', 'EW'],
     'dotson_cosgrove'   : ['NS', 'EW'],
+    'dronning_maud'     : ['NS', 'NS'],
+    'wilkes'            : ['NS', 'NS'],
     'east_antarctica'   : ['NS', 'NS'],
     'filchner_ronne'    : ['EW', 'NS'],
     'getz'              : ['NS', 'NS'],
@@ -145,6 +149,8 @@ region_names = {
     'cosgrove'          : 'Cosgrove Ice Shelf',
     'dotson_crosson'    : 'Dotson-Crosson Ice Shelf',
     'dotson_front'      : 'front of Dotson',
+    'dronning_maud'     : 'Dronning Maud Land',
+    'wilkes'            : 'Wilkes Land',
     'east_antarctica'   : 'East Antarctica',
     'filchner_ronne'    : 'Filchner-Ronne',
     'getz'              : 'Getz Ice Shelf',
@@ -198,9 +204,13 @@ adusumilli_melt = {
     'all' : 1264.3,
     'larsen': 112.7,
     'filchner_ronne': 81.4,
-    'east_antarctica': 407.7,  # Wilkes + Amery + Queen Maud
+    'dronning_maud': 160.7,  # He calls it Queen Maud Land but let's be Norwegian here for fun
     'amery': 45.6,
+    'wilkes': 201.4, 
+    'east_antarctica': 407.7,  # Wilkes + Amery + Dronning Maud
     'ross': 123.3,
+    'amundsen': 334.5,
+    'bellingshausen': 204.8, 
     'west_antarctica': 539.3,  # Amundsen + Bellingshausen
     'dotson_cosgrove': 210.3,  # Cosgrove + Pine Island + Thwaites + Crosson + Dotson
 }
@@ -208,9 +218,13 @@ adusumilli_std = {
     'all' : 147.4,
     'larsen' : 103.6,
     'filchner_ronne': 122.9,
-    'east_antarctica': 156.9,
+    'dronning_maud' : 62.8,
     'amery': 40.0,
+    'wilkes' : 54.1,
+    'east_antarctica': 156.9,    
     'ross': 83.5,
+    'amundsen' : 43.7,
+    'bellingshausen' : 69.7,
     'west_antarctica': 113.4,
     'dotson_cosgrove': 33.5,
 }

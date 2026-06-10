@@ -22,9 +22,9 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from ..timeseries import update_simulation_timeseries, update_simulation_timeseries_um, check_nans, fix_missing_months, calc_timeseries, overwrite_file
 from ..plots import timeseries_by_region, timeseries_by_expt, finished_plot, timeseries_plot, circumpolar_plot
 from ..plot_utils import truncate_colourmap, lon_label
-from ..utils import moving_average, add_months, rotate_vector, polar_stereo, convert_ismr, bwsalt_abs, bwtemp_con, fix_lon_range
+from ..utils import moving_average, add_months, rotate_vector, polar_stereo, convert_ismr, bwsalt_abs, bwtemp_con, fix_lon_range, area_name
 from ..grid import region_mask, calc_geometry, build_ice_mask, build_shelf_mask
-from ..constants import line_colours, region_names, deg_string, gkg_string, months_per_year, rho_fw, rho_ice, sec_per_year, vaf_to_gmslr
+from ..constants import line_colours, region_names, deg_string, gkg_string, months_per_year, rho_fw, rho_ice, sec_per_year, vaf_to_gmslr, adusumilli_melt, adusumilli_std
 from ..file_io import read_schmidtko, read_woa, read_zhou_bottom_climatology
 from ..interpolation import interp_latlon_cf, interp_grid
 from ..diagnostics import barotropic_streamfunction
@@ -1343,7 +1343,7 @@ def plot_bwtemp_massloss_by_gw_panels (base_dir='./', static_ice=False):
 
 
 # Helper function to identify years of ramp-up model output to compare to obs. Find the rnage of observed global warming between 2000--present from HadCRUT, and identify the years of each ramp-up ensemble member corresponding to this range. Returns two lists of years (start years and end years), corresponding to the ramp-up ensemble members (4).
-def find_years_for_obs_compare (base_dir='./', obs_start=2000):
+def find_years_for_obs_compare (base_dir='./', obs_start=2000, obs_end=None):
 
     pi_suite = 'cs495'  # Preindustrial, static cavities
     hadcrut_file = base_dir+'/'+'HadCRUT.5.0.2.0.analysis.summary_series.global.annual.nc'
@@ -1357,6 +1357,8 @@ def find_years_for_obs_compare (base_dir='./', obs_start=2000):
     obs_gw = ds['tas_mean'] - obs_baseline
     # Select section of interest
     obs_gw = obs_gw.where(ds['time'].dt.year >= obs_start)
+    if obs_end is not None:
+        obs_gw = obs_gw.where(ds['time'].dt.year <= obs_end)
     # Save range of data
     obs_gw_min = obs_gw.min().item()
     obs_gw_max = obs_gw.max().item()
@@ -4947,6 +4949,44 @@ def map_snapshots_fixed_cases (base_dir='./', ross_years=40, fris_years=20, fig_
     if fig_name is None:
         fig_name = 'figures/map_snapshots_fixed_cases_'+var+'.png'
     finished_plot(fig, fig_name=fig_name, dpi=300)
+
+
+# Make a bar chart of mean basal melting from particular regions in the sections of the ramp-up ensemble members equivalent to 1994-2018 in terms of global warming. Compare to Adusumilli satellite obs.
+def ismr_vs_obs_bar_chart (base_dir='./'):
+
+    regions = ['all', 'larsen', 'filchner_ronne', 'dronning_maud', 'amery', 'wilkes', 'ross', 'amundsen', 'bellingshausen']
+    num_regions = len(regions)
+    obs_start = 1994
+    obs_end = 2018
+    factor = -rho_ice/rho_fw*1e-12*sec_per_year  # Converting NEMO output to Gt/y, positive means melting
+
+    # Read corresponding section of ramp-up as in calc_salinity_bias
+    start_years, end_years = find_years_for_obs_compare(base_dir=base_dir, obs_start=obs_start, obs_end=obs_end)
+    ismr_accum = np.zeros([num_regions])
+    num_years = 0
+    for suite, start_year, end_year in zip(suites_by_scenario['ramp_up'], start_years, end_years):
+        print('Reading '+suite)
+        for year in range(start_year, end_year):
+            num_years += 1
+            for month0 in range(1, months_per_year+1):
+                year1, month1 = add_months(year0, month0, 1)
+                # Read both grid-T and isf-T so we have all the information for the ice shelf mask, which can change each year
+                file_path = base_dir+'/'+suite+'/nemo_'+suite+'o_1m_'+str(year0)+str(month0).zfill(2)+'01-'+str(year1)+str(month1).zfill(2)+'01_*-T.nc'
+                ds = xr.open_mfdataset(file_path, decode_times=time_coder)
+                ds.load()
+                ismr = ds['sowflisf']*factor
+                dA = ds['area']
+                for n in range(num_regions):
+                    # Area-integral over the given region
+                    mask = region_mask(regions[n], ds, option='cavity')
+                    ismr_tmp = (ismr*dA*mask).sum(dim=['x','y'])
+                    ismr_accum[n] += ismr_tmp
+    ismr_mean = ismr_accum/(num_years*months_per_year)
+    
+                
+    
+
+    
         
                 
             
