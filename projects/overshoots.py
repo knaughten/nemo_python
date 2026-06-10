@@ -4958,7 +4958,6 @@ def map_snapshots_fixed_cases (base_dir='./', ross_years=40, fris_years=20, fig_
 def ismr_obs_bar_chart (base_dir='./'):
 
     regions = ['larsen', 'filchner_ronne', 'dronning_maud', 'amery', 'wilkes', 'ross', 'amundsen_sea', 'bellingshausen_sea', 'all']
-    region_titles = ['1. Larsen', '2. Filchner-\nRonne', '3. Dronning\nMaud Land', '4. Amery', '5. Wilkes\nLand', '6. Ross', '7. Amundsen\nSea', '8. Bellingshausen\nSea', 'Total']
     region_colours = ['SandyBrown', 'Khaki', 'SeaGreen', 'MediumAquaMarine', 'SteelBlue', 'Plum', 'LightPink', 'Crimson']
     region_label_lon = [-55, -45, 20, 73, 135, 180, -120, -83]
     region_label_lat = [-66, -75, -67, -65, -63, -74, -70, -69]
@@ -5018,17 +5017,18 @@ def ismr_obs_bar_chart (base_dir='./'):
         if ismr_plot_std[m] is not None:
             ax.errorbar(np.arange(num_regions-1)+(m-1)*bar_width, ismr_plot[m][:-1], yerr=ismr_plot_std[m][:-1], fmt='none', color=err_colour, capsize=capsize, linewidth=1)
     ax.set_xticks(list(range(num_regions-1))+[num_regions-0.5])
-    ax.set_xticklabels(region_titles, rotation=-90)
+    ax.set_xticklabels([str(n+1)+'. '+region_names[regions[n]] for n in range(num_regions-1)]+['Total'], rotation=-90)
     # Now make just the last label bold
     new_labels = []
     for elm, n in zip(ax.get_xticklabels(), range(num_regions)):
         if n == num_regions-1:
             elm.set_fontweight('bold')
         new_labels.append(elm)
-    ax.set_xticklabels(new_labels)        
+    ax.set_xticklabels(new_labels)
+    ax.tick_params(axis='x', labelsize=12)
     ax.set_ylabel('Gt/y', fontsize=12)
     ax.grid(linestyle='dotted')
-    ax.legend(loc='lower center', bbox_to_anchor=(0.5,-0.6), fontsize=12)
+    ax.legend(loc='lower right', bbox_to_anchor=(1.1,-0.5), fontsize=12)
     ax.set_ylim([0,None])
     # Now the total on the right with a different y-axis
     ax2 = ax.twinx()
