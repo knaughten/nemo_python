@@ -4966,7 +4966,7 @@ def ismr_vs_obs_bar_chart (base_dir='./'):
     num_years = 0
     for suite, start_year, end_year in zip(suites_by_scenario['ramp_up'], start_years, end_years):
         print('Reading '+suite)
-        for year in range(start_year, end_year):
+        for year0 in range(start_year, end_year):
             num_years += 1
             for month0 in range(1, months_per_year+1):
                 year1, month1 = add_months(year0, month0, 1)
@@ -4978,10 +4978,14 @@ def ismr_vs_obs_bar_chart (base_dir='./'):
                 dA = ds['area']
                 for n in range(num_regions):
                     # Area-integral over the given region
-                    mask = region_mask(regions[n], ds, option='cavity')
+                    mask = region_mask(regions[n], ds, option='cavity')[0]
                     ismr_tmp = (ismr*dA*mask).sum(dim=['x','y'])
-                    ismr_accum[n] += ismr_tmp
+                    ismr_accum[n] += ismr_tmp.item()
     ismr_mean = ismr_accum/(num_years*months_per_year)
+
+    # Print results to screen
+    for n in range(num_regions):
+        print(regions[n]+': UKESM '+str(ismr_mean[n])+', obs '+str(adusumilli_melt[regions[n]])+' +/- '+str(adusumilli_std[regions[n]]))
     
                 
     

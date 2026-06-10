@@ -209,8 +209,8 @@ adusumilli_melt = {
     'wilkes': 201.4, 
     'east_antarctica': 407.7,  # Wilkes + Amery + Dronning Maud
     'ross': 123.3,
-    'amundsen': 334.5,
-    'bellingshausen': 204.8, 
+    'amundsen_sea': 334.5,
+    'bellingshausen_sea': 204.8, 
     'west_antarctica': 539.3,  # Amundsen + Bellingshausen
     'dotson_cosgrove': 210.3,  # Cosgrove + Pine Island + Thwaites + Crosson + Dotson
 }
