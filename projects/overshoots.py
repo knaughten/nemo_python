@@ -5074,28 +5074,36 @@ def ismr_timeseries_regions (base_dir='./'):
     ross_tip = check_tip(suite=suite, region='ross', return_date=True)[1].dt.year.item() - year0
     fris_tip = check_tip(suite=suite, region='filchner_ronne', return_date=True)[1].dt.year.item() - year0
 
-    fig = plt.figure(figsize=(8,8))
+    fig = plt.figure(figsize=(8.5,7))
     rows = num_regions//3
     columns = num_regions//rows
     gs = plt.GridSpec(rows, columns)
-    gs.update(left=0.05, right=0.95, bottom=0.05, top=0.9, hspace=0.2, wspace=0.1)
+    gs.update(left=0.08, right=0.98, bottom=0.08, top=0.9, hspace=0.3, wspace=0.25)
     for n in range(num_regions):
-        ax = plt.subplot(gs[n//columns, n%columns])
+        row = n//columns
+        column = n%columns
+        ax = plt.subplot(gs[row, column])
         data = moving_average(ds[regions[n]+'_'+var], smooth)
         years = time_in_years(data, year0=year0)
         ax.plot(years, data, color=colour, linewidth=1.5)
-        ax.axvline(ross_tip, color='DarkGreen', linestyle='dashed', linewidth=0.5)
-        ax.axvline(fris_tip, color='Purple', linestyle='dashed', linewidth=0.5)
+        ax.axvline(ross_tip, color='DarkGreen', linestyle='dashed', linewidth=1.5)
+        ax.axvline(fris_tip, color='Purple', linestyle='dashed', linewidth=1.5)
         if n == num_regions-1:
-            title = r'$\bf{Total}'
+            title = 'Total'
+            fontweight = 'bold'
         else:
             title = str(n+1)+'. '+region_names[regions[n]]
-        ax.set_title(title, fontsize=12)
-        if n == 0:
-            ax.set_ylabel('Gt/y')
-        if n/columns == rows:
-            ax.set_xlabel('Years')
-        plt.suptitle('Ice shelf basal mass loss (Gt/y)', fontsize=14)
+            fontweight = 'normal'
+        ax.set_title(title, fontsize=13, fontweight=fontweight)
+        ax.grid(linestyle='dotted')
+        if row==0 and column==0:
+            ax.set_ylabel('Gt/y', fontsize=12)
+        if row < rows-1:
+            ax.set_xticklabels([])
+        if row==rows-1 and column==0:
+            ax.set_xlabel('Years', fontsize=12)
+        ax.set_xlim([years[0], years[-1]])
+        plt.suptitle('Ice shelf basal mass loss during ramp-up', fontsize=16)
     finished_plot(fig) #, fig_name='figures/ismr_timeseries_regions.png', dpi=300)
 
 
@@ -5104,10 +5112,62 @@ def plot_aice_vs_obs (base_dir='./'):
     obs_file='/gws/ssde/j25a/bas_pog/tarlge/data/observations/HadISST2/HadISST.2.2.0.0_sea_ice_concentration.nc'
     obs_start = 1979  # It actually starts at 1850 but we don't super trust sea ice estimates before the satellite era
     obs_end = 2020
+    months = [2, 9]  # Only read Feburary and September
+    aice0 = 0.15
 
+    # Read model
     start_years, end_years = find_years_for_obs_compare(base_dir=base_dir, obs_start=obs_start, obs_end=obs_end)
+    ramp_up_aice_min = None
+    ramp_up_aice_max = None
+    num_years = 0
     for suite, start_year, end_year in zip(suites_by_scenario['ramp_up'], start_years, end_years):
-        print(suite+': '+str(start_year)+'-'+str(end_year))
+        print('Reading '+suite)
+        for year in range(start_year, end_year+1):
+            num_years += 1
+            for month in months:
+                file_path = base_dir+'/'+suite+'/cice_'+suite+'i_1m_'+str(year)+str(month).zfill(2)+'01-'+str(year)+str(month+1).zfill(2)+'01.nc'
+                ds = xr.open_dataset(file_path, decode_times=time_coder)
+                data = ds['aice'].where(ds['tmask'])
+                if month == months[0]:
+                    if ramp_up_aice_min is None:
+                        ramp_up_aice_min = data
+                    else:
+                        ramp_up_aice_min += data
+                elif month == months[1]:
+                    if ramp_up_aice_max is None:
+                        ramp_up_aice_max = data
+                    else:
+                        ramp_up_aice_max += data
+    ramp_up_aice_min /= num_years
+    ramp_up_aice_max /= num_years
+
+    # Read obs
+    ds_obs = xr.open_dataset(obs_file).rename({'longitude':'TLON', 'latitude':'TLAT'})
+    obs_min = ds_obs['sic'].where((ds_obs['time'].dt.year >= obs_start)*(ds_obs['time'].dt.month==months[0]), drop=True).mean(dim='time')
+    obs_max = ds_obs['sic'].where((ds_obs['time'].dt.year >= obs_start)*(ds_obs['time'].dt.month==months[1]), drop=True).mean(dim='time')
+    ds_obs_minmax = xr.Dataset({'aice_min':obs_min, 'aice_max':obs_max})
+    # Interpolate to CICE grid
+    ds_obs_interp = interp_latlon_cf(ds_obs_minmax, ds, periodic_src=True, method='bilinear').where(ds['tmask'])
+
+    fig = plt.figure(figsize=(6,4))
+    gs = plt.GridSpec(1,2)
+    gs.update(left=0.05, right=0.95, bottom=0.1, top=0.9, wspace=0.05)
+    for n, model, obs, title in zip(range(2), [ramp_up_aice_min, ramp_up_aice_max], [ds_obs_interp['aice_min'], ds_obs_interp['aice_max']], ['February', 'September']):
+        ax = plt.subplot(gs[0,n])
+        ax.axis('equal')
+        # Plot modelled aice
+        img = circumpolar_plot(model, ds, ax=ax, cice=True, masked=True, shade_land=False, make_cbar=False, title=title, titlesize=12, vmin=0, vmax=1)
+        if n == 1:
+            cax = fig.add_axes([0.3, 0.02, 0.4, 0.02])
+            plt.colorbar(img, cax=cax, orientation='horizontal')
+        # Contour observed ice edge in white
+        x, y = polar_stereo(ds['TLON'], ds['TLAT'])
+        ax.contour(x, y, obs, levels=[aice0], colors=('white'), linewidths=1, linestyles='solid')
+    plt.suptitle('Sea ice concentration vs observed ice edge', fontsize=14)
+    finished_plot(fig) #, fig_name='figures/aice_vs_obs.png', dpi=300)
+            
+        
+        
 
 
 
