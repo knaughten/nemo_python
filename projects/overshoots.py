@@ -5107,7 +5107,7 @@ def plot_aice_vs_obs (base_dir='./'):
 
     start_years, end_years = find_years_for_obs_compare(base_dir=base_dir, obs_start=obs_start, obs_end=obs_end)
     for suite, start_year, end_year in zip(suites_by_scenario['ramp_up'], start_years, end_years):
-        print(suite+': '+str(start_year)+'-'+str(end_year)
+        print(suite+': '+str(start_year)+'-'+str(end_year))
 
 
 
