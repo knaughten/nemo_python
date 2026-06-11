@@ -4992,7 +4992,8 @@ def ismr_obs_bar_chart (base_dir='./'):
                     mask, ds = region_mask(regions[n], ds, option='cavity')
                     if save_masks:
                         region_masks.append(mask)
-                    ismr_tmp = (ismr*dA*mask).sum(dim=['x','y'])
+                    # Remove halo before we integrate
+                    ismr_tmp = (ismr*dA*mask).isel(x=slice(1,-1)).sum(dim=['x','y'])
                     ismr_accum[n] += ismr_tmp.item()
     ismr_mean = ismr_accum/(num_years*months_per_year)
     print('Total UKESM melt '+str(ismr_mean[-1])+' Gt/y')
@@ -5048,7 +5049,57 @@ def ismr_obs_bar_chart (base_dir='./'):
         circumpolar_plot(region_masks[n], ds_grid, ax=ax3, make_cbar=False, ctype=region_colours[n], lat_max=-65, shade_land=n==0, land_colour=(0.8,0.8,0.8))
         x0, y0 = polar_stereo(region_label_lon[n], region_label_lat[n])
         plt.text(x0, y0, str(n+1), fontsize=14, fontweight='bold', color=region_colours[n], ha='center', va='center')
-    finished_plot(fig) #, fig_name='figures/ismr_obs_bar_chart.png', dpi=300)
+    finished_plot(fig, fig_name='figures/ismr_obs_bar_chart.png', dpi=300)
+
+
+def precompute_ismr_timeseries (suite, base_dir='./'):
+
+    regions = ['larsen', 'filchner_ronne', 'dronning_maud', 'amery', 'wilkes', 'ross', 'amundsen_sea', 'bellingshausen_sea', 'all']
+    timeseries_types = [region+'_massloss' for region in regions]
+    update_simulation_timeseries(suite, timeseries_types, timeseries_file='timeseries_ismr.nc', sim_dir=base_dir+'/'+suite+'/', freq='m', halo=True, gtype='T')
+
+
+def ismr_timeseries_regions (base_dir='./'):
+
+    suite = 'cx209'
+    colour = 'Crimson'
+    regions = ['larsen', 'filchner_ronne', 'dronning_maud', 'amery', 'wilkes', 'ross', 'amundsen_sea', 'bellingshausen_sea', 'all']
+    var = 'massloss'
+    timeseries_file = 'timeseries_ismr.nc'
+    smooth = 5*months_per_year
+    num_regions = len(regions)
+
+    ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file, decode_times=time_coder)
+    year0 = ds['time_centered'][0].dt.year.item()
+    ross_tip = check_tip(suite=suite, region='ross', return_date=True)[1].dt.year.item() - year0
+    fris_tip = check_tip(suite=suite, region='filchner_ronne', return_date=True)[1].dt.year.item() - year0
+
+    fig = plt.figure(figsize=(8,8))
+    rows = num_regions//3
+    columns = num_regions//rows
+    gs = plt.GridSpec(rows, columns)
+    gs.update(left=0.05, right=0.95, bottom=0.05, top=0.9, hspace=0.2, wspace=0.1)
+    for n in range(num_regions):
+        ax = plt.subplot(gs[n//columns, n%columns])
+        data = moving_average(ds[regions[n]+'_'+var], smooth)
+        years = time_in_years(data, year0=year0)
+        ax.plot(years, data, color=colour, linewidth=1.5)
+        ax.axvline(ross_tip, color='DarkGreen', linestyle='dashed', linewidth=0.5)
+        ax.axvline(fris_tip, color='Purple', linestyle='dashed', linewidth=0.5)
+        if n == num_regions-1:
+            title = r'$\bf{Total}'
+        else:
+            title = str(n+1)+'. '+region_names[regions[n]]
+        ax.set_title(title, fontsize=12)
+        if n == 0:
+            ax.set_ylabel('Gt/y')
+        if n/columns == rows:
+            ax.set_xlabel('Years')
+        plt.suptitle('Ice shelf basal mass loss (Gt/y)', fontsize=14)
+    finished_plot(fig) #, fig_name='figures/ismr_timeseries_regions.png', dpi=300)
+        
+
+    
     
                 
     
