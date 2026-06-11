@@ -1446,7 +1446,7 @@ def plot_ukesm_era5_atm_biases (era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_
 
 
 # Plot sea ice concentration and thickness in Feb and Sept.
-def plot_evaluation_seaice (config='NEMO_AIS', in_file='seaice_avg.nc', obs_file='/gws/nopw/j04/bas_pog/tarlge/data/observations/HadISST2/HadISST.2.2.0.0_sea_ice_concentration.nc', fig_name=None):
+def plot_evaluation_seaice (config='NEMO_AIS', in_file='seaice_avg.nc', obs_file='/gws/ssde/j25a/bas_pog/tarlge/data/observations/HadISST2/HadISST.2.2.0.0_sea_ice_concentration.nc', fig_name=None):
 
     var_names = ['siconc', 'sivolu']
     var_titles = ['Sea ice concentration', 'Sea ice thickness (m)']

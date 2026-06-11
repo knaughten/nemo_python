@@ -1409,7 +1409,7 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
     for suite, start_year, end_year in zip(suites_by_scenario['ramp_up'], start_years, end_years):
         print('Reading '+suite)
         # Read all the grid-T ocean files from these years
-        for year0 in range(start_year, end_year):
+        for year0 in range(start_year, end_year+1):
             num_years += 1
             for month0 in range(1, months_per_year+1):
                 year1, month1 = add_months(year0, month0, 1)
@@ -4973,7 +4973,7 @@ def ismr_obs_bar_chart (base_dir='./'):
     region_masks = None
     for suite, start_year, end_year in zip(suites_by_scenario['ramp_up'], start_years, end_years):
         print('Reading '+suite)
-        for year0 in tqdm(range(start_year, end_year), desc='years'):
+        for year0 in tqdm(range(start_year, end_year+1), desc='years'):
             num_years += 1
             for month0 in range(1, months_per_year+1):
                 year1, month1 = add_months(year0, month0, 1)
@@ -5097,6 +5097,20 @@ def ismr_timeseries_regions (base_dir='./'):
             ax.set_xlabel('Years')
         plt.suptitle('Ice shelf basal mass loss (Gt/y)', fontsize=14)
     finished_plot(fig) #, fig_name='figures/ismr_timeseries_regions.png', dpi=300)
+
+
+def plot_aice_vs_obs (base_dir='./'):
+
+    obs_file='/gws/ssde/j25a/bas_pog/tarlge/data/observations/HadISST2/HadISST.2.2.0.0_sea_ice_concentration.nc'
+    obs_start = 1979  # It actually starts at 1850 but we don't super trust sea ice estimates before the satellite era
+    obs_end = 2020
+
+    start_years, end_years = find_years_for_obs_compare(base_dir=base_dir, obs_start=obs_start, obs_end=obs_end)
+    for suite, start_year, end_year in zip(suites_by_scenario['ramp_up'], start_years, end_years):
+        print(suite+': '+str(start_year)+'-'+str(end_year)
+
+
+
         
 
     
