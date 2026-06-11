@@ -5165,6 +5165,103 @@ def plot_aice_vs_obs (base_dir='./'):
         ax.contour(x, y, obs, levels=[aice0], colors=('white'), linewidths=1, linestyles='solid')
     plt.suptitle('Sea ice concentration vs observed ice edge', fontsize=14)
     finished_plot(fig) #, fig_name='figures/aice_vs_obs.png', dpi=300)
+
+
+def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
+
+    import gsw
+
+    obs_file = '/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology.nc'
+    z0 = 100  # Discard the top 100m to make sure Tmax doesn't pick up the warm surface layer
+    obs_start = 2000
+
+    if os.path.isfile(TS_file):
+        ds_model = xr.open_dataset(TS_file)
+    else:
+        # Average T and S over correct years of ramp-up members
+        start_years, end_years = find_years_for_obs_compare(base_dir=base_dir, obs_start=obs_start)
+        ramp_up_temp = None
+        ramp_up_salt = None
+        num_years = 0
+        for suite, start_year, end_year in zip(suites_by_scenario['ramp_up'], start_years, end_years):
+            print('Reading '+suite)
+            for year0 in range(start_year, end_year+1):
+                num_years += 1
+                for month0 in range(1, months_per_year+1):
+                    year1, month1 = add_months(year0, month0, 1)
+                    file_path = base_dir+'/'+suite+'/nemo_'+suite+'o_1m_'+str(year0)+str(month0).zfill(2)+'01-'+str(year1)+str(month1).zfill(2)+'01_grid-T.nc'
+                    ds = xr.open_dataset(file_path, decode_times=time_coder)
+                    # Mask land and cavities
+                    ocean_mask, ice_mask = calc_geometry(ds)[2:]
+                    ds = ds.where(ocean_mask*(~ice_mask))
+                    if ramp_up_temp is None:
+                        ramp_up_temp = ds['thetao']
+                        ramp_up_salt = ds['so']
+                    else:
+                        ramp_up_temp += ds['thetao']
+                        ramp_up_salt += ds['so']
+        ramp_up_temp /= (num_years*months_per_year)
+        ramp_up_salt /= (num_years*months_per_year)
+        ds_model = xr.Dataset({'temp':ramp_up_temp, 'salt':ramp_up_salt})
+        # Save for later
+        ds_model.to_netcdf(TS_file)
+
+    # Calculate maximum temperature below 100m
+    tmax = ds_model['temp'].where(ds_model['deptht'] > z0).max(dim='deptht')
+    # Calculate depth of this maximum
+    depth_tmax = ds_model['deptht'].broadcast(ds_model['temp']).where(ds_model['temp']==tmax, drop=True)
+    # Calculate salinity at this depth
+    salt_tmax = ds_model['salt'].where(ds_model['temp']==tmax, drop=True)
+    ds_model = xr.Dataset({'tmax':tmax, 'depth_tmax':depth_tmax, 'salt_tmax':salt_tmax})
+
+    ds = xr.open_dataset(obs_file).squeeze().transpose('nz', 'ny', 'nx')
+    # Convert to EOS-80
+    press = ds['pressure'].broadcast(ds['sa'])
+    lon = ds['longitude'].broadcast(ds['sa'])
+    lat = ds['latitude'].broadcast(ds['sa'])
+    obs_temp = gsw.pt_from_CT(ds['sa'], ds['ct'])
+    obs_salt = gsw.SP_from_SA(ds['sa'], press, lon, lat)
+    # Calculate Tmax and related fields as before
+    obs_tmax = obs_temp.where(ds['pressure'] > z0).max(dim='nz')
+    obs_depth_tmax = press.where(obs_temp==obs_tmax, drop=True)
+    obs_salt_tmax = obs_salt.where(obs_temp==obs_tmax, drop=True)
+    # Now wrap up into a Dataset
+    ds_obs = xr.Dataset({'tmax':obs_tmax, 'depth_tmax':obs_depth_tmax, 'salt_tmax':obs_salt_tmax})
+    # Interpolate to NEMO grid
+    ds_obs_interp = interp_latlon_cf(ds_obs, ds_model, method='bilinear')
+
+    var_names = ['depth_tmax', 'tmax', 'salt_tmax']
+    var_titles = ['a) Depth of subsurface temperature maximum (m)', 'b) Temperature at that depth ('+deg_string+'C)', 'c) Salinity at that depth (psu)']
+    vmin = [100, 0, 34.7]
+    vmax = [2000, 3, 35]
+    vdiff = [300, 1, 0.2]
+    ctype = ['viridis', 'RdBu_r', 'RdBu_r']
+    num_vars = len(var_names)
+
+    # Plot
+    figure = plt.figure(figsize=(8,8))
+    gs = plt.GridSpec(num_vars, 3)
+    gs.update(left=0.1, right=0.9, bottom=0.025, top=0.95, wspace=0.1, hspace=0.3)
+    for v in range(num_var):
+        ukesm_plot = ds_model[var_names[v]]
+        obs_plot = ds_obs_interp[var_names[v]].where(ukesm_plot.notnull())
+        data_plot = [ukesm_plot, obs_plot, ukesm_plot-obs_plot]
+        title = ['UKESM', 'Observations', 'Model bias']
+        vmin_plot = [vmin[v], vmin[v], -1*vdiff[v]]
+        vmax_plot = [vmax[v], vmax[v], vdiff[v]]
+        ctype_plot = [ctype[v], ctype[v], 'plusminus']
+        for n in range(3):
+            ax = plt.subplot(gs[v,n])
+            ax.axis('equal')
+            img = circumpolar_plot(data_plot[n], ds_model, ax=ax, masked=True, make_cbar=False, title=titles[n], titlesize=13, vmin=vmin_plot[n], vmax=vmax_plot[n], ctype=ctype_plot[n], lat_max=-60)
+            if n != 1:
+                cax = fig.add_axes([0.02+0.45*n, 0.7-0.3*v, 0.02, 0.2])
+                plt.colorbar(img, cax=cax, extend='both')
+        plt.text(0.5, 0.99-0.3*v, var_titles[v], fontsize=16, ha='center', va='top', transform=fig.transFigure)
+    finished_plot(fig, fig_name='figures/cdw_core_vs_obs.png', dpi=300)
+    
+    
+    
             
         
         
