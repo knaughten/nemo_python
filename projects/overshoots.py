@@ -5189,7 +5189,6 @@ def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
 
     import gsw
 
-    obs_file = '/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology.nc'
     obs_file_eos80 = '/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_eos80.nc'
     z0 = 100  # Discard the top 100m to make sure Tmax doesn't pick up the warm surface layer
     obs_start = 2000
@@ -5240,27 +5239,9 @@ def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
     # Wrap up into a Dataset for easy plotting later
     ds_model = xr.Dataset({'tmax':tmax, 'depth_tmax':depth_tmax, 'salt_tmax':salt_tmax})
 
-    if os.path.isfile(obs_file_eos80):
-        print('Reading observations in EOS-80')
-        ds_obs_in = xr.open_dataset(obs_file_eos80)
-        press = xr.broadcast(ds['pressure'], ds['sp'])[0]
-    else:
-        # Read original file in TEOS-10
-        print('Converting observations to EOS-80')
-        ds = xr.open_dataset(obs_file).squeeze().transpose('nz', 'ny', 'nx')
-        # Convert to EOS-80
-        print('Preparing 3D coordinates')
-        press = xr.broadcast(ds['pressure'], ds['sa'])[0]
-        lon = xr.broadcast(ds['longitude'], ds['sa'])[0]
-        lat = xr.broadcast(ds['latitude'], ds['sa'])[0]
-        print('Converting temperature')
-        obs_temp = gsw.pt_from_CT(ds['sa'], ds['ct'])
-        print('Converting salinity')
-        obs_salt = gsw.SP_from_SA(ds['sa'], press, lon, lat)        
-        # Save 
-        ds_obs_in = xr.Dataset({'pt':obs_temp, 'sp':obs_salt, ds['latitude'], ds['longitude'], ds['pressure']})
-        print('Saving to file')
-        ds_obs_in.to_netcdf(obs_file_eos80)
+    print('Reading observations in EOS-80')
+    ds_obs_in = xr.open_dataset(obs_file_eos80)
+    press = xr.broadcast(ds_obs_in['pressure'], ds_obs_in['sp'])[0]
     # Calculate Tmax and related fields as before
     obs_temp_masked = ds_obs_in['pt'].where(ds['pressure'] > z0)
     obs_tmax = obs_temp_masked.max(dim='nz')
