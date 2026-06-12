@@ -5170,6 +5170,8 @@ def plot_aice_vs_obs (base_dir='./'):
 # Read Shenjie's 3D climatology, convert to EOS-80, and save to a new file.
 def convert_zhou_eos80 (in_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology.nc', out_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_eos80.nc'):
 
+    import gsw
+
     ds = xr.open_dataset(in_file).squeeze().transpose('nz', 'ny', 'nx')
     print('Preparing 3D coordinates')
     press = xr.broadcast(ds['pressure'], ds['sa'])[0]
@@ -5186,8 +5188,6 @@ def convert_zhou_eos80 (in_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_
 
 
 def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
-
-    import gsw
 
     obs_file_eos80 = '/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_eos80.nc'
     z0 = 100  # Discard the top 100m to make sure Tmax doesn't pick up the warm surface layer
