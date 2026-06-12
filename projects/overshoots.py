@@ -5219,6 +5219,9 @@ def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
                         ds_grid = ds.copy()
                     # Apply land mask
                     ds = ds.where(ds['so']!=0)
+                    # Also mask cavities
+                    ice_mask = build_ice_mask(ds)[0]
+                    ds = ds.where(~ice_mask)
                     if ramp_up_temp is None:
                         ramp_up_temp = ds['thetao']
                         ramp_up_salt = ds['so']
@@ -5227,25 +5230,25 @@ def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
                         ramp_up_salt += ds['so']
         ramp_up_temp /= (num_years*months_per_year)
         ramp_up_salt /= (num_years*months_per_year)
-        ds_model_3D = xr.Dataset({'temp':ramp_up_temp, 'salt':ramp_up_salt}).squeeze()
+        ds_model_3D = xr.Dataset({'thetao':ramp_up_temp, 'so':ramp_up_salt}).squeeze()
         # Save for later
         print('Saving '+TS_file)
         ds_model_3D.to_netcdf(TS_file)
 
     # Calculate maximum temperature below 100m
-    temp_masked = ds_model_3D['temp'].where(ds_model_3D['deptht'] > z0)
+    temp_masked = ds_model_3D['thetao'].where(ds_model_3D['deptht'] > z0)
     tmax = temp_masked.max(dim='deptht')
     # Now get the depth indices of this temperature maximum
     z_vals = (temp_masked == tmax).argmax(dim='deptht')
     # Find the depth of this maximum
-    depth_tmax = xr.broadcast(ds_model_3D['deptht'], ds_model_3D['temp'])[0].isel(deptht=z_vals).where(tmax.notnull())
+    depth_tmax = xr.broadcast(ds_model_3D['deptht'], ds_model_3D['thetao'])[0].isel(deptht=z_vals).where(tmax.notnull())
     # Find the salinity at this depth
-    salt_tmax = ds_model_3D['salt'].isel(deptht=z_vals).where(tmax.notnull())
+    salt_tmax = ds_model_3D['so'].isel(deptht=z_vals).where(tmax.notnull())
     # Wrap up into a Dataset for easy plotting later
     ds_model = xr.Dataset({'tmax':tmax, 'depth_tmax':depth_tmax, 'salt_tmax':salt_tmax})
-    # Mask continental shelf and cavities
+    # Mask continental shelf
     shelf_mask = build_shelf_mask(ds_grid)[0]
-    ds_model = ds_model.where(~shelf_mask)
+    ds_model = ds_model.where(1-shelf_mask)
 
     print('Reading observations in EOS-80')
     ds_obs_in = xr.open_dataset(obs_file_eos80)
