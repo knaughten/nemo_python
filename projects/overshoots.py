@@ -5141,30 +5141,48 @@ def plot_aice_vs_obs (base_dir='./'):
     ramp_up_aice_min /= num_years
     ramp_up_aice_max /= num_years
 
-    # Read obs
+    print('Reading observations')
     ds_obs = xr.open_dataset(obs_file).rename({'longitude':'TLON', 'latitude':'TLAT'})
     obs_min = ds_obs['sic'].where((ds_obs['time'].dt.year >= obs_start)*(ds_obs['time'].dt.month==months[0]), drop=True).mean(dim='time')
     obs_max = ds_obs['sic'].where((ds_obs['time'].dt.year >= obs_start)*(ds_obs['time'].dt.month==months[1]), drop=True).mean(dim='time')
     ds_obs_minmax = xr.Dataset({'aice_min':obs_min, 'aice_max':obs_max})
-    # Interpolate to CICE grid
+    print('Interpolating to model grid')
     ds_obs_interp = interp_latlon_cf(ds_obs_minmax, ds, periodic_src=True, method='bilinear').where(ds['tmask'])
 
-    fig = plt.figure(figsize=(6,4))
+    fig = plt.figure(figsize=(7,4.5))
     gs = plt.GridSpec(1,2)
-    gs.update(left=0.05, right=0.95, bottom=0.1, top=0.9, wspace=0.05)
+    gs.update(left=0.05, right=0.95, bottom=0.15, top=0.85, wspace=0.05)
     for n, model, obs, title in zip(range(2), [ramp_up_aice_min, ramp_up_aice_max], [ds_obs_interp['aice_min'], ds_obs_interp['aice_max']], ['February', 'September']):
         ax = plt.subplot(gs[0,n])
         ax.axis('equal')
         # Plot modelled aice
-        img = circumpolar_plot(model, ds, ax=ax, cice=True, masked=True, shade_land=False, make_cbar=False, title=title, titlesize=12, vmin=0, vmax=1)
+        img = circumpolar_plot(model, ds, ax=ax, cice=True, masked=True, shade_land=False, make_cbar=False, title=title, titlesize=14, vmin=0, vmax=1)
         if n == 1:
-            cax = fig.add_axes([0.3, 0.02, 0.4, 0.02])
+            cax = fig.add_axes([0.3, 0.06, 0.4, 0.03])
             plt.colorbar(img, cax=cax, orientation='horizontal')
         # Contour observed ice edge in white
         x, y = polar_stereo(ds['TLON'], ds['TLAT'])
         ax.contour(x, y, obs, levels=[aice0], colors=('white'), linewidths=1, linestyles='solid')
-    plt.suptitle('Sea ice concentration vs observed ice edge', fontsize=14)
-    finished_plot(fig) #, fig_name='figures/aice_vs_obs.png', dpi=300)
+    plt.suptitle('Sea ice concentration vs observed ice edge', fontsize=16)
+    finished_plot(fig, fig_name='figures/aice_vs_obs.png', dpi=300)
+
+
+# Read Shenjie's 3D climatology, convert to EOS-80, and save to a new file.
+def convert_zhou_eos80 (in_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology.nc', out_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_eos80.nc'):
+
+    ds = xr.open_dataset(in_file).squeeze().transpose('nz', 'ny', 'nx')
+    print('Preparing 3D coordinates')
+    press = xr.broadcast(ds['pressure'], ds['sa'])[0]
+    lon = xr.broadcast(ds['longitude'], ds['sa'])[0]
+    lat = xr.broadcast(ds['latitude'], ds['sa'])[0]
+    print('Converting temperature')
+    pt = gsw.pt_from_CT(ds['sa'], ds['ct'])
+    print('Converting salinity')
+    sp = gsw.SP_from_SA(ds['sa'], press, lon, lat)        
+    # Save 
+    ds_out = xr.Dataset({'pt':pt, 'sp':sp, ds['latitude'], ds['longitude'], ds['pressure']})
+    print('Saving to file')
+    ds_out.to_netcdf(out_file)
 
 
 def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
@@ -5172,10 +5190,12 @@ def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
     import gsw
 
     obs_file = '/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology.nc'
+    obs_file_eos80 = '/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_eos80.nc'
     z0 = 100  # Discard the top 100m to make sure Tmax doesn't pick up the warm surface layer
     obs_start = 2000
 
     if os.path.isfile(TS_file):
+        print('Reading precomputed mean model T and S')
         ds_model = xr.open_dataset(TS_file)
     else:
         # Average T and S over correct years of ramp-up members
@@ -5185,7 +5205,7 @@ def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
         num_years = 0
         for suite, start_year, end_year in zip(suites_by_scenario['ramp_up'], start_years, end_years):
             print('Reading '+suite)
-            for year0 in range(start_year, end_year+1):
+            for year0 in tqdm(range(start_year, end_year+1), desc='years'):
                 num_years += 1
                 for month0 in range(1, months_per_year+1):
                     year1, month1 = add_months(year0, month0, 1)
@@ -5202,29 +5222,52 @@ def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
                         ramp_up_salt += ds['so']
         ramp_up_temp /= (num_years*months_per_year)
         ramp_up_salt /= (num_years*months_per_year)
-        ds_model = xr.Dataset({'temp':ramp_up_temp, 'salt':ramp_up_salt})
+        ds_model = xr.Dataset({'temp':ramp_up_temp, 'salt':ramp_up_salt}).squeeze()
         # Save for later
         ds_model.to_netcdf(TS_file)
 
     # Calculate maximum temperature below 100m
-    tmax = ds_model['temp'].where(ds_model['deptht'] > z0).max(dim='deptht')
-    # Calculate depth of this maximum
-    depth_tmax = ds_model['deptht'].broadcast(ds_model['temp']).where(ds_model['temp']==tmax, drop=True)
-    # Calculate salinity at this depth
-    salt_tmax = ds_model['salt'].where(ds_model['temp']==tmax, drop=True)
+    temp_masked = ds_model['temp'].where(ds_model['deptht'] > z0)
+    tmax = temp_masked.max(dim='deptht')
+    # This throws up zeros in regions shallower than 100m - mask them out
+    tmax = tmax.where(tmax != 0)
+    # Now get the depth indices of this temperature maximum
+    z_vals = (temp_masked == tmax).argmax(dim='deptht')
+    # Find the depth of this maximum
+    depth_tmax = xr.broadcast(ds_model['deptht'], ds_model['temp'])[0].isel(deptht=z_vals).where(tmax.notnull())
+    # Find the salinity at this depth
+    salt_tmax = ds_model['salt'].isel(deptht=z_vals).where(tmax.notnull())
+    # Wrap up into a Dataset for easy plotting later
     ds_model = xr.Dataset({'tmax':tmax, 'depth_tmax':depth_tmax, 'salt_tmax':salt_tmax})
 
-    ds = xr.open_dataset(obs_file).squeeze().transpose('nz', 'ny', 'nx')
-    # Convert to EOS-80
-    press = ds['pressure'].broadcast(ds['sa'])
-    lon = ds['longitude'].broadcast(ds['sa'])
-    lat = ds['latitude'].broadcast(ds['sa'])
-    obs_temp = gsw.pt_from_CT(ds['sa'], ds['ct'])
-    obs_salt = gsw.SP_from_SA(ds['sa'], press, lon, lat)
+    if os.path.isfile(obs_file_eos80):
+        print('Reading observations in EOS-80')
+        ds_obs_in = xr.open_dataset(obs_file_eos80)
+        press = xr.broadcast(ds['pressure'], ds['sp'])[0]
+    else:
+        # Read original file in TEOS-10
+        print('Converting observations to EOS-80')
+        ds = xr.open_dataset(obs_file).squeeze().transpose('nz', 'ny', 'nx')
+        # Convert to EOS-80
+        print('Preparing 3D coordinates')
+        press = xr.broadcast(ds['pressure'], ds['sa'])[0]
+        lon = xr.broadcast(ds['longitude'], ds['sa'])[0]
+        lat = xr.broadcast(ds['latitude'], ds['sa'])[0]
+        print('Converting temperature')
+        obs_temp = gsw.pt_from_CT(ds['sa'], ds['ct'])
+        print('Converting salinity')
+        obs_salt = gsw.SP_from_SA(ds['sa'], press, lon, lat)        
+        # Save 
+        ds_obs_in = xr.Dataset({'pt':obs_temp, 'sp':obs_salt, ds['latitude'], ds['longitude'], ds['pressure']})
+        print('Saving to file')
+        ds_obs_in.to_netcdf(obs_file_eos80)
     # Calculate Tmax and related fields as before
-    obs_tmax = obs_temp.where(ds['pressure'] > z0).max(dim='nz')
-    obs_depth_tmax = press.where(obs_temp==obs_tmax, drop=True)
-    obs_salt_tmax = obs_salt.where(obs_temp==obs_tmax, drop=True)
+    obs_temp_masked = ds_obs_in['pt'].where(ds['pressure'] > z0)
+    obs_tmax = obs_temp_masked.max(dim='nz')
+    obs_tmax = obs_tmax.where(obs_tmax != 0)  # Check what this actually looks like
+    z_vals = (obs_temp_masked == obs_tmax).argmax(dim='nz')
+    obs_depth_tmax = press.isel(nz=z_vals).where(obs_tmax.notnull())
+    obs_salt_tmax = ds_obs_in['sp'].isel(nz=z_vals).where(obs_tmax.notnull())
     # Now wrap up into a Dataset
     ds_obs = xr.Dataset({'tmax':obs_tmax, 'depth_tmax':obs_depth_tmax, 'salt_tmax':obs_salt_tmax})
     # Interpolate to NEMO grid
