@@ -5074,11 +5074,11 @@ def ismr_timeseries_regions (base_dir='./'):
     ross_tip = check_tip(suite=suite, region='ross', return_date=True)[1].dt.year.item() - year0
     fris_tip = check_tip(suite=suite, region='filchner_ronne', return_date=True)[1].dt.year.item() - year0
 
-    fig = plt.figure(figsize=(8.5,7))
+    fig = plt.figure(figsize=(9,7))
     rows = num_regions//3
     columns = num_regions//rows
     gs = plt.GridSpec(rows, columns)
-    gs.update(left=0.08, right=0.98, bottom=0.08, top=0.9, hspace=0.3, wspace=0.25)
+    gs.update(left=0.08, right=0.98, bottom=0.08, top=0.9, hspace=0.3, wspace=0.21)
     for n in range(num_regions):
         row = n//columns
         column = n%columns
@@ -5086,8 +5086,8 @@ def ismr_timeseries_regions (base_dir='./'):
         data = moving_average(ds[regions[n]+'_'+var], smooth)
         years = time_in_years(data, year0=year0)
         ax.plot(years, data, color=colour, linewidth=1.5)
-        ax.axvline(ross_tip, color='DarkGreen', linestyle='dashed', linewidth=1.5)
-        ax.axvline(fris_tip, color='Purple', linestyle='dashed', linewidth=1.5)
+        ax.axvline(ross_tip, color='DarkGreen', linestyle='dashed', linewidth=1)
+        ax.axvline(fris_tip, color='Purple', linestyle='dashed', linewidth=1)
         if n == num_regions-1:
             title = 'Total'
             fontweight = 'bold'
@@ -5104,7 +5104,7 @@ def ismr_timeseries_regions (base_dir='./'):
             ax.set_xlabel('Years', fontsize=12)
         ax.set_xlim([years[0], years[-1]])
         plt.suptitle('Ice shelf basal mass loss during ramp-up', fontsize=16)
-    finished_plot(fig) #, fig_name='figures/ismr_timeseries_regions.png', dpi=300)
+    finished_plot(fig, fig_name='figures/ismr_timeseries_regions.png', dpi=300)
 
 
 def plot_aice_vs_obs (base_dir='./'):
@@ -5126,7 +5126,7 @@ def plot_aice_vs_obs (base_dir='./'):
             num_years += 1
             for month in months:
                 file_path = base_dir+'/'+suite+'/cice_'+suite+'i_1m_'+str(year)+str(month).zfill(2)+'01-'+str(year)+str(month+1).zfill(2)+'01.nc'
-                ds = xr.open_dataset(file_path, decode_times=time_coder)
+                ds = xr.open_dataset(file_path, decode_times=time_coder).squeeze()
                 data = ds['aice'].where(ds['tmask'])
                 if month == months[0]:
                     if ramp_up_aice_min is None:

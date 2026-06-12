@@ -173,6 +173,8 @@ def latlon_name (ds):
         return 'lon', 'lat'
     elif 'latitude' in ds:
         return 'longitude', 'latitude'
+    elif 'TLAT' in ds:
+        return 'TLON', 'TLAT'
     else:
         raise Exception('No valid lat or lon coordinate')
 
