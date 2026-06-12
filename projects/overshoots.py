@@ -5180,7 +5180,7 @@ def convert_zhou_eos80 (in_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_
     print('Converting salinity')
     sp = gsw.SP_from_SA(ds['sa'], press, lon, lat)        
     # Save 
-    ds_out = xr.Dataset({'pt':pt, 'sp':sp, ds['latitude'], ds['longitude'], ds['pressure']})
+    ds_out = xr.Dataset({'pt':pt, 'sp':sp, 'latitude':ds['latitude'], 'longitude':ds['longitude'], 'pressure':ds['pressure']})
     print('Saving to file')
     ds_out.to_netcdf(out_file)
 
