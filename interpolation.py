@@ -273,6 +273,9 @@ def lonlat_bounds_cf(dataset, ds_type='src', method='linear', periodic_src=False
             elif ('bounds_nav_lon_grid_T' in dataset) and ('bounds_nav_lat_grid_T' in dataset):
                 lon_bounds = dataset['bounds_nav_lon_grid_T']
                 lat_bounds = dataset['bounds_nav_lat_grid_T']
+            elif ('lont_bounds' in dataset) and ('latt_bounds' in dataset):
+                lon_bounds = dataset['lont_bounds']
+                lat_bounds = dataset['latt_bounds']
             else:
                 raise Exception('dataset does not contain the necessary variables for ds_type nemo. Should contain glamt, gphif, or bounds_lon, bounds_lat')
         else:
@@ -413,6 +416,12 @@ def interp_latlon_cf (source, target, source_type='other', target_type='nemo', p
                 y_name = 'y'
                 lon_name = 'nav_lon'
                 lat_name = 'nav_lat'
+            elif 'TLON' in ds:
+                # model output type CICE on NEMO grid
+                x_name = 'ni'
+                y_name = 'nj'
+                lon_name = 'TLON'
+                lat_name = 'TLAT'
             else:
                 raise Exception('Unknown type of NEMO dataset.')
             lon = ds[lon_name]
