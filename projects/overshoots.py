@@ -5168,6 +5168,7 @@ def plot_aice_vs_obs (base_dir='./'):
 
 
 # Read Shenjie's 3D climatology, convert to EOS-80, and save to a new file.
+# This needs lots of memory so submit it to the LOTUS queue on JASMIN.
 def convert_zhou_eos80 (in_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology.nc', out_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_eos80.nc'):
 
     import gsw
@@ -5195,13 +5196,17 @@ def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
 
     if os.path.isfile(TS_file):
         print('Reading precomputed mean model T and S')
-        ds_model = xr.open_dataset(TS_file)
+        ds_model_3D = xr.open_dataset(TS_file)
+        # Also read one output file for computing masks and grid variables
+        sample_file = base_dir+'/cx209/nemo_cx209o_1m_18500101-18500201_grid-T.nc'
+        ds_grid = xr.open_dataset(sample_file, decode_times=time_coder)
     else:
         # Average T and S over correct years of ramp-up members
         start_years, end_years = find_years_for_obs_compare(base_dir=base_dir, obs_start=obs_start)
         ramp_up_temp = None
         ramp_up_salt = None
         num_years = 0
+        ds_grid = None
         for suite, start_year, end_year in zip(suites_by_scenario['ramp_up'], start_years, end_years):
             print('Reading '+suite)
             for year0 in tqdm(range(start_year, end_year+1), desc='years'):
@@ -5210,9 +5215,10 @@ def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
                     year1, month1 = add_months(year0, month0, 1)
                     file_path = base_dir+'/'+suite+'/nemo_'+suite+'o_1m_'+str(year0)+str(month0).zfill(2)+'01-'+str(year1)+str(month1).zfill(2)+'01_grid-T.nc'
                     ds = xr.open_dataset(file_path, decode_times=time_coder)
-                    # Mask land and cavities
-                    ocean_mask, ice_mask = calc_geometry(ds)[2:]
-                    ds = ds.where(ocean_mask*(~ice_mask))
+                    if ds_grid is None:
+                        ds_grid = ds.copy()
+                    # Apply land mask
+                    ds = ds.where(ds['so']!=0)
                     if ramp_up_temp is None:
                         ramp_up_temp = ds['thetao']
                         ramp_up_salt = ds['so']
@@ -5221,38 +5227,39 @@ def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
                         ramp_up_salt += ds['so']
         ramp_up_temp /= (num_years*months_per_year)
         ramp_up_salt /= (num_years*months_per_year)
-        ds_model = xr.Dataset({'temp':ramp_up_temp, 'salt':ramp_up_salt}).squeeze()
+        ds_model_3D = xr.Dataset({'temp':ramp_up_temp, 'salt':ramp_up_salt}).squeeze()
         # Save for later
-        ds_model.to_netcdf(TS_file)
+        print('Saving '+TS_file)
+        ds_model_3D.to_netcdf(TS_file)
 
     # Calculate maximum temperature below 100m
-    temp_masked = ds_model['temp'].where(ds_model['deptht'] > z0)
+    temp_masked = ds_model_3D['temp'].where(ds_model_3D['deptht'] > z0)
     tmax = temp_masked.max(dim='deptht')
-    # This throws up zeros in regions shallower than 100m - mask them out
-    tmax = tmax.where(tmax != 0)
     # Now get the depth indices of this temperature maximum
     z_vals = (temp_masked == tmax).argmax(dim='deptht')
     # Find the depth of this maximum
-    depth_tmax = xr.broadcast(ds_model['deptht'], ds_model['temp'])[0].isel(deptht=z_vals).where(tmax.notnull())
+    depth_tmax = xr.broadcast(ds_model_3D['deptht'], ds_model_3D['temp'])[0].isel(deptht=z_vals).where(tmax.notnull())
     # Find the salinity at this depth
-    salt_tmax = ds_model['salt'].isel(deptht=z_vals).where(tmax.notnull())
+    salt_tmax = ds_model_3D['salt'].isel(deptht=z_vals).where(tmax.notnull())
     # Wrap up into a Dataset for easy plotting later
     ds_model = xr.Dataset({'tmax':tmax, 'depth_tmax':depth_tmax, 'salt_tmax':salt_tmax})
+    # Mask continental shelf and cavities
+    shelf_mask = build_shelf_mask(ds_grid)[0]
+    ds_model = ds_model.where(~shelf_mask)
 
     print('Reading observations in EOS-80')
     ds_obs_in = xr.open_dataset(obs_file_eos80)
     press = xr.broadcast(ds_obs_in['pressure'], ds_obs_in['sp'])[0]
     # Calculate Tmax and related fields as before
-    obs_temp_masked = ds_obs_in['pt'].where(ds['pressure'] > z0)
+    obs_temp_masked = ds_obs_in['pt'].where(ds_obs_in['pressure'] > z0)
     obs_tmax = obs_temp_masked.max(dim='nz')
-    obs_tmax = obs_tmax.where(obs_tmax != 0)  # Check what this actually looks like
     z_vals = (obs_temp_masked == obs_tmax).argmax(dim='nz')
     obs_depth_tmax = press.isel(nz=z_vals).where(obs_tmax.notnull())
     obs_salt_tmax = ds_obs_in['sp'].isel(nz=z_vals).where(obs_tmax.notnull())
     # Now wrap up into a Dataset
-    ds_obs = xr.Dataset({'tmax':obs_tmax, 'depth_tmax':obs_depth_tmax, 'salt_tmax':obs_salt_tmax})
+    ds_obs = xr.Dataset({'longitude':ds_obs_in['longitude'], 'latitude':ds_obs_in['latitude'], 'tmax':obs_tmax, 'depth_tmax':obs_depth_tmax, 'salt_tmax':obs_salt_tmax})
     # Interpolate to NEMO grid
-    ds_obs_interp = interp_latlon_cf(ds_obs, ds_model, method='bilinear')
+    ds_obs_interp = interp_latlon_cf(ds_obs, ds_grid, method='bilinear')
 
     var_names = ['depth_tmax', 'tmax', 'salt_tmax']
     var_titles = ['a) Depth of subsurface temperature maximum (m)', 'b) Temperature at that depth ('+deg_string+'C)', 'c) Salinity at that depth (psu)']
@@ -5277,7 +5284,7 @@ def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
         for n in range(3):
             ax = plt.subplot(gs[v,n])
             ax.axis('equal')
-            img = circumpolar_plot(data_plot[n], ds_model, ax=ax, masked=True, make_cbar=False, title=titles[n], titlesize=13, vmin=vmin_plot[n], vmax=vmax_plot[n], ctype=ctype_plot[n], lat_max=-60)
+            img = circumpolar_plot(data_plot[n], ds_grid, ax=ax, masked=True, make_cbar=False, title=titles[n], titlesize=13, vmin=vmin_plot[n], vmax=vmax_plot[n], ctype=ctype_plot[n], lat_max=-60)
             if n != 1:
                 cax = fig.add_axes([0.02+0.45*n, 0.7-0.3*v, 0.02, 0.2])
                 plt.colorbar(img, cax=cax, extend='both')
