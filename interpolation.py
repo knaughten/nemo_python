@@ -436,8 +436,6 @@ def interp_latlon_cf (source, target, source_type='other', target_type='nemo', p
     # Loop over data fields and convert each to CF
     data_cf = []
     for var in source:
-        if var == x_name_src or var == y_name_src:
-            continue
         if time_dim is None:
             # Time-independent
             data_cf.append(construct_cf(source[var], x_src, y_src, lon=lon_src, lat=lat_src, lon_bounds=lon_bounds_src, lat_bounds=lat_bounds_src))

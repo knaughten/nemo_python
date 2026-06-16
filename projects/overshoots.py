@@ -5260,7 +5260,7 @@ def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
     obs_depth_tmax = press.isel(nz=z_vals).where(obs_tmax.notnull())
     obs_salt_tmax = ds_obs_in['sp'].isel(nz=z_vals).where(obs_tmax.notnull())
     # Now wrap up into a Dataset
-    ds_obs = xr.Dataset({'longitude':ds_obs_in['longitude'], 'latitude':ds_obs_in['latitude'], 'tmax':obs_tmax, 'depth_tmax':obs_depth_tmax, 'salt_tmax':obs_salt_tmax})
+    ds_obs = xr.Dataset({'tmax':obs_tmax, 'depth_tmax':obs_depth_tmax, 'salt_tmax':obs_salt_tmax}).assign_coords({'longitude':ds_obs_in['longitude'], 'latitude':ds_obs_in['latitude']})
     # Interpolate to NEMO grid
     ds_obs_interp = interp_latlon_cf(ds_obs, ds_grid, method='bilinear', periodic_src=True, periodic_target=True)
 
