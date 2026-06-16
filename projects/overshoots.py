@@ -5262,7 +5262,7 @@ def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
     # Now wrap up into a Dataset
     ds_obs = xr.Dataset({'longitude':ds_obs_in['longitude'], 'latitude':ds_obs_in['latitude'], 'tmax':obs_tmax, 'depth_tmax':obs_depth_tmax, 'salt_tmax':obs_salt_tmax})
     # Interpolate to NEMO grid
-    ds_obs_interp = interp_latlon_cf(ds_obs, ds_grid, method='bilinear')
+    ds_obs_interp = interp_latlon_cf(ds_obs, ds_grid, method='bilinear', periodic_src=True, periodic_target=True)
 
     var_names = ['depth_tmax', 'tmax', 'salt_tmax']
     var_titles = ['a) Depth of subsurface temperature maximum (m)', 'b) Temperature at that depth ('+deg_string+'C)', 'c) Salinity at that depth (psu)']
