@@ -43,13 +43,14 @@ def finished_plot (fig, fig_name=None, dpi=None, print_out=True):
 # contour: list of levels to contour
 # contour_colour: colour to contour (default black)
 # shade_land: whether to shade the land mask in grey (default True unless cice=True)
+# shade_land_ant: whether to only shade Antarctica and ignore the rest (only applies if shade_land=True)
 # contour_ice: whether to contour the ice front (default False)
 # icefront_colour: colour to contour ice front (default black)
 # lognorm: logarithmic colormap normalization
 # zoom_amundsen: boolean to activate a zoom on the Amundsen sea region
 # lon0: longitude at the top of the plot (default 0)
 
-def circumpolar_plot (data, grid, pole='S', cice=False, ax=None, make_cbar=True, masked=False, title=None, titlesize=16, fig_name=None, return_fig=False, vmin=None, vmax=None, ctype='viridis', change_points=None, periodic=True, lat_max=None, contour=None, contour_colour='black', shade_land=None, lognorm=False, cbar_kwags={}, zoom_amundsen=False, contour_ice=False, icefront_colour='black', lon0=0, land_colour='DarkGrey'):
+def circumpolar_plot (data, grid, pole='S', cice=False, ax=None, make_cbar=True, masked=False, title=None, titlesize=16, fig_name=None, return_fig=False, vmin=None, vmax=None, ctype='viridis', change_points=None, periodic=True, lat_max=None, contour=None, contour_colour='black', shade_land=None, shade_land_ant=False, lognorm=False, cbar_kwags={}, zoom_amundsen=False, contour_ice=False, icefront_colour='black', lon0=0, land_colour='DarkGrey'):
 
     import cf_xarray as cfxr
 
@@ -151,7 +152,21 @@ def circumpolar_plot (data, grid, pole='S', cice=False, ax=None, make_cbar=True,
         ice_front_mask = ice_mask.where(mask_sum!=0)
     if shade_land:
         ocean_mask = ocean_mask.where(ocean_mask)
-        x_bg, y_bg = np.meshgrid(np.linspace(x_edges.min().item(), x_edges.max().item()), np.linspace(y_edges.min().item(), y_edges.max().item()))
+        if shade_land_ant:
+            # Set up a box around the circle 63S
+            lon_box = np.array([-90, 0, 90, 180])
+            lat_box = np.array([-63]*4)
+            x_box, y_box = polar_stereo(lon_box, lat_box)
+            xmin = np.amin(x_box)
+            xmax = np.amax(x_box)
+            ymin = np.amin(y_box)
+            ymax = np.amax(y_box)
+        else:
+            xmin = x_edges.min().item()
+            xmax = x_edges.max().item()
+            ymin = y_edges.min().item()
+            ymax = y_edges.max().item()
+        x_bg, y_bg = np.meshgrid(np.linspace(xmin, xmax), np.linspace(ymin, ymax))
         mask_bg = np.ones(x_bg.shape)
 
     if new_fig:

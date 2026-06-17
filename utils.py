@@ -655,23 +655,25 @@ def convert_ismr (sowflisf):
 
 
 # Read absolute bottom salinity from a NEMO dataset in EOS80.
-def bwsalt_abs (ds_nemo):
+def bwsalt_abs (ds_nemo, return_press=False):
     import gsw
     SP = ds_nemo['sob']
     # Get depth in metres at every point, with land masked
     depth_3d = xr.broadcast(ds_nemo['deptht'], ds_nemo['so'])[0].where(ds_nemo['so']!=0)
     # Get depth in bottom cell: approximately equal to pressure in dbar
     press = depth_3d.max(dim='deptht')
-    return gsw.SA_from_SP(SP, press, ds_nemo['nav_lon'], ds_nemo['nav_lat'])
+    if return_press:
+        return gsw.SA_from_SP(SP, press, ds_nemo['nav_lon'], ds_nemo['nav_lat']), press
+    else:
+        return gsw.SA_from_SP(SP, press, ds_nemo['nav_lon'], ds_nemo['nav_lat'])
 
 
 # Read conservative bottom temperature from a NEMO dataset in EOS80.
 def bwtemp_con (ds_nemo):
     import gsw
     PT = ds_nemo['tob']
-    depth_3d = xr.broadcast(ds_nemo['deptht'], ds_nemo['so'])[0].where(ds_nemo['so']!=0)
-    press = depth_3d.max(dim='deptht')
-    return gsw.CT_from_t(bwsalt_abs(ds_nemo), PT, press)
+    SA, press = bwsalt_abs(ds_nemo, return_press=True)
+    return gsw.CT_from_t(SA, PT, press)
 
 
 # Select the correct variable for area in the dataset

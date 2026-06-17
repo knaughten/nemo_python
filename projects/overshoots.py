@@ -21,14 +21,13 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 from ..timeseries import update_simulation_timeseries, update_simulation_timeseries_um, check_nans, fix_missing_months, calc_timeseries, overwrite_file
 from ..plots import timeseries_by_region, timeseries_by_expt, finished_plot, timeseries_plot, circumpolar_plot
-from ..plot_utils import truncate_colourmap, lon_label
+from ..plot_utils import truncate_colourmap, lon_label, latlon_axis, set_colours, latlon_axes
 from ..utils import moving_average, add_months, rotate_vector, polar_stereo, convert_ismr, bwsalt_abs, bwtemp_con, fix_lon_range, area_name
 from ..grid import region_mask, calc_geometry, build_ice_mask, build_shelf_mask
 from ..constants import line_colours, region_names, deg_string, gkg_string, months_per_year, rho_fw, rho_ice, sec_per_year, vaf_to_gmslr, adusumilli_melt, adusumilli_std, rignot_melt, rignot_std
 from ..file_io import read_schmidtko, read_woa, read_zhou_bottom_climatology
 from ..interpolation import interp_latlon_cf, interp_grid
 from ..diagnostics import barotropic_streamfunction
-from ..plot_utils import set_colours, latlon_axes
 from ..bisicles_utils import read_bisicles
 
 # Global dictionaries of suites - update these as more suites become available!
@@ -5192,6 +5191,8 @@ def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
 
     obs_file_eos80 = '/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_eos80.nc'
     z0 = 100  # Discard the top 100m to make sure Tmax doesn't pick up the warm surface layer
+    mw_temp = 3  # Temperature and salinity thresholds for Mode Water to exclude
+    mw_salt = 34.5
     obs_start = 2000
 
     if os.path.isfile(TS_file):
@@ -5219,15 +5220,13 @@ def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
                         ds_grid = ds.copy()
                     # Apply land mask
                     ds = ds.where(ds['so']!=0)
-                    # Also mask cavities
-                    ice_mask = build_ice_mask(ds)[0]
-                    ds = ds.where(~ice_mask)
                     if ramp_up_temp is None:
                         ramp_up_temp = ds['thetao']
                         ramp_up_salt = ds['so']
                     else:
-                        ramp_up_temp += ds['thetao']
-                        ramp_up_salt += ds['so']
+                        # Use most restrictive mask
+                        ramp_up_temp = ramp_up_temp.where(ds['thetao'].notnull()) + ds['thetao'].where(ramp_up_temp.notnull())
+                        ramp_up_salt = ramp_up_salt.where(ds['so'].notnull()) + ds['so'].where(ramp_up_salt.notnull())
         ramp_up_temp /= (num_years*months_per_year)
         ramp_up_salt /= (num_years*months_per_year)
         ds_model_3D = xr.Dataset({'thetao':ramp_up_temp, 'so':ramp_up_salt}).squeeze()
@@ -5249,6 +5248,9 @@ def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
     # Mask continental shelf
     shelf_mask = build_shelf_mask(ds_grid)[0]
     ds_model = ds_model.where(1-shelf_mask)
+    # Exclude MW being picked up around the corners: warm and fresh
+    mw_mask = (ds_model['tmax'] > mw_temp)*(ds_model['salt_tmax'] < mw_salt)
+    ds_model = ds_model.where(~mw_mask)
 
     print('Reading observations in EOS-80')
     ds_obs_in = xr.open_dataset(obs_file_eos80)
@@ -5261,22 +5263,24 @@ def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
     obs_salt_tmax = ds_obs_in['sp'].isel(nz=z_vals).where(obs_tmax.notnull())
     # Now wrap up into a Dataset
     ds_obs = xr.Dataset({'tmax':obs_tmax, 'depth_tmax':obs_depth_tmax, 'salt_tmax':obs_salt_tmax}).assign_coords({'longitude':ds_obs_in['longitude'], 'latitude':ds_obs_in['latitude']})
+    obs_mw_mask = (ds_obs['tmax'] > mw_temp)*(ds_obs['salt_tmax'] < mw_salt)
+    ds_obs = ds_obs.where(~obs_mw_mask)
     # Interpolate to NEMO grid
     ds_obs_interp = interp_latlon_cf(ds_obs, ds_grid, method='bilinear', periodic_src=True, periodic_target=True)
 
     var_names = ['depth_tmax', 'tmax', 'salt_tmax']
     var_titles = ['a) Depth of subsurface temperature maximum (m)', 'b) Temperature at that depth ('+deg_string+'C)', 'c) Salinity at that depth (psu)']
-    vmin = [100, 0, 34.7]
-    vmax = [2000, 3, 35]
-    vdiff = [300, 1, 0.2]
-    ctype = ['viridis', 'RdBu_r', 'RdBu_r']
+    vmin = [z0, 0.25, mw_salt]
+    vmax = [1000, mw_temp, 34.73]
+    vdiff = [500, 1.5, 0.1]
+    ctype = ['viridis', 'viridis', 'viridis'] #'RdBu_r', 'RdBu_r']
     num_vars = len(var_names)
 
     # Plot
-    figure = plt.figure(figsize=(8,8))
+    fig = plt.figure(figsize=(7,8))
     gs = plt.GridSpec(num_vars, 3)
-    gs.update(left=0.1, right=0.9, bottom=0.025, top=0.95, wspace=0.1, hspace=0.3)
-    for v in range(num_var):
+    gs.update(left=0.08, right=0.89, bottom=0.025, top=0.9, wspace=0, hspace=0.2)
+    for v in range(num_vars):
         ukesm_plot = ds_model[var_names[v]]
         obs_plot = ds_obs_interp[var_names[v]].where(ukesm_plot.notnull())
         data_plot = [ukesm_plot, obs_plot, ukesm_plot-obs_plot]
@@ -5287,12 +5291,106 @@ def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
         for n in range(3):
             ax = plt.subplot(gs[v,n])
             ax.axis('equal')
-            img = circumpolar_plot(data_plot[n], ds_grid, ax=ax, masked=True, make_cbar=False, title=titles[n], titlesize=13, vmin=vmin_plot[n], vmax=vmax_plot[n], ctype=ctype_plot[n], lat_max=-60)
+            img = circumpolar_plot(data_plot[n], ds_grid, ax=ax, masked=True, make_cbar=False, title=title[n], titlesize=13, vmin=vmin_plot[n], vmax=vmax_plot[n], ctype=ctype_plot[n], shade_land_ant=True)
             if n != 1:
-                cax = fig.add_axes([0.02+0.45*n, 0.7-0.3*v, 0.02, 0.2])
+                cax = fig.add_axes([0.01+0.445*n, 0.69-0.315*v, 0.02, 0.2])
                 plt.colorbar(img, cax=cax, extend='both')
-        plt.text(0.5, 0.99-0.3*v, var_titles[v], fontsize=16, ha='center', va='top', transform=fig.transFigure)
+        plt.text(0.5, 0.98-0.315*v, var_titles[v], fontsize=16, ha='center', va='top', transform=fig.transFigure)
     finished_plot(fig, fig_name='figures/cdw_core_vs_obs.png', dpi=300)
+
+
+def plot_density_slices_vs_obs (base_dir='./'):
+    
+    import string
+    import gsw
+
+    TS_file = 'ramp_up_TS_obs_period.nc'
+    obs_file = '/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology.nc'
+    lon0_regions = [-164, -33, -110, 15]  # Best not to choose anything too close to 180 to keep the interpolation simple!
+    num_regions = len(lon0_regions)
+    region_titles = ['Little America Basin Trough', 'Filchner Trough', 'Amundsen Sea', 'Dronning Maud Land']
+
+    print('Reading precomputed mean model T and S')
+    ds_model_3D = xr.open_dataset(TS_file)  # Note cavities are masked    
+    print('Reading observations')
+    ds_obs_3D = xr.open_dataset(obs_file).squeeze().transpose('nz', 'ny', 'nx').swap_dims({'nz':'pressure', 'ny':'latitude', 'nx':'longitude'}).drop_vars({'ct_mse', 'sa_mse'})  # TEOS-10 - will convert UKESM to match
+
+    model_plot = []
+    obs_plot = []
+    # Loop over regions
+    for lon0 in lon0_regions:
+        # Find nearest neighbour to lon0 for every y-point on the NEMO grid
+        x_vals = np.abs(ds_model_3D['nav_lon'] - lon0).argmin(dim='x')
+        # Slice the entire Dataset to these x-values
+        ds_model_slice = ds_model_3D.isel(x=x_vals)
+        # Convert to TEOS-10
+        # First need 2D (y-z) arrays of depth, lon, lat
+        def broadcast_coord (var):
+            return xr.broadcast(ds_model_slice[var], ds_model_slice['thetao'])[0].where(ds_model_slice['thetao'].notnull())
+        depth_2D = broadcast_coord('deptht')
+        SA_model = gsw.SA_from_SP(ds_model_slice['so'], depth_2D, broadcast_coord('nav_lon'), broadcast_coord('nav_lat'))
+        CT_model = gsw.CT_from_t(SA_model, ds_model_slice['thetao'], depth_2D)
+        # Now get potential density
+        density_model = gsw.density.sigma0(SA_model, CT_model)
+        model_plot.append(density_model)
+        
+        # Repeat with observations
+        # Slice to nearest neighbour - easier with 1D array
+        x0 = np.abs(ds_obs_3D['longitude'] - lon0).argmin(dim='longitude')
+        ds_obs_slice = ds_obs_3D.isel(longitude=x0)
+        # Get potential density
+        density_obs = gsw.density.sigma0(ds_obs_slice['sa'], ds_obs_slice['ct'])
+        obs_plot.append(density_obs)
+
+    # Plot
+    fig = plt.figure(figsize=(8,6))
+    gs = plt.GridSpec(2, 4)
+    gs.update(left=0.09, right=0.99, bottom=0.19, top=0.9, wspace=0.1, hspace=0.5)
+    vmin = 27
+    vmax = 27.9
+    cmap = set_colours(model_plot[0], vmin=vmin, vmax=vmax, ctype='RdBu_r')[0]
+    lev = np.arange(vmin, vmax+0.05, 0.05)
+    lat_min = [-80, -78, -75, -71]
+    lat_max = [-72, -70, -68, -65]
+    for n in range(num_regions):
+        # Model
+        ax = plt.subplot(gs[n//2, 2*(n%2)])
+        ax.contourf(ds_model_slice['nav_lat'], ds_model_slice['deptht'], model_plot[n], lev, cmap=cmap, extend='both')
+        ax.set_title('UKESM')
+        ax.set_xlim([lat_min[n], lat_max[n]])
+        ax.set_ylim([1000, 0])
+        latlon_axis(ax, 'lat', 'x')
+        ax.xaxis.get_ticklabels()[-1].set_visible(False)
+        if n == 0:
+            ax.set_ylabel('Depth (m)')
+        if n%2 != 0:
+            ax.set_yticklabels([])
+        # Obs
+        ax = plt.subplot(gs[n//2, 2*(n%2)+1])
+        img = ax.contourf(obs_plot[n].latitude, obs_plot[n].pressure, obs_plot[n], lev, cmap=cmap, extend='both')
+        ax.set_title('Observations')
+        ax.set_xlim([lat_min[n], lat_max[n]])
+        ax.set_ylim([1000, 0])
+        latlon_axis(ax, 'lat', 'x')
+        ax.xaxis.get_ticklabels()[-1].set_visible(False)
+        ax.set_yticklabels([])
+        plt.text(0.3+0.46*(n%2), 0.99-0.43*(n//2), string.ascii_lowercase[n]+') '+lon_label(lon0_regions[n])+' ('+region_titles[n]+')', fontsize=14, ha='center', va='top', transform=fig.transFigure)
+    cax = fig.add_axes([0.2, 0.1, 0.6, 0.03])
+    plt.colorbar(img, cax=cax, orientation='horizontal')
+    plt.text(0.5, 0.01, r'Potential density (kg/m$^3$ - 1000)', fontsize=14, ha='center', va='bottom', transform=fig.transFigure)
+    finished_plot(fig) #, fig_name='figures/density_slices_vs_obs.png')
+        
+        
+        
+        
+        
+        
+        
+        
+    
+     
+    
+    
     
     
     
