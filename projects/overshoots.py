@@ -1397,6 +1397,11 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
     labels_lat = [-72, -71, -79, -75, -78, -76.5]
     obs_start = 2000  # Most of Shenjie's observations are from post-2005, so start date of 2000 allows for a small weighting of earlier data too. At time of access (28/08/2025) this presumably includes half of 2025.
     obs_file = '/gws/ssde/j25b/terrafirma/kaight/input_data/shenjie_climatology_bottom_TS.nc'  # Zhou 2025
+    if plot:
+        lon0_transects = [176, -37, -106, 10]  # Transects to add to last panel used in other figure
+        lat_min_transects = [-80, -78, -76, -71]
+        lat_max_transects = [-68, -69, -68, -67]
+        num_transects = len(lon0_transects)
 
     # Find years for comparison to obs for each ramp-up ensemble member
     start_years, end_years = find_years_for_obs_compare(base_dir=base_dir, obs_start=obs_start)
@@ -1460,6 +1465,7 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
     x, y = polar_stereo(ds['nav_lon'], ds['nav_lat'])
 
     if plot:
+        # Now make this plot
         fig = plt.figure(figsize=(8,5.5))
         gs = plt.GridSpec(2,3)
         gs.update(left=0.1, right=0.9, bottom=0.025, top=0.9, wspace=0.1, hspace=0.3)
@@ -1487,7 +1493,13 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
                 ax = plt.subplot(gs[v,n])
                 ax.axis('equal')
                 img = circumpolar_plot(data_plot[n], ds, ax=ax, masked=True, make_cbar=False, title=prefixes[3*v+n]+titles[n], titlesize=13, vmin=vmin_plot[n], vmax=vmax_plot[n], ctype=ctype[n], lat_max=-63)
+                if v == 0 and n == 2:
+                    # Add transects (for ASF plot)
+                    for m in range(num_transects):
+                        x_plot, y_plot = polar_stereo(lon0_transects[m]*np.ones(2), np.array([lat_min_transects[m], lat_max_transects[m]]))
+                        ax.plot(x_plot, y_plot, color='black', linewidth=0.5)   
                 if v == 1 and n == 2:
+                    # Contour Ross and FRIS shelf regions used for analysis
                     ax.contour(x, y, mask, levels=[0.5], colors=('magenta'), linewidths=0.5)
                 if n != 1:
                     cax = fig.add_axes([0.02+0.45*n, 0.56-0.5*v, 0.02, 0.3])
@@ -5044,6 +5056,7 @@ def ismr_obs_bar_chart (base_dir='./'):
     # Add an inset map to show regions
     ax3 = inset_axes(ax, "35%", "50%",  loc='upper left')
     ax3.axis('equal')
+    # Shade region masks
     for n in range(num_regions-1):
         circumpolar_plot(region_masks[n], ds_grid, ax=ax3, make_cbar=False, ctype=region_colours[n], lat_max=-65, shade_land=n==0, land_colour=(0.8,0.8,0.8))
         x0, y0 = polar_stereo(region_label_lon[n], region_label_lat[n])
@@ -5306,9 +5319,9 @@ def plot_density_slices_vs_obs (base_dir='./'):
 
     TS_file = 'ramp_up_TS_obs_period.nc'
     obs_file = '/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology.nc'
-    lon0_regions = [-164, -33, -110, 15]  # Best not to choose anything too close to 180 to keep the interpolation simple!
+    lon0_regions = [176, -37, -106, 10] 
     num_regions = len(lon0_regions)
-    region_titles = ['Little America Basin Trough', 'Filchner Trough', 'Amundsen Sea', 'Dronning Maud Land']
+    region_titles = ['Ross', 'Filchner-Ronne', 'Amundsen Sea', 'Dronning Maud Land']
 
     print('Reading precomputed mean model T and S')
     ds_model_3D = xr.open_dataset(TS_file)  # Note cavities are masked    
@@ -5346,19 +5359,21 @@ def plot_density_slices_vs_obs (base_dir='./'):
     fig = plt.figure(figsize=(8,6))
     gs = plt.GridSpec(2, 4)
     gs.update(left=0.09, right=0.99, bottom=0.19, top=0.9, wspace=0.1, hspace=0.5)
-    vmin = 27
+    vmin = 27.1
     vmax = 27.9
     cmap = set_colours(model_plot[0], vmin=vmin, vmax=vmax, ctype='RdBu_r')[0]
     lev = np.arange(vmin, vmax+0.05, 0.05)
-    lat_min = [-80, -78, -75, -71]
-    lat_max = [-72, -70, -68, -65]
+    lat_min = [-80, -78, -76, -71]
+    lat_max = [-68, -69, -68, -67]
+    z0 = 1100
     for n in range(num_regions):
         # Model
         ax = plt.subplot(gs[n//2, 2*(n%2)])
         ax.contourf(ds_model_slice['nav_lat'], ds_model_slice['deptht'], model_plot[n], lev, cmap=cmap, extend='both')
+        ax.contour(ds_model_slice['nav_lat'], ds_model_slice['deptht'], model_plot[n], lev, colors=('black'), linewidths=0.5)
         ax.set_title('UKESM')
         ax.set_xlim([lat_min[n], lat_max[n]])
-        ax.set_ylim([1000, 0])
+        ax.set_ylim([z0, 0])
         latlon_axis(ax, 'lat', 'x')
         ax.xaxis.get_ticklabels()[-1].set_visible(False)
         if n == 0:
@@ -5368,9 +5383,10 @@ def plot_density_slices_vs_obs (base_dir='./'):
         # Obs
         ax = plt.subplot(gs[n//2, 2*(n%2)+1])
         img = ax.contourf(obs_plot[n].latitude, obs_plot[n].pressure, obs_plot[n], lev, cmap=cmap, extend='both')
+        ax.contour(obs_plot[n].latitude, obs_plot[n].pressure, obs_plot[n], lev, colors=('black'), linewidths=0.5)
         ax.set_title('Observations')
         ax.set_xlim([lat_min[n], lat_max[n]])
-        ax.set_ylim([1000, 0])
+        ax.set_ylim([z0, 0])
         latlon_axis(ax, 'lat', 'x')
         ax.xaxis.get_ticklabels()[-1].set_visible(False)
         ax.set_yticklabels([])
@@ -5378,7 +5394,7 @@ def plot_density_slices_vs_obs (base_dir='./'):
     cax = fig.add_axes([0.2, 0.1, 0.6, 0.03])
     plt.colorbar(img, cax=cax, orientation='horizontal')
     plt.text(0.5, 0.01, r'Potential density (kg/m$^3$ - 1000)', fontsize=14, ha='center', va='bottom', transform=fig.transFigure)
-    finished_plot(fig) #, fig_name='figures/density_slices_vs_obs.png')
+    finished_plot(fig, fig_name='figures/density_slices_vs_obs.png', dpi=300)
         
         
         
