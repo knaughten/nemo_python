@@ -1475,7 +1475,7 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
         obs_data = [obs_bwtemp, obs_bwsalt]
         var_titles = ['Bottom temperature ('+deg_string+'C)', 'Bottom salinity (psu)']
         prefixes = ['a) ', 'b) ', 'c) ', 'd) ', 'e) ', 'f) ']
-        vmin = [-2.5, 34.2]
+        vmin = [-2.5, 34.1]
         vmax = [3, 34.85]
         vdiff = [2, 0.5]
         num_var = len(ukesm_data)
