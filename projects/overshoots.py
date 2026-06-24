@@ -1390,7 +1390,7 @@ def find_years_for_obs_compare (base_dir='./', obs_start=2000, obs_end=None):
 # Calculate UKESM's bias in bottom salinity on the continental shelf of Ross and FRIS (both regions together). Over the years calculated above, average bottom salinity over those years and ensemble members, compare to observational climatologies interpolated to NEMO grid, and calculate the area-averaged bias.
 # Before running this on Jasmin, do "source ~/pyenv/bin/activate" so we can use gsw
 # If plot=True, will make a figure showing the comparison, and also showing temperature.
-def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt_bias.nc', region='both'):
+def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt_bias.nc', region='both', historical=False):
 
     regions = ['ross', 'filchner_ronne']  # Both together
     labels_lon = [-166, -45, -158, 162, -30, -70]
@@ -1402,15 +1402,23 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
         lat_min_transects = [-80, -78, -76, -71]
         lat_max_transects = [-68, -69, -68, -67]
         num_transects = len(lon0_transects)
+    if historical:
+        hist_suite = 'cy691'
 
-    # Find years for comparison to obs for each ramp-up ensemble member
-    start_years, end_years = find_years_for_obs_compare(base_dir=base_dir, obs_start=obs_start)
+    if historical:
+        suite_list = [hist_suite]
+        start_years = [obs_start]
+        end_years = [2014]
+    else:
+        # Find years for comparison to obs for each ramp-up ensemble member
+        start_years, end_years = find_years_for_obs_compare(base_dir=base_dir, obs_start=obs_start)
+        suite_list = suites_by_scenario['ramp_up']
     # Now accumulate average over all these years and ensemble members
     ramp_up_bwsalt = None
     if plot:
         ramp_up_bwtemp = None
     num_years = 0
-    for suite, start_year, end_year in zip(suites_by_scenario['ramp_up'], start_years, end_years):
+    for suite, start_year, end_year in zip(suite_list, start_years, end_years):
         print('Reading '+suite)
         # Read all the grid-T ocean files from these years
         for year0 in range(start_year, end_year+1):
