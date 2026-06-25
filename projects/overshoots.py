@@ -1402,13 +1402,12 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
         lat_min_transects = [-80, -78, -76, -71]
         lat_max_transects = [-68, -69, -68, -67]
         num_transects = len(lon0_transects)
+        
     if historical:
-        hist_suite = 'cy691'
-
-    if historical:
-        suite_list = [hist_suite]
-        start_years = [obs_start]
-        end_years = [2014]
+        # 4 members historical 2000-2014 branching into 4 members SSP2-4.5 2015-2025
+        suite_list = ['cy623', 'da914', 'da916', 'da917', 'dg480', 'di435', 'di422', 'di439']
+        start_years = [obs_start]*4 + [2015]*4
+        end_years = [2014]*4 + [2025]*4
     else:
         # Find years for comparison to obs for each ramp-up ensemble member
         start_years, end_years = find_years_for_obs_compare(base_dir=base_dir, obs_start=obs_start)
