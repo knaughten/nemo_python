@@ -244,7 +244,7 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
     # Select region
     # First check for longitude bounds: last character is W or E, and second last character is a number
     lon_bounds_region = None
-    if region.endswith('W') or region.endswith('E'):
+    if region is not None and region.endswith('W') or region.endswith('E'):
         try:
             test = int(region[-2])  # Will jump to except if the second last character isn't a number
             # Extract longitude bounds, starting at the end and stripping them off
