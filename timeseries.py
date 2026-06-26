@@ -3,7 +3,7 @@ import numpy as np
 import os
 import glob
 from .constants import region_points, region_names, rho_fw, rho_ice, sec_per_year, deg_string, gkg_string, drake_passage_lon0, drake_passage_lat_bounds
-from .utils import add_months, closest_point, month_convert, bwsalt_abs, xy_name, area_name, dz_name
+from .utils import add_months, closest_point, month_convert, bwsalt_abs, xy_name, area_name, dz_name, latlon_name
 from .grid import single_cavity_mask, region_mask, calc_geometry, make_mask_3d
 from .diagnostics import transport, gyre_transport, thermocline
 time_coder = xr.coders.CFDatetimeCoder(use_cftime=True)
@@ -17,6 +17,7 @@ time_coder = xr.coders.CFDatetimeCoder(use_cftime=True)
 # <region>_bwSA: as for bwsalt, but convert from practical salinity (assumes NEMO3.6 input) to absolute salinity
 # <region>_temp, <region>_salt: volume-averaged temperature or salinity from the given region or cavity
 # <region>_temp_btw_xxx_yyy_m, <region>_salt_btw_xxx_yyy_m: volume-averaged temperature or salinity from the given region or cavity, between xxx and yyy metres (positive integers, shallowest first)
+# temp_max_below_<depth>_<lon>_<lat>: maximum temperature below the given depth, at the given longitude and latitude. Examples of the format are: depth 100m, lon 80W or 90E, lat 70S.
 # drake_passage_transport: zonal transport across Drake Passage (need to pass path to domain_cfg)
 # <region>_iceberg_melt: iceberg melt flux integrated over the given region
 # <region>_pminuse: precipitation minus evaporation integrated over the given region
@@ -124,6 +125,27 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         nemo_var = 'so'
         title = 'Average salinity between '+str(z_shallow)+'-'+str(z_deep)+'m'
         units = gkg_string
+    elif var.startswith('temp_max_below_'):
+        option = 'vertical_max'
+        substr = var[len('temp_max_below_'):].split('_')
+        if not substr[0].endswith('m'):
+            raise Exception('Invalid depth format for '+var)
+        z_shallow = int(substr[0][:-1])
+        if substr[1].endswith('W'):
+            lon0 = -1*int(substr[1][:-1])
+        elif substr[1].endswith('E'):
+            lon0 = int(substr[1][:-1])
+        else:
+            raise Exception('Invalid longitude format for '+var)
+        if substr[2].endswith('S'):
+            lat0 = -1*int(substr[2][:-1])
+        elif substr[2].endswith('N'):
+            lat0 = int(substr[2][:-1])
+        else:
+            raise Exception('Invalid latitude format for '+var)
+        nemo_var = 'thetao'
+        title = 'Maximum temperature below '+substr[0]+' at '+substr[1]+', '+substr[2]
+        units = deg_string+'C'        
     elif var == 'drake_passage_transport':
         lon0 = drake_passage_lon0
         lat_bounds = drake_passage_lat_bounds
@@ -311,6 +333,13 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         mask_3d = xr.where(ds_nemo[nemo_var]==0, 0, mask)
         dV = ds_nemo[area_name(ds_nemo)]*ds_nemo[dz_name(ds_nemo)]*mask_3d*mask_depth
         data = (ds_nemo[nemo_var]*dV).sum(dim=[x_name, y_name,'deptht'])/dV.sum(dim=[x_name, y_name,'deptht'])
+    elif option == 'vertical_max':
+        # Maximum below z_shallow at the given point
+        # First find the nearest grid cell to that point
+        [j,i] = closest_point(ds_nemo, [lon0, lat0])
+        data_column = ds_nemo[nemo_var].isel({x_name:i, y_name:j})
+        # Find maximum below z_shallow, neglecting land mask (identically zero)
+        data = data_column.where((data_column != 0)*(ds_nemo['deptht'] > z_shallow)).max()       
     elif option == 'transport':
         # Calculate zonal or meridional transport
         data = transport(ds_nemo, lon0=lon0, lat0=lat0, lon_bounds=lon_bounds, lat_bounds=lat_bounds)

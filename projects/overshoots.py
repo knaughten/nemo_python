@@ -5402,6 +5402,15 @@ def plot_density_slices_vs_obs (base_dir='./'):
     plt.colorbar(img, cax=cax, orientation='horizontal')
     plt.text(0.5, 0.01, r'Potential density (kg/m$^3$ - 1000)', fontsize=14, ha='center', va='bottom', transform=fig.transFigure)
     finished_plot(fig, fig_name='figures/density_slices_vs_obs.png', dpi=300)
+
+
+def precompute_cdw_core_timeseries (suite, base_dir='./'):
+
+    # Lon-lat formatting strings for each point to calculate
+    point_strings = ['160W_75S', '30W_73S']
+    timeseries_types = ['temp_max_below_100m_'+point for point in point_strings]
+    update_simulation_timeseries(suite, timeseries_types, timeseries_file='timeseries_cdw_core.nc', sim_dir=base_dir+'/'+suite+'/', freq='m', halo=True, gtype='T')
+
         
         
         
