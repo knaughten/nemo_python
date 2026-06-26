@@ -5533,13 +5533,14 @@ def plot_timeseries_cdw_core (base_dir='./'):
     point_strings = ['160W_75S', '30W_73S']
     regions = ['ross', 'filchner_ronne']
     colours = ['DarkGreen', 'Purple']
+    region_titles = ['Little America Basin Trough', 'Filchner Trough']
 
     fig, ax = plt.subplots()
     ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file, decode_times=time_coder)
     years, year0 = time_in_years(ds, return_year0=True)
     for n in range(len(regions)):
         data = ds[var_head+point_strings[n]]
-        ax.plot(years, data, color=colours[n], linewidth=1.5, label=region_names[regions[n]])
+        ax.plot(years, data, color=colours[n], linewidth=1.5, label=region_titles[n])
         tip_year = check_tip(suite=suite, region=regions[n], return_date=True)[1].dt.year.item() - year0
         tip_t = np.where(data.time_centered.dt.year == tip_year+year0)[0][0] + months_per_year//2
         ax.axvline(tip_year, color=colours[n], linestyle='dashed', linewidth=1)
@@ -5553,6 +5554,40 @@ def plot_timeseries_cdw_core (base_dir='./'):
     ax.set_xlim([years[0], years[-1]])
     plt.tight_layout()
     finished_plot(fig, fig_name='figures/timeseries_cdw_core.png', dpi=300)
+
+
+def plot_vaf_by_catchments (base_dir='./'):
+
+    suite = 'cx209'
+    file_head = '/gws/ssde/j25b/terrafirma/tm17544/TerraFIRMA_overshoots/processed_data/netcdf_files/vaf_'
+    file_tail = '_timeseries_newmask_1km.nc'
+    regions = ['ross', 'filchner_ronne']
+    catchments = ['wais', 'eais']
+    colours = ['DarkRed', 'DarkBlue']
+
+    ds = xr.open_dataset(file_head+suite+file_tail)
+    time = ds['time'] - 1  # Offset by 1 year as per Tom's email
+    year0 = time[0]
+    fig, ax = plt.subplots(1, 2, figsize=(8,4))
+    for n in range(len(regions)):
+        data = [ds[regions[n]+'_'+catchment+'_vaf'] for catchment in catchments]
+        for m in range(len(data)):
+            ax[n].plot(time-year0, data[m]-data[m][0], color=colours[m], label=catchments[m].upper(), linewidth=1.5)
+        tip_year = check_tip(suite=suite, region=regions[n], return_date=True)[1].dt.year.item() - year0
+        ax[n].axvline(tip_year, color='black', linestyle='dashed', linewidth=1)
+        ax[n].set_title(region_names[regions[n]])
+        ax[n].grid(linestyle='dotted')
+        if n == 0:
+            ax[n].set_xlabel('Years')
+            ax[n].set_ylabel(r'Change in volume above flotation (m$^3$)')
+            ax[n].legend()
+    plt.tight_layout()
+    finished_plot(fig, fig_name='figures/timeseries_vaf_by_catchment.png')
+
+    
+
+
+    
     
         
     
