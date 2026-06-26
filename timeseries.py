@@ -340,7 +340,7 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         [j,i] = closest_point(ds_nemo, [lon0, lat0])
         data_column = ds_nemo[nemo_var].isel({x_name:i, y_name:j})
         # Find maximum below z_shallow, neglecting land mask (identically zero)
-        data = data_column.where((data_column != 0)*(ds_nemo['deptht'] > z_shallow)).max()       
+        data = data_column.where((data_column != 0)*(ds_nemo['deptht'] > z_shallow)).max(dim='deptht')       
     elif option == 'transport':
         # Calculate zonal or meridional transport
         data = transport(ds_nemo, lon0=lon0, lat0=lat0, lon_bounds=lon_bounds, lat_bounds=lat_bounds)
