@@ -5411,6 +5411,158 @@ def precompute_cdw_core_timeseries (suite, base_dir='./'):
     timeseries_types = ['temp_max_below_100m_'+point for point in point_strings]
     update_simulation_timeseries(suite, timeseries_types, timeseries_file='timeseries_cdw_core.nc', sim_dir=base_dir+'/'+suite+'/', freq='m', halo=True, gtype='T')
 
+
+# For each ramp-down simulation, find the final bottom salinity on the Ross continental shelf and print it along with information about the run (GWL from parent stabilisation run, whether each cavity tipped). This will hopefully answer the reivewer's question about why there are two groupings of final salinities.
+def ross_final_salinity_info (base_dir='./'):
+
+    final_bwsalt = []
+    final_cavity_temp = []
+    gwl = []
+    ross_tips = []
+    fris_tips = []
+    ross_recovers = []
+    fris_recovers = []
+    for scenario in suites_by_scenario:
+        if 'ramp_down' in scenario:
+            # Extract the global warming level from scenario name
+            gwl_tmp = scenario[:scenario.index('K')] 
+        else:
+            continue
+        for suite in suites_by_scenario[scenario]:
+            print(suite)
+            gwl.append(gwl_tmp)
+            ross_tips.append(check_tip(suite=suite, region='ross', base_dir=base_dir))
+            fris_tips.append(check_tip(suite=suite, region='filchner_ronne', base_dir=base_dir))
+            ross_recovers.append(check_recover(suite=suite, region='ross', base_dir=base_dir))
+            fris_recovers.append(check_recover(suite=suite, region='filchner_ronne', base_dir=base_dir))
+            # Read timeseries
+            ds = xr.open_dataset(base_dir+'/'+suite+'/timeseries.nc', decode_times=time_coder)
+            # Figure out if suite cooled below PI and truncate if needed
+            date_end = truncate_rampdown_PI(suite)
+            if date_end is not None:
+                ds = ds.where(ds['time_centered'] < date_end, drop=True)
+            # Read and smooth Ross shelf bottom salinity and cavity temp
+            bwsalt = moving_average(ds['ross_shelf_bwsalt'], 5*months_per_year)
+            cavity_temp = moving_average(ds['ross_cavity_temp'], 5*months_per_year)
+            # Save final values
+            final_bwsalt.append(bwsalt[-1].item())
+            final_cavity_temp.append(cavity_temp[-1].item())
+
+    # Now sort by descending final salinity and print all this information
+    index_sorted = np.argsort(final_bwsalt)[::-1]
+    for n in index_sorted:
+        if ross_tips[n]:
+            if fris_tips[n]:
+                tip_str = 'both tip'
+                if fris_recovers[n]:
+                    if ross_recovers[n]:
+                        tip_str += ', both recover'
+                    else:
+                        tip_str += ', only FRIS recovers'
+                else:
+                    tip_str += ', neither recovers'
+            else:
+                tip_str = 'only Ross tips'
+                if ross_recovers[n]:
+                    tip_str += ', recovers'
+                else:
+                    tip_str += ', does not recover'
+        else:
+            tip_str = 'neither tips'
+        print(str(final_bwsalt[n])+', '+str(final_cavity_temp[n])+': '+str(gwl[n])+'K'+', '+tip_str)
+
+
+# Replicate Figure 4 (plot_ross_fris_by_bwsalt) but showing ramp-down simulations only, and colour-code red or blue based on boolean criteria (keyword argument "option")
+# 'fris_tip': does FRIS tip?
+def plot_rampdown_bwsalt_trajectories (option='fris_tip', base_dir='./'):
+
+    timeseries_file = 'timeseries.nc'
+    smooth = 5*months_per_year
+    tipping_temp = -1.9
+
+    all_flag = []
+    all_bwsalt = []
+    all_cavity_temp = []
+    for scenario in suites_by_scenario:
+        if 'ramp_down' not in scenario:
+            continue
+        for suite in suites_by_scenario[scenario]:
+            print(suite)
+            if option == 'fris_tip':
+                all_flag.append(check_tip(suite=suite, region='filchner_ronne', base_dir=base_dir))
+            ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file, decode_times=time_coder)
+            date_end = truncate_rampdown_PI(suite)
+            if date_end is not None:
+                ds = ds.where(ds['time_centered'] < date_end, drop=True)
+            bwsalt = moving_average(ds['ross_shelf_bwsalt'], smooth)
+            cavity_temp = moving_average(ds['ross_cavity_temp'], smooth)
+            ds.close()
+            all_bwsalt.append(bwsalt)
+            all_cavity_temp.append(cavity_temp)
+
+    # Plot
+    fig, ax = plt.subplots(figsize=(4,5))
+    for flag, bwsalt, cavity_temp in zip(all_flag, all_bwsalt, all_cavity_temp):
+        if flag:
+            colour = 'Crimson'
+        else:
+            colour = 'DodgerBlue'
+        ax.plot(bwsalt, cavity_temp, '-', color=colour, linewidth=1)
+    ax.grid(linestyle='dotted')
+    ax.axhline(tipping_temp, color='black', linestyle='dashed')
+    ax.set_title('Ross (ramp-downs only)', fontsize=14)
+    ax.set_xlabel('Bottom salinity on continental shelf (psu)', fontsize=12)
+    ax.set_ylabel('Temperature in ice shelf cavity ('+deg_string+'C)', fontsize=12)
+    # Manual legend
+    colours = ['Crimson', 'DodgerBlue']
+    labels = ['FRIS tips', 'FRIS does not tip']
+    handles = []
+    for m in range(len(colours)):
+        handles.append(Line2D([0], [0], color=colours[m], label=labels[m], linestyle='-', linewidth=1))
+    ax.legend(handles=handles, loc='best')
+    plt.tight_layout()
+    finished_plot(fig, fig_name='figures/TS_colour_coded.png', dpi=300)
+
+
+# Plot timeseries of temperature in the CDW core (max below 100m) at chosen points offshore of LABT and FT in one ramp-up suite. Here we are trying to see why the CDW inflow is warmer in FRIS than in Ross, even though the CDW core at present-day is warmer near Ross.
+def plot_timeseries_cdw_core (base_dir='./'):
+
+    suite = 'cx209'
+    timeseries_file = 'timeseries_cdw_core.nc'
+    var_head = 'temp_max_below_100m_'
+    point_strings = ['160W_75S', '30W_73S']
+    regions = ['ross', 'filchner_ronne']
+    colours = ['DarkGreen', 'Purple']
+
+    fig, ax = plt.subplots()
+    ds = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file, decode_times=time_coder)
+    years, year0 = time_in_years(ds, return_year0=True)
+    for n in range(len(regions)):
+        data = ds[var_head+point_strings[n]]
+        ax.plot(years, data, color=colours[n], linewidth=1.5, label=region_names[regions[n]])
+        tip_year = check_tip(suite=suite, region=regions[n], return_date=True)[1].dt.year.item() - year0
+        tip_t = np.where(data.time_centered.dt.year == tip_year+year0)[0][0] + months_per_year//2
+        ax.axvline(tip_year, color=colours[n], linestyle='dashed', linewidth=1)
+        ax.plot(tip_year, data[tip_t], 'o', markerfacecolor=colours[n], markeredgecolor='black', markersize=8)
+        ax.plot(tip_year+100, data[tip_t+100*months_per_year], '*', markerfacecolor=colours[n], markeredgecolor='black', markersize=15)
+    ax.legend()
+    ax.grid(linestyle='dotted')
+    ax.set_xlabel('Years')
+    ax.set_ylabel(deg_string+'C')
+    ax.set_title('Temperature of offshore CDW core in ramp-up simulation')
+    ax.set_xlim([years[0], years[-1]])
+    plt.tight_layout()
+    finished_plot(fig, fig_name='figures/timeseries_cdw_core.png', dpi=300)
+    
+        
+    
+        
+    
+
+    
+
+    
+
         
         
         
