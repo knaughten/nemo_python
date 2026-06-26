@@ -244,25 +244,26 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
     # Select region
     # First check for longitude bounds: last character is W or E, and second last character is a number
     lon_bounds_region = None
-    if region is not None and region.endswith('W') or region.endswith('E'):
-        try:
-            test = int(region[-2])  # Will jump to except if the second last character isn't a number
-            # Extract longitude bounds, starting at the end and stripping them off
-            lon_bounds_region = []
-            for n in range(2):
-                i = region.rfind('_')
-                x_str = region[i+1:]
-                region = region[:i]
-                if x_str.endswith('W'):
-                    x_factor = -1
-                elif x_str.endswith('E'):
-                    x_factor = 1
-                else:
-                    raise Exception('Weird longitude bound '+x_str)
-                x = x_factor*int(x_str[:-1])
-                lon_bounds_region.insert(0, x)
-        except(ValueError):
-            pass
+    if region is not None:
+        if region.endswith('W') or region.endswith('E'):
+            try:
+                test = int(region[-2])  # Will jump to except if the second last character isn't a number
+                # Extract longitude bounds, starting at the end and stripping them off
+                lon_bounds_region = []
+                for n in range(2):
+                    i = region.rfind('_')
+                    x_str = region[i+1:]
+                    region = region[:i]
+                    if x_str.endswith('W'):
+                        x_factor = -1
+                    elif x_str.endswith('E'):
+                        x_factor = 1
+                    else:
+                        raise Exception('Weird longitude bound '+x_str)
+                    x = x_factor*int(x_str[:-1])
+                    lon_bounds_region.insert(0, x)
+            except(ValueError):
+                pass
     
     if region is not None and 'gyre' not in region:
         if region_type is None:
