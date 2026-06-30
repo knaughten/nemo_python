@@ -5571,6 +5571,9 @@ def plot_vaf_by_catchments (base_dir='./'):
     fig, ax = plt.subplots(1, 2, figsize=(8,4))
     for n in range(len(regions)):
         data = [ds[regions[n]+'_'+catchment+'_vaf'] for catchment in catchments]
+        if regions[n] == 'ross':
+            # Bug in Tom's scripts meant EAIS and WAIS catchments were labelled the wrong way round. Swap them
+            data = data[::-1]
         for m in range(len(data)):
             ax[n].plot(time-year0, data[m]-data[m][0], color=colours[m], label=catchments[m].upper(), linewidth=1.5)
         tip_year = check_tip(suite=suite, region=regions[n], return_date=True)[1].dt.year.item() - year0
