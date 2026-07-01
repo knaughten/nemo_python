@@ -911,6 +911,8 @@ def all_suite_trajectories (static_ice=False):
         # Find all new suites which branched from this original suite
         new_suites = []
         for scenario in suites_by_scenario:
+            if 'fixed_melt' in scenario:
+                continue
             for s in suites_by_scenario[scenario]:
                 if s not in suites_branched:
                     # Some suites (eg preindustrial) not considered in branching
