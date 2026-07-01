@@ -15,7 +15,7 @@ import numpy as np
 import cf_xarray as cfxr
 import re
 import datetime
-from scipy.stats import ttest_ind, linregress, ttest_1samp
+from scipy.stats import ttest_ind, linregress, ttest_1samp, normaltest
 from tqdm import tqdm
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
@@ -1634,7 +1634,18 @@ def warming_implied_by_salinity_bias (salt_bias=None, base_dir='./'):
     ax.set_ylabel('Bottom salinity on Ross and Filchner-Ronne shelves (psu)')
     ax.set_title('Calculation of temperature adjustment', fontsize=14)
     finished_plot(fig, fig_name='figures/bwsalt_warming_regression.png', dpi=300)
-    
+
+
+# Helper function to check for normal distribution (null hypothesis is normal)
+def check_normal (data, label, p0=0.05):
+
+    res = normaltest(data)
+    if res.pvalue > p0:
+        print(label + ' is normally distributed')
+    elif res.pvalue < p0:
+        print(label + ' is NOT normally distributed')
+    elif np.isnan(res.pvalue):
+        print('Could not check normality; sample size too small')
 
 
 # Plot cavity-mean temperature beneath Ross and FRIS as a function of shelf-mean bottom water salinity, in all scenarios. Colour the lines based on the global warming level relative to preindustrial, and indicate the magnitude of the salinity bias.
@@ -1725,6 +1736,8 @@ def plot_ross_fris_by_bwsalt (base_dir='./', compare_jacobs=False):
             print('Shelf salinity at recovery has mean '+str(np.mean(bwsalt_recover))+' psu, std '+str(np.std(bwsalt_recover))+' psu')
             threshold_recover.append(np.mean(bwsalt_recover))
             # 2-sample t-test to check if they're significantly different
+            check_normal(bwsalt_tip, 'Tipping salinity')
+            check_normal(bwsalt_recover, 'Recovery salinity')
             p_val = ttest_ind(bwsalt_tip, bwsalt_recover, equal_var=False)[1]
             distinct = p_val < p0
             if distinct:
@@ -3720,6 +3733,8 @@ def bug_impact_tipping_recovery (base_dir='./', in_file='problem_events'):
                     num_samples = len(samples)
                     for i in range(num_samples):
                         for j in range(i+1, num_samples):
+                            check_normal(samples[i], names[i])
+                            check_normal(samples[j], names[j])
                             p_val = ttest_ind(samples[i], samples[j], equal_var=False)[1]
                             if p_val < p0:
                                 print('Significant difference of '+str(np.mean(samples[i])-np.mean(samples[j]))+' between '+names[i]+' and '+names[j]+', p='+str(p_val))
