@@ -17,7 +17,7 @@ time_coder = xr.coders.CFDatetimeCoder(use_cftime=True)
 # <region>_bwSA: as for bwsalt, but convert from practical salinity (assumes NEMO3.6 input) to absolute salinity
 # <region>_temp, <region>_salt: volume-averaged temperature or salinity from the given region or cavity
 # <region>_temp_btw_xxx_yyy_m, <region>_salt_btw_xxx_yyy_m: volume-averaged temperature or salinity from the given region or cavity, between xxx and yyy metres (positive integers, shallowest first)
-# temp_max_below_<depth>_<lon>_<lat>: maximum temperature below the given depth, at the given longitude and latitude. Examples of the format are: depth 100m, lon 80W or 90E, lat 70S.
+# <var>_at_tmax_below_<depth_<lon>_<lat>: properties at depth of the temperature maximum below the given depth, at the given longitude and latitude. Examples of the format are: depth 100m, lon 80W or 90E, lat 70S. var can be temp, salt, depth.
 # drake_passage_transport: zonal transport across Drake Passage (need to pass path to domain_cfg)
 # <region>_iceberg_melt: iceberg melt flux integrated over the given region
 # <region>_pminuse: precipitation minus evaporation integrated over the given region
@@ -125,9 +125,22 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         nemo_var = 'so'
         title = 'Average salinity between '+str(z_shallow)+'-'+str(z_deep)+'m'
         units = gkg_string
-    elif var.startswith('temp_max_below_'):
-        option = 'vertical_max'
-        substr = var[len('temp_max_below_'):].split('_')
+    elif '_at_tmax_below_' in var:
+        option = 'at_tmax'
+        var_type = var[:var.index('_at_tmax_below_')]
+        if var_type == 'temp':
+            nemo_var = 'thetao'
+            title = 'Maximum temperature'
+            units = deg_string+'C'        
+        elif var_type == 'salt':
+            nemo_var = 'so'
+            title = 'Salinity at temperature maximum'
+            units = 'psu'
+        elif var_type == 'depth':
+            nemo_var = 'deptht'
+            title = 'Depth of temperautre maximum'
+            units = 'm'
+        substr = var[len(var_type+'_at_tmax_below_'):].split('_')
         if not substr[0].endswith('m'):
             raise Exception('Invalid depth format for '+var)
         z_shallow = int(substr[0][:-1])
@@ -143,9 +156,7 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
             lat0 = int(substr[2][:-1])
         else:
             raise Exception('Invalid latitude format for '+var)
-        nemo_var = 'thetao'
-        title = 'Maximum temperature below '+substr[0]+' at '+substr[1]+', '+substr[2]
-        units = deg_string+'C'        
+        title += ' below '+substr[0]+' at '+substr[1]+', '+substr[2]
     elif var == 'drake_passage_transport':
         lon0 = drake_passage_lon0
         lat_bounds = drake_passage_lat_bounds
@@ -334,13 +345,21 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         mask_3d = xr.where(ds_nemo[nemo_var]==0, 0, mask)
         dV = ds_nemo[area_name(ds_nemo)]*ds_nemo[dz_name(ds_nemo)]*mask_3d*mask_depth
         data = (ds_nemo[nemo_var]*dV).sum(dim=[x_name, y_name,'deptht'])/dV.sum(dim=[x_name, y_name,'deptht'])
-    elif option == 'vertical_max':
-        # Maximum below z_shallow at the given point
+    elif option == 'at_tmax':
+        # Find maximum temperature below z_shallow at the given point
         # First find the nearest grid cell to that point
         [j,i] = closest_point(ds_nemo, [lon0, lat0])
-        data_column = ds_nemo[nemo_var].isel({x_name:i, y_name:j})
-        # Find maximum below z_shallow, neglecting land mask (identically zero)
-        data = data_column.where((data_column != 0)*(ds_nemo['deptht'] > z_shallow)).max(dim='deptht')       
+        temp_column = ds_nemo['thetao'].isel({x_name:i, y_name:j})
+        # Get depth index of the maximum below z_shallow, neglecting land mask (identically zero)
+        k = temp_column.where((temp_column != 0)*(ds_nemo['deptht'] > z_shallow)).argmax(dim='deptht')
+        # Now extract variable at this column
+        if nemo_var == 'deptht':
+            data_column = ds_nemo[nemo_var]
+        elif nemo_var == 'thetao':
+            data_column = temp_column
+        else:
+            data_column = ds_nemo[nemo_var].isel({x_name:i, y_name:j})
+        data = data_column.isel(depth_t=k)
     elif option == 'transport':
         # Calculate zonal or meridional transport
         data = transport(ds_nemo, lon0=lon0, lat0=lat0, lon_bounds=lon_bounds, lat_bounds=lat_bounds)

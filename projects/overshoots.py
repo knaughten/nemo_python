@@ -1643,7 +1643,7 @@ def check_normal (data, label, p0=0.05):
 
     res = normaltest(data)
     if res.pvalue > p0:
-        print(label + ' is normally distributed')
+        print(label + ' is normally distributed, p0='+str(res.pvalue))
     elif res.pvalue < p0:
         print(label + ' is NOT normally distributed')
     elif np.isnan(res.pvalue):
@@ -5425,7 +5425,11 @@ def precompute_cdw_core_timeseries (suite, base_dir='./'):
 
     # Lon-lat formatting strings for each point to calculate
     point_strings = ['160W_75S', '30W_73S']
-    timeseries_types = ['temp_max_below_100m_'+point for point in point_strings]
+    var_names = ['temp', 'salt', 'depth']
+    timeseries_types = []
+    for var in var_names:
+        for point in point_strings:
+            timeseries_types.append(var+'_at_tmax_below_100m_'+point)
     update_simulation_timeseries(suite, timeseries_types, timeseries_file='timeseries_cdw_core.nc', sim_dir=base_dir+'/'+suite+'/', freq='m', halo=True, gtype='T')
 
 
