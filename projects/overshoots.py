@@ -380,7 +380,7 @@ def align_timeseries (data1, data2, time_coord='time_centered'):
 # Can also use an ocean variable to plot against instead of GW level (eg cavity temperature) with alternate_var='something' (assumed to be within timeseries_file).
 # Can also set offsets as a list of the same shape as expts, with different global warming baselines for each - this is still on top of PI mean, so eg pass 3 for 3K above PI.
 # Can also set highlight as a suite-string showing a trajectory which should be plotted twice as thick. If highlight_arrows is True, will also plot some arrows along this trajectory: must set arrow_loc = list of lists of global temperatures to plot at for each suite in trajectory.
-def plot_by_gw_level (expts, var_name, pi_suite='cs495', base_dir='./', fig_name=None, timeseries_file='timeseries.nc', timeseries_file_um='timeseries_um.nc', smooth=24, labels=None, colours=None, linewidth=1, title=None, units=None, ax=None, offsets=None, alternate_var=None, temp_correct=0, highlight=None, highlight_arrows=True, arrow_loc=None, mark_endpoints=False, markersize=3):
+def plot_by_gw_level (expts, var_name, pi_suite='cs495', base_dir='./', fig_name=None, timeseries_file='timeseries.nc', timeseries_file_um='timeseries_um.nc', smooth=24, labels=None, colours=None, linewidth=1, title=None, units=None, ax=None, offsets=None, alternate_var=None, temp_correct=0, highlight=None, highlight_arrows=True, arrow_loc=None, mark_beginning=False, markersize=3):
 
     new_ax = ax is None
 
@@ -524,8 +524,8 @@ def plot_by_gw_level (expts, var_name, pi_suite='cs495', base_dir='./', fig_name
         fig, ax = plt.subplots(figsize=figsize)
     for gw_level, data, colour, label, lw in zip(gw_levels, datas, colours_plot, labels_plot, lw_plot):
         ax.plot(gw_level+temp_correct, data, '-', color=colour, label=label, linewidth=lw)
-        if mark_endpoints:
-            ax.plot([gw_level[0]+temp_correct, gw_level[-1]+temp_correct], [data[0], data[-1]], 'o', color=colour, markersize=markersize)
+        if mark_beginning:
+            ax.plot([gw_level[0]+temp_correct], [data[0]], 'o', color=colour, markersize=markersize)
     if highlight_arrows:
         for x, y, dx, dy, colour in zip(arrow_x, arrow_y, arrow_dx, arrow_dy, arrow_colours):
             ax.annotate("", xytext=(x,y), xy=(x+dx,y+dy), arrowprops=dict(arrowstyle='fancy', mutation_scale=15, color=colour))
@@ -1309,7 +1309,7 @@ def plot_bwtemp_massloss_by_gw_panels (base_dir='./', static_ice=False):
     for v in range(num_var):
         for n in range(num_regions):
             ax = plt.subplot(gs[v,n])
-            plot_by_gw_level(sim_dirs, regions[n]+'_'+var_names[v], pi_suite=pi_suite, base_dir=base_dir, timeseries_file=timeseries_file, smooth=smooth[v], labels=sim_names, colours=colours, linewidth=(1 if static_ice else 0.5), ax=ax, temp_correct=temp_correction, highlight=(highlights[n] if not static_ice else None), highlight_arrows=(not static_ice), arrow_loc=arrow_loc[v*num_regions+n], mark_endpoints=True, markersize=3)
+            plot_by_gw_level(sim_dirs, regions[n]+'_'+var_names[v], pi_suite=pi_suite, base_dir=base_dir, timeseries_file=timeseries_file, smooth=smooth[v], labels=sim_names, colours=colours, linewidth=(1 if static_ice else 0.5), ax=ax, temp_correct=temp_correction, highlight=(highlights[n] if not static_ice else None), highlight_arrows=(not static_ice), arrow_loc=arrow_loc[v*num_regions+n])
             ax.set_title(region_names[regions[n]], fontsize=14)
             if n == 0:
                 ax.set_ylabel(var_units[v], fontsize=12)
