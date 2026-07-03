@@ -5224,6 +5224,7 @@ def convert_zhou_eos80 (in_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_
     ds_out.to_netcdf(out_file)
 
 
+# Plot maps of the CDW core (subsurface temperature maximum and the corresponding depth and salinty) for UKESM, Shenjie's obs, and the model bias. Also plot timeseries of how it evolves in 2 locations over a ramp-up simulation.
 def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
 
     obs_file_eos80 = '/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_eos80.nc'
@@ -5231,6 +5232,23 @@ def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
     mw_temp = 3  # Temperature and salinity thresholds for Mode Water to exclude
     mw_salt = 34.5
     obs_start = 2000
+    var_names = ['depth_tmax', 'tmax', 'salt_tmax']
+    var_titles = ['a) Depth of subsurface temperature maximum (m)', 'b) Temperature at that depth ('+deg_string+'C)', 'c) Salinity at that depth (psu)']
+    vmin = [z0, 0.25, mw_salt]
+    vmax = [1000, mw_temp, 34.73]
+    vdiff = [500, 1.5, 0.1]
+    ctype = ['viridis', 'viridis', 'viridis'] #'RdBu_r', 'RdBu_r']
+    num_vars = len(var_names)
+    suite = 'cx209'
+    timeseries_file = 'timeseries_cdw_core.nc'
+    var_names_ts = ['depth', 'temp', 'salt']
+    var_mid = '_at_tmax_below_'+str(z0)+'m_'
+    lon0 = [-160, -30]
+    lat0 = [-75, -73]
+    regions = ['ross', 'filchner_ronne']
+    point_strings = [str(-lon0[n])+'W_'+str(-lat0[n])+'S' for n in range(len(regions))]
+    colours = ['DarkGreen', 'Purple']
+    smooth = 5*months_per_year
 
     if os.path.isfile(TS_file):
         print('Reading precomputed mean model T and S')
@@ -5305,19 +5323,17 @@ def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
     # Interpolate to NEMO grid
     ds_obs_interp = interp_latlon_cf(ds_obs, ds_grid, method='bilinear', periodic_src=True, periodic_target=True)
 
-    var_names = ['depth_tmax', 'tmax', 'salt_tmax']
-    var_titles = ['a) Depth of subsurface temperature maximum (m)', 'b) Temperature at that depth ('+deg_string+'C)', 'c) Salinity at that depth (psu)']
-    vmin = [z0, 0.25, mw_salt]
-    vmax = [1000, mw_temp, 34.73]
-    vdiff = [500, 1.5, 0.1]
-    ctype = ['viridis', 'viridis', 'viridis'] #'RdBu_r', 'RdBu_r']
-    num_vars = len(var_names)
+    # Prepare for plotting timeseries
+    ds_ts = xr.open_dataset(base_dir+'/'+suite+'/'+timeseries_file, decode_times=time_coder)
+    years, year0 = time_in_years(ds_ts, return_year0=True)
+    tip_years = [check_tip(suite=suite, region=region, return_date=True)[1].dt.year.item()-year0 for region in regions]
 
     # Plot
-    fig = plt.figure(figsize=(7,8))
-    gs = plt.GridSpec(num_vars, 3)
-    gs.update(left=0.08, right=0.89, bottom=0.025, top=0.9, wspace=0, hspace=0.2)
+    fig = plt.figure(figsize=(9,7.5))    
+    gs = plt.GridSpec(num_vars, 10)
+    gs.update(left=0.05, right=1, bottom=0.02, top=0.9, wspace=0, hspace=0.18)
     for v in range(num_vars):
+        # Maps
         ukesm_plot = ds_model[var_names[v]]
         obs_plot = ds_obs_interp[var_names[v]].where(ukesm_plot.notnull())
         data_plot = [ukesm_plot, obs_plot, ukesm_plot-obs_plot]
@@ -5325,13 +5341,40 @@ def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
         vmin_plot = [vmin[v], vmin[v], -1*vdiff[v]]
         vmax_plot = [vmax[v], vmax[v], vdiff[v]]
         ctype_plot = [ctype[v], ctype[v], 'plusminus']
-        for n in range(3):
-            ax = plt.subplot(gs[v,n])
+        for m in range(3):
+            ax = plt.subplot(gs[v,2*m:2*m+2])
             ax.axis('equal')
-            img = circumpolar_plot(data_plot[n], ds_grid, ax=ax, masked=True, make_cbar=False, title=title[n], titlesize=13, vmin=vmin_plot[n], vmax=vmax_plot[n], ctype=ctype_plot[n], shade_land_ant=True)
-            if n != 1:
-                cax = fig.add_axes([0.01+0.445*n, 0.69-0.315*v, 0.02, 0.2])
+            img = circumpolar_plot(data_plot[m], ds_grid, ax=ax, masked=True, make_cbar=False, title=title[m], titlesize=12.5, vmin=vmin_plot[m], vmax=vmax_plot[m], ctype=ctype_plot[m], shade_land_ant=True)
+            if m != 1:
+                cax = fig.add_axes([0.01+0.31*m, 0.7-0.313*v, 0.015, 0.16])
                 plt.colorbar(img, cax=cax, extend='both')
+            if v == 0 and m == 2:
+                # Add star markers at each point shown in timeseries
+                for n in range(len(regions)):
+                    x0, y0 = polar_stereo(lon0[n], lat0[n])
+                    ax.plot(x0, y0, '*', markersize=7, color=colours[n])
+        # Timeseries
+        ax = plt.subplot(gs[v,7:])
+        for n in range(len(regions)):
+            data = ds_ts[var_names_ts[v]+var_mid+point_strings[n]]
+            data_smooth = moving_average(data, smooth)
+            years_plot = time_in_years(data_smooth, year0=year0)
+            ax.plot(years_plot, data_smooth, color=colours[n], linewidth=1.5)
+            if v == 0:
+                # Depth with deeper below
+                ax.yaxis.set_inverted(True)
+            ax.yaxis.tick_right()
+            if v == 2:
+                ax.set_xlabel('Years')
+            else:
+                ax.set_xticklabels([])
+            ax.axvline(tip_years[n], color=colours[n], linestyle='dashed', linewidth=1)            
+            ax.set_title('Ramp-up', fontsize=12.5)
+            # Shrink the plot a bit to match the maps
+            l, b, w, h = ax.get_position().bounds
+            ax.set_position([l, b+0.1*h, w*0.9, h*0.9])            
+        ax.grid(linestyle='dotted')
+        ax.set_xlim([years[0], years[-1]])
         plt.text(0.5, 0.98-0.315*v, var_titles[v], fontsize=16, ha='center', va='top', transform=fig.transFigure)
     finished_plot(fig, fig_name='figures/cdw_core_vs_obs.png', dpi=300)
 
@@ -5549,7 +5592,7 @@ def plot_rampdown_bwsalt_trajectories (option='fris_tip', base_dir='./'):
 def plot_timeseries_cdw_core (base_dir='./'):
 
     suite = 'cx209'
-    timeseries_file = 'timeseries_cdw_core.nc'
+    timeseries_file = 'timeseries_cdw_core_old.nc'
     var_head = 'temp_max_below_100m_'
     point_strings = ['160W_75S', '30W_73S']
     regions = ['ross', 'filchner_ronne']
