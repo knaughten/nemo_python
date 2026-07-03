@@ -359,7 +359,7 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
             data_column = temp_column
         else:
             data_column = ds_nemo[nemo_var].isel({x_name:i, y_name:j})
-        data = data_column.isel(depth_t=k)
+        data = data_column.isel(deptht=k)
     elif option == 'transport':
         # Calculate zonal or meridional transport
         data = transport(ds_nemo, lon0=lon0, lat0=lat0, lon_bounds=lon_bounds, lat_bounds=lat_bounds)
