@@ -4897,7 +4897,6 @@ def plot_timeseries_fixed_cases (base_dir='./'):
 
 
 # Maps of bottom temperature or salinity in and around each cavity for the three simulations above, for the given years relative to the tipping time.
-# Now added extra panels for basal melting timeseries, and supplementary figure showing cavity temperature timeseries.
 def map_snapshots_fixed_cases (base_dir='./', ross_years=40, fris_years=20, fig_name=None, var='bwtemp'):
 
     suites = ['cx209', 'cz826', 'dn026']
@@ -4914,36 +4913,37 @@ def map_snapshots_fixed_cases (base_dir='./', ross_years=40, fris_years=20, fig_
         vmax = 34.9
     ctype = 'RdBu_r'
     regions = ['ross', 'filchner_ronne']
-    years_add = [ross_years, fris_years]
-    title_prefixes = ['a)', 'b)', 'c)']
+    title_prefixes = ['a)', 'b)']
     plot_bounds = [[-715e3, 535e3, -2154e3, -34e4], [-1817e3, -39e4, 9e4, 1548e3]]
     num_regions = len(regions)
     num_suites = len(suites)
     region_years = [ross_years, fris_years]
-    colours = ['Crimson', 'DarkMagenta', 'DarkCyan']
-    timeseries_file = 'timeseries.nc'
-    smooth = 5*months_per_year
 
-    tip_years = [[check_tip(suite=suite_id, region=region, return_date=True)[1].dt.year.item() for suite_id in suites] for region in regions]
-
+    # Inner function to calculate year of output to read based on tipping times
+    def year_to_read (suite, region):
+        tip_year = check_tip(suite=suite, region=region, return_date=True)[1].dt.year.item()
+        if region == 'ross':
+            return tip_year + ross_years
+        elif region == 'filchner_ronne':
+            return tip_year + fris_years
     data_plot = []
     grid_plot = []
-    for n in range(num_regions):
+    for region in regions:
         data_plot_region = []
         grid_plot_region = []
-        for m in range(num_suites):
-            year = tip_years[n][m] + years_add[n]
-            print('Reading year '+str(year)+' from suite '+suites[m])
+        for suite in suites:
+            year = year_to_read(suite, region)
+            print('Reading year '+str(year)+' from suite '+suite)
             # Find all the files for this year
             files_to_read = []
-            for f in os.listdir(base_dir+'/'+suites[m]):
-                if f.startswith('nemo_'+suites[m]+'o_1m_'+str(year)) and f.endswith('_grid-T.nc'):
+            for f in os.listdir(base_dir+'/'+suite):
+                if f.startswith('nemo_'+suite+'o_1m_'+str(year)) and f.endswith('_grid-T.nc'):
                     if f not in files_to_read:
-                        files_to_read.append(base_dir+'/'+suites[m]+'/'+f)
+                        files_to_read.append(base_dir+'/'+suite+'/'+f)
             files_to_read.sort()
             # Check there are 12 files
             if len(files_to_read) != months_per_year:
-                raise Exception(str(len(files_to_read))+' files found for '+suites[m]+', year '+str(year))
+                raise Exception(str(len(files_to_read))+' files found for '+suite+', year '+str(year))
             # Annually average
             data_full = None
             ds_grid = None
@@ -4969,17 +4969,14 @@ def map_snapshots_fixed_cases (base_dir='./', ross_years=40, fris_years=20, fig_
         data_plot.append(data_plot_region)
         grid_plot.append(grid_plot_region)
 
-    # Read timeseries
-    ds_ts = [xr.open_dataset(base_dir+'/'+suite_id+'/'+timeseries_file, decode_times=time_coder) for suite_id in suites]
-
     # Plot
-    fig = plt.figure(figsize=(6,9.5))
-    gs = plt.GridSpec(num_regions+1, num_suites*2)
-    gs.update(left=0.02, right=0.98, bottom=0.11, top=0.91, wspace=0.1, hspace=0.45)
-    cax = fig.add_axes([0.07, 0.375, 0.4, 0.02])
+    fig = plt.figure(figsize=(6,6.5))
+    gs = plt.GridSpec(num_regions, num_suites)
+    gs.update(left=0.02, right=0.98, bottom=0.13, top=0.88, wspace=0.1, hspace=0.4)
+    cax = fig.add_axes([0.3, 0.08, 0.4, 0.03])
     for n in range(num_regions):
         for m in range(num_suites):
-            ax = plt.subplot(gs[n,2*m:2*m+2])
+            ax = plt.subplot(gs[n,m])
             img = circumpolar_plot(data_plot[n][m], grid_plot[n][m], ax=ax, make_cbar=False, title=suite_titles[m], titlesize=13, vmin=vmin, vmax=vmax, ctype=ctype, contour_ice=True, icefront_colour='white')
             ax.axis('equal')
             # Zoom in to predefined limits
@@ -4987,41 +4984,12 @@ def map_snapshots_fixed_cases (base_dir='./', ross_years=40, fris_years=20, fig_
             ax.set_ylim([plot_bounds[n][2], plot_bounds[n][3]])            
             ax.set_xticks([])
             ax.set_yticks([])
-        plt.text(0.5, 0.99-0.3*n, title_prefixes[n]+' '+region_names[regions[n]]+' ('+str(region_years[n])+' years after tipping)', fontsize=16, ha='center', va='top', transform=fig.transFigure)
+        plt.text(0.5, 0.99-0.44*n, title_prefixes[n]+' '+region_names[regions[n]]+' ('+str(region_years[n])+' years after tipping)', fontsize=16, ha='center', va='top', transform=fig.transFigure)
     cbar = plt.colorbar(img, cax=cax, orientation='horizontal', extend='both')
-    plt.text(0.5, 0.385, var_title, fontsize=14, ha='left', va='center', transform=fig.transFigure)
-    # Plot timeseries
-    for n in range(num_regions):
-        ax = plt.subplot(gs[-1, 3*n:3*n+3])
-        for m in range(num_suites):
-            data = moving_average(ds_ts[m][regions[n]+'_massloss'], smooth)
-            years = time_in_years(data, year0=tip_years[n][m])
-            ax.plot(years, data, '-', color=colours[m], linewidth=1.5, label=suite_titles[m])
-        ax.axvline(0, color='black', linewidth=1, linestyle='dashed')
-        ax.set_title(region_names[regions[n]], fontsize=13)
-        if n == 0:
-            ax.set_ylabel('Gt/y', fontsize=10)
-            ax.set_xlabel('Years relative to tipping point', fontsize=10)
-            ax.xaxis.get_ticklabels()[-1].set_visible(False)
-        else:
-            ax.set_yticklabels([])
-            ax.xaxis.get_ticklabels()[0].set_visible(False)
-        ax.grid(linestyle='dotted')
-        end_year = 200 if n==0 else 100
-        ax.set_xlim([-25, end_year])
-        ax.set_ylim([0, 4000])
-        l, b, w, h = ax.get_position().bounds
-        if n == 0:
-            ax.set_position([l+0.12*w, b, w*0.88, h*0.9])
-        else:
-            ax.set_position([l, b, w*0.88, h*0.9])
-    plt.text(0.5, 0.347, title_prefixes[-1]+' Melting beneath ice shelves', fontsize=16, ha='center', va='top', transform=fig.transFigure)
-    ax.legend(loc='lower center', fontsize=11, ncol=num_suites, bbox_to_anchor=(-0.03, -0.6))
+    plt.text(0.5, 0.01, var_title, fontsize=13, ha='center', va='bottom', transform=fig.transFigure)
     if fig_name is None:
         fig_name = 'figures/map_snapshots_fixed_cases_'+var+'.png'
     finished_plot(fig, fig_name=fig_name, dpi=300)
-
-    # To do: supplementary timeseries for bwtemp
 
 
 # Make a bar chart of mean basal melting from particular regions in the sections of the ramp-up ensemble members equivalent to 1994-2018 in terms of global warming. Compare to Adusumilli satellite obs.
