@@ -70,7 +70,7 @@ def find_boundary_files():
         )
 
         # Skip files that span multiple years
-        if start_date.year != suite["startyear"]:
+        if start_date.year <= suite["startyear"]:
             continue
 
         # Check overlap with requested period
