@@ -460,7 +460,7 @@ def plot_by_gw_level (expts, var_name, pi_suite='cs495', base_dir='./', fig_name
             gw_level = moving_average(gw_level, smooth)
             data = moving_average(data, smooth)
             # Now trim off the parent suite, so we only keep the bit needed to smooth over the gap
-            t_start = np.where(data.scenario_type==stype)[0][0]
+            t_start = max(np.where(data.scenario_type==stype)[0][0] - smooth//2, 0)
             gw_level = gw_level.isel(time_centered=slice(t_start,None))
             data = data.isel(time_centered=slice(t_start,None))
             gw_levels.append(gw_level)
