@@ -1309,7 +1309,7 @@ def plot_bwtemp_massloss_by_gw_panels (base_dir='./', static_ice=False):
     for v in range(num_var):
         for n in range(num_regions):
             ax = plt.subplot(gs[v,n])
-            plot_by_gw_level(sim_dirs, regions[n]+'_'+var_names[v], pi_suite=pi_suite, base_dir=base_dir, timeseries_file=timeseries_file, smooth=smooth[v], labels=sim_names, colours=colours, linewidth=(1 if static_ice else 0.5), ax=ax, temp_correct=temp_correction, highlight=(highlights[n] if not static_ice else None), highlight_arrows=(not static_ice), arrow_loc=arrow_loc[v*num_regions+n], mark_endpoints=True, markersize=3)
+            plot_by_gw_level(sim_dirs, regions[n]+'_'+var_names[v], pi_suite=pi_suite, base_dir=base_dir, timeseries_file=timeseries_file, smooth=smooth[v], labels=sim_names, colours=colours, linewidth=(1 if static_ice else 0.5), ax=ax, temp_correct=temp_correction, highlight=(highlights[n] if not static_ice else None), highlight_arrows=(not static_ice), arrow_loc=arrow_loc[v*num_regions+n], markersize=3)
             ax.set_title(region_names[regions[n]], fontsize=14)
             if n == 0:
                 ax.set_ylabel(var_units[v], fontsize=12)
