@@ -309,15 +309,15 @@ def regrid_grid_T(files):
 
         outfile_s = (
             Path(suite["output_dir"])
-            / f"AbsSal_{suite['suite_id']}_y{year}m{month}.nc"
+            / f"AbsSal_y{year}m{month}.nc"
         )
         outfile_t = (
             Path(suite["output_dir"])
-            / f"ConsTemp_{suite['suite_id']}_y{year}m{month}.nc"
+            / f"ConsTemp_y{year}m{month}.nc"
         )
         outfile_zos = (
             Path(suite["output_dir"])
-            / f"SSH_{suite['suite_id']}_y{year}m{month}.nc"
+            / f"SSH_y{year}m{month}.nc"
         )
 
         (
@@ -463,7 +463,7 @@ def regrid_grid_V(files):
 
         outfile_v = (
             Path(suite["output_dir"])
-            / f"VVEL_{suite['suite_id']}_y{year}m{month}.nc"
+            / f"VVEL_y{year}m{month}.nc"
         )
 
         (
@@ -591,7 +591,7 @@ def regrid_grid_U(files):
 
         outfile_u = (
             Path(suite["output_dir"])
-            / f"UVEL_{suite['suite_id']}_y{year}m{month}.nc"
+            / f"UVEL_y{year}m{month}.nc"
         )
 
         (
@@ -743,17 +743,17 @@ def regrid_ice(files):
   
         outfile_sia = (
             Path(suite["output_dir"])
-            / f"SIarea_{suite['suite_id']}_y{year}m{month}.nc"
+            / f"SIarea_y{year}m{month}.nc"
         )
 
         outfile_hi = (
             Path(suite["output_dir"])
-            / f"SIheff_{suite['suite_id']}_y{year}m{month}.nc"
+            / f"SIheff_y{year}m{month}.nc"
         )
 
         outfile_hs = (
             Path(suite["output_dir"])
-            / f"SIhsnow_{suite['suite_id']}_y{year}m{month}.nc"
+            / f"SIhsnow_y{year}m{month}.nc"
         )
 
         (
