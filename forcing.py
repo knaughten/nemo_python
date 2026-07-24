@@ -1236,7 +1236,7 @@ def ukesm_apply_bias_corrections_test (forcing_dir='/gws/ssde/j25b/terrafirma/ka
 
 
 # Make proper bias correction files: monthly, on the ERA5 grid, flood filled, proper interpolation with cf. These will be used to correct biases online.
-def ukesm_bias_corrections (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ensemble_mean_climatology/', era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ERA5_hourly/climatology/', out_dir='./', era5_mask_file='/gws/ssde/j25b/anthrofail/birgal/NEMO_AIS/ERA5-forcing/climatology/land_sea_mask.nc'):
+def ukesm_bias_corrections_thermo (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ensemble_mean_climatology/', era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ERA5_hourly/climatology/', out_dir='./', era5_mask_file='/gws/ssde/j25b/anthrofail/birgal/NEMO_AIS/ERA5-forcing/climatology/land_sea_mask.nc'):
 
     ukesm_var_names = ['tair', 'qair', 'precip', 'snow', 'swrad', 'lwrad']
     era5_var_names = ['t2m', 'sph2m', 'mtpr', 'msr', 'msdwswrf', 'msdwlwrf']
@@ -1278,6 +1278,26 @@ def ukesm_bias_corrections (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS
         out_file = out_dir+'/'+var_u+'_bias_correction.nc'
         print('Writing '+out_file)
         data_correction.to_netcdf(out_file)
+
+
+# As above, but for coastal winds in polar coordinates.
+def ukesm_bias_corrections_winds (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ensemble_mean_climatology/', era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ERA5_hourly/climatology/', out_dir='./', era5_mask_file='/gws/ssde/j25b/anthrofail/birgal/NEMO_AIS/ERA5-forcing/climatology/land_sea_mask.nc'):
+
+    var_names = ['wind_speed', 'wind_angle']
+    ukesm_tail = '_1979-2014_mean_monthly.nc'
+    era5_head = 'ERA5_'
+    era5_tail = '_3-hourly_1979-2014_mean_monthly.nc'
+    missing_val = -9999
+
+    # Read ERA5 mask and trim to existing climatology file
+    ds_mask = xr.open_dataset(era5_mask_file).isel(time=0).drop_vars({'time'})
+    # Flip order of latitude to agree with ERA5 climatology files
+    ds_mask = ds_mask.reindex(latitude=ds_mask['latitude'][::-1])
+    mask_era5 = ds_mask['lsm']  # Open ocean is zero
+
+    # Select coastal points on ERA5 grid
+    coast_mask = get_coast_mask(mask_era5, remove_islands=True)
+    
             
         
         

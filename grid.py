@@ -7,7 +7,7 @@ import numpy as np
 import os
 import xarray as xr
 from .interpolation import neighbours
-from .constants import region_edges, region_edges_flag, region_names, region_points, shelf_lat, shelf_depth, shelf_point0, region_bounds, region_bathy_bounds
+from .constants import region_edges, region_edges_flag, region_names, region_points, shelf_lat, shelf_depth, shelf_point0, region_bounds, region_bathy_bounds, land_ice_point0
 from .utils import remove_disconnected, closest_point, latlon_name, xy_name
 
 # Helper function to get a 3D land mask from a NEMO output file, using either thetao or so.
@@ -121,7 +121,6 @@ def build_shelf_mask (ds):
     lon_name, lat_name = latlon_name(ds)
     mask = ocean_mask*(ds[lat_name] <= shelf_lat)*(bathy <= shelf_depth)
     # Remove disconnected seamounts
-    mask_orig = mask.copy()
     point0 = closest_point(ds, shelf_point0)
     mask.data = remove_disconnected(mask, point0)
     # Save to the Dataset in case it's useful later
@@ -358,10 +357,20 @@ def make_mask_3d (mask, ds):
 
 
 # Build and return a T grid mask for coastal points: open-ocean points with at least one neighbour that is land or ice shelf.
-def get_coast_mask(mask):
-    
-    open_ocean = (mask.tmask.isel(time_counter=0) == 1)
-    land_ice   = ~open_ocean
+def get_coast_mask(mask, remove_islands=False):
+
+    if isinstance(mask, xr.Dataset) and 'tmask' in mask:
+        # Birgit's version
+        open_ocean = (mask.tmask.isel(time_counter=0) == 1)
+        land_ice   = ~open_ocean
+    else:
+        # Kaitlin's version: land is 1, ocean is 0
+        land_ice = mask
+        open_ocean = (land_ice==0)
+
+    if remove_islands:
+        point0 = closest_point(land_ice, land_ice_point0)
+        land_ice.data = remove_disconnected(land_ice, point0)
     
     num_coast_neighbours = neighbours(land_ice, missing_val=0)[-1]
     coast_mask           = (open_ocean*(num_coast_neighbours > 0)).astype(bool)

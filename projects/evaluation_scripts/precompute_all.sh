@@ -14,7 +14,7 @@ python -c "from nemo_python.projects.evaluation import *; update_hovmollers_eval
 # Time-averaged fields - remove if they exist, then calculate from scratch
 OPTIONS=( bottom_TS zonal_TS seaice ismr vel )
 for OPTION in "${OPTIONS[@]}"; do
-    filename = ${OPTION}_avg.nc
+    filename=${OPTION}_avg.nc
     if [ -f $filename ]; then
 	rm $filename
     fi
