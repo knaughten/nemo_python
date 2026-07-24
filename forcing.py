@@ -1333,8 +1333,9 @@ def ukesm_bias_corrections_winds (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NE
             for t in range(scale.sizes['month']):
                 scale_smoothed[t,:] = gaussian_filter(scale.isel(month=t).data, sigma)
             scale.data = scale_smoothed
+            data_correction = scale
             # Taper towards 1
-            data_correction = (scale-1)*taper + 1
+            taper0 = 1
             
         elif var == 'wind_angle':
             # Take difference in angles
@@ -1342,11 +1343,27 @@ def ukesm_bias_corrections_winds (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NE
             # Take mod 2pi when necessary
             rotate = xr.where(rotate < np.pi, rotate+2*np.pi, rotate)
             rotate = xr.where(rotate > 2*np.pi, rotate-2*np.pi, rotate)
+            data_correction = rotate
             # Taper towards 0
-            data_correction = rotate*taper
+            taper0 = 0
 
+        # Now apply the tapering function
+        data_correction = (data_correction - taper0)*taper + taper0
+
+        # Flood fill ERA5 land
+        data_tmp = xr.where(mask_era5==0, data_correction, missing_val).transpose('month', 'latitude', 'longitude')
+        data_filled = np.empty(data_tmp.shape)
+        for t in range(data_tmp.sizes['month']):
+            data_filled[t,:] = extend_into_mask(data_tmp.isel(month=t).data, missing_val=missing_val, use_2d=True, num_iters=data_tmp.sizes['latitude'])
+        data_correction.data = data_filled
+
+        # Fill northern part with zeros or ones (outside of domain)
+        if ds_mask.sizes['latitude'] > ds_era5.sizes['latitude']:
+            data_buffer = 0*ds_mask['lsm'].isel(latitude=slice(ds_era5.sizes['latitude'],None)) + taper0
+            data_correction = xr.concat([data_correction, data_buffer], dim='latitude')
         # Swap order of latitude to agree with ERA5 forcing files
         data_correction = data_correction.reindex(latitude=data_correction['latitude'][::-1])
+        
         out_file = out_dir+'/'+var+'_bias_correction.nc'
         print('Writing '+out_file)
         data_correction.to_netcdf(out_file)
