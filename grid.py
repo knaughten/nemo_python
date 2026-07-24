@@ -359,18 +359,8 @@ def make_mask_3d (mask, ds):
 # Build and return a T grid mask for coastal points: open-ocean points with at least one neighbour that is land or ice shelf.
 def get_coast_mask(mask, remove_islands=False):
 
-    if isinstance(mask, xr.Dataset) and 'tmask' in mask:
-        # Birgit's version
-        open_ocean = (mask.tmask.isel(time_counter=0) == 1)
-        land_ice   = ~open_ocean
-    else:
-        # Kaitlin's version: land is 1, ocean is 0
-        land_ice = mask
-        open_ocean = (land_ice==0)
-
-    if remove_islands:
-        point0 = closest_point(land_ice, land_ice_point0)
-        land_ice.data = remove_disconnected(land_ice, point0)
+    open_ocean = (mask.tmask.isel(time_counter=0) == 1)
+    land_ice   = ~open_ocean
     
     num_coast_neighbours = neighbours(land_ice, missing_val=0)[-1]
     coast_mask           = (open_ocean*(num_coast_neighbours > 0)).astype(bool)

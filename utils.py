@@ -229,10 +229,16 @@ def distance_btw_points (point0, point1):
 # Calculate the distance of every lat-lon point in the model grid to the closest point of the given mask, in km. Works best if mask is True for a small number of points (eg a grounding line or a coastline).
 def distance_to_mask (lon, lat, mask):
 
+    if len(lon.sizes) == 1:
+        # Broadcast lon and lat to be 2D
+        lon_2d, lat_2d = np.meshgrid(lon.data, lat.data)
+    else:
+        lon_2d = lon.data
+        lat_2d = lat.data
     mask = mask==1
     min_dist = None
     # Loop over individual points in the mask
-    for lon0, lat0 in zip(lon.data[mask.data], lat.data[mask.data]):
+    for lon0, lat0 in zip(lon_2d[mask.data], lat_2d[mask.data]):
         # Calculate distance of every other point to this point
         dist_to_pt = distance_btw_points([lon, lat], [lon0, lat0])*1e-3
         if min_dist is None:
@@ -246,18 +252,20 @@ def distance_to_mask (lon, lat, mask):
 # Calculate the distance of every lat-lon point in the model grid to the boundary of the given mask, in km. The distance will be 0 where the mask is True but has a neighbour which is False.
 def distance_to_bdry (lon, lat, mask, periodic=True):
 
+    x_name, y_name = xy_name(mask)
+    
     # Inner function to pad the edges (flagged with NaN) with a copy of the last row
     def pad_edges (mask_new):
         return xr.where(mask_new.isnull(), mask, mask_new)
     # Find neighbours to the north, south, east, west
-    mask_n = pad_edges(mask.shift(y=-1))
-    mask_s = pad_edges(mask.shift(y=1))
+    mask_n = pad_edges(mask.shift({y_name:-1}))
+    mask_s = pad_edges(mask.shift({y_name:1}))
     if periodic:
-        mask_e = mask.roll(x=-1)
-        mask_w = mask.roll(x=1)
+        mask_e = mask.roll({x_name:-1})
+        mask_w = mask.roll({x_name:1})
     else:
-        mask_e = pad_edges(mask.shift(x=-1))
-        mask_w = pad_edges(mask.shift(x=1))
+        mask_e = pad_edges(mask.shift({x_name:-1}))
+        mask_w = pad_edges(mask.shift({x_name:1}))
     # Find points on the boundary: mask is True, but at least one neighbour is False
     bdry = mask.where(mask_n*mask_s*mask_e*mask_w==0)
     # Return distance to that boundary

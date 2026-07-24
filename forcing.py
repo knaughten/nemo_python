@@ -8,11 +8,11 @@ import glob
 import os
 import shutil
 from .utils import distance_btw_points, closest_point, convert_to_teos10, fix_lon_range, dewpoint_to_specific_humidity
-from .grid import get_coast_mask, get_icefront_mask
+from .grid import get_coast_mask, get_icefront_mask, distance_to_bdry
 from .ics_obcs import fill_ocean
 from .interpolation import regrid_era5_to_cesm2, extend_into_mask, regrid_to_NEMO, neighbours, interp_latlon_cf
 from .file_io import find_cesm2_file, find_processed_cesm2_file
-from .constants import temp_C2K, rho_fw, cesm2_ensemble_members, sec_per_day, sec_per_hour, months_per_year, hours_per_day
+from .constants import temp_C2K, rho_fw, cesm2_ensemble_members, sec_per_day, sec_per_hour, months_per_year, hours_per_day, land_ice_point0
 
 # Function subsets global forcing files from the same grid to the new domain, and fills any NaN values with connected 
 # nearest neighbour and then fill_val.
@@ -1281,22 +1281,84 @@ def ukesm_bias_corrections_thermo (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/N
 
 
 # As above, but for coastal winds in polar coordinates.
-def ukesm_bias_corrections_winds (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ensemble_mean_climatology/', era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ERA5_hourly/climatology/', out_dir='./', era5_mask_file='/gws/ssde/j25b/anthrofail/birgal/NEMO_AIS/ERA5-forcing/climatology/land_sea_mask.nc'):
+# Will correct over <taper_dist> km from the coast, scaling the speed by a factor not exceeding <scale_cap>, and rotating the angle.
+def ukesm_bias_corrections_winds (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ensemble_mean_climatology/', era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ERA5_hourly/climatology/', out_dir='./', era5_mask_file='/gws/ssde/j25b/anthrofail/birgal/NEMO_AIS/ERA5-forcing/climatology/land_sea_mask.nc', taper_dist=150, scale_cap=3):
+
+    from scipy.ndimage import gaussian_filter
 
     var_names = ['wind_speed', 'wind_angle']
     ukesm_tail = '_1979-2014_mean_monthly.nc'
     era5_head = 'ERA5_'
     era5_tail = '_3-hourly_1979-2014_mean_monthly.nc'
     missing_val = -9999
+    sigma = 2
 
+    print('Reading ERA5 masks')
     # Read ERA5 mask and trim to existing climatology file
     ds_mask = xr.open_dataset(era5_mask_file).isel(time=0).drop_vars({'time'})
     # Flip order of latitude to agree with ERA5 climatology files
     ds_mask = ds_mask.reindex(latitude=ds_mask['latitude'][::-1])
     mask_era5 = ds_mask['lsm']  # Open ocean is zero
+    coast_mask = None
 
-    # Select coastal points on ERA5 grid
-    coast_mask = get_coast_mask(mask_era5, remove_islands=True)
+    for var in var_names:
+        print('Correcting '+var)
+        
+        # Read both datasets
+        ds_ukesm = xr.open_dataset(ukesm_dir+'/'+var+ukesm_tail).transpose('month', 'latitude', 'longitude')
+        ds_era5 = xr.open_dataset(era5_dir+'/'+era5_head+var+era5_tail).transpose('month', 'latitude', 'longitude')
+        # Regrid UM to the ERA5 grid
+        ds_ukesm_interp = interp_latlon_cf(ds_ukesm, ds_era5, source_type='other', target_type='other', pster_src=False, pster_target=False, periodic_src=True, periodic_target=True, method='linear', time_dim='month')
+        
+        # Trim ERA5 mask if needed
+        if mask_era5.sizes['latitude'] > ds_era5.sizes['latitude']:
+            mask_era5 = mask_era5.isel(latitude=slice(0,ds_era5.sizes['latitude']))
+        if coast_mask is None:
+            print('Calculating distance from the coast')
+            # Remove islands from ERA5 mask
+            point0 = closest_point(mask_era5, land_ice_point0)
+            mask_era5.data = remove_disconnected(mask_era5, point0)
+            # Find distance to coast (boundary of ERA5 mask)
+            dist_to_coast = distance_to_bdry(mask_era5['longitude'], mask_era5['latitude'], mask_era5)
+            # Now fill land mask with zeros
+            dist_to_coast = xr.where(mask_era5, 0, dist_to_coast)
+            # Set up tapering function
+            taper = (dist_to_coast < taper_dist)*np.cos(np.pi/2*dist_to_coast/taper_dist)            
+            
+        if var == 'wind_speed':
+            # Take the ratio of ERA5 to UKESM winds, and apply scale_cap if needed
+            scale = np.minimum(ds_era5[var]/ds_ukesm[var], scale_cap)
+            # Smooth one month at a time
+            scale_smoothed = np.empty(scale.shape)
+            for t in range(scale.sizes['month']):
+                scale_smoothed[t,:] = gaussian_filter(scale.isel(month=t).data, sigma)
+            scale.data = scale_smoothed
+            # Taper towards 1
+            data_correction = (scale-1)*taper + 1
+            
+        elif var == 'wind_angle':
+            # Take difference in angles
+            rotate = ds_era5[var] - ds_ukesm[var]
+            # Take mod 2pi when necessary
+            rotate = xr.where(rotate < np.pi, rotate+2*np.pi, rotate)
+            rotate = xr.where(rotate > 2*np.pi, rotate-2*np.pi, rotate)
+            # Taper towards 0
+            data_correction = rotate*taper
+
+        # Swap order of latitude to agree with ERA5 forcing files
+        data_correction = data_correction.reindex(latitude=data_correction['latitude'][::-1])
+        out_file = out_dir+'/'+var+'_bias_correction.nc'
+        print('Writing '+out_file)
+        data_correction.to_netcdf(out_file)
+
+        
+            
+
+    
+
+    
+
+    
     
             
         
