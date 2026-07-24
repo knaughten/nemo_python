@@ -1332,7 +1332,7 @@ def ukesm_bias_corrections_winds (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NE
             # Take difference in angles
             rotate = ds_era5[var] - ds_ukesm_interp[var]
             # Take mod 2pi when necessary
-            rotate = xr.where(rotate < np.pi, rotate+2*np.pi, rotate)
+            rotate = xr.where(rotate < -np.pi, rotate+2*np.pi, rotate)
             rotate = xr.where(rotate > 2*np.pi, rotate-2*np.pi, rotate)
             data_correction = rotate
             # Taper towards 0
@@ -1357,6 +1357,7 @@ def ukesm_bias_corrections_winds (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NE
         # Swap order of latitude to agree with ERA5 forcing files
         data_correction = data_correction.reindex(latitude=data_correction['latitude'][::-1])
         
+        data_correction.name = var        
         out_file = out_dir+'/'+var+'_bias_correction.nc'
         print('Writing '+out_file)
         data_correction.to_netcdf(out_file)
