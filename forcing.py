@@ -7,7 +7,7 @@ import pandas as pd
 import glob
 import os
 import shutil
-from .utils import distance_btw_points, closest_point, convert_to_teos10, fix_lon_range, dewpoint_to_specific_humidity, distance_to_bdry
+from .utils import distance_btw_points, closest_point, convert_to_teos10, fix_lon_range, dewpoint_to_specific_humidity, distance_to_bdry, remove_disconnected
 from .grid import get_coast_mask, get_icefront_mask
 from .ics_obcs import fill_ocean
 from .interpolation import regrid_era5_to_cesm2, extend_into_mask, regrid_to_NEMO, neighbours, interp_latlon_cf
@@ -1284,14 +1284,11 @@ def ukesm_bias_corrections_thermo (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/N
 # Will correct over <taper_dist> km from the coast, scaling the speed by a factor not exceeding <scale_cap>, and rotating the angle.
 def ukesm_bias_corrections_winds (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ensemble_mean_climatology/', era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ERA5_hourly/climatology/', out_dir='./', era5_mask_file='/gws/ssde/j25b/anthrofail/birgal/NEMO_AIS/ERA5-forcing/climatology/land_sea_mask.nc', taper_dist=150, scale_cap=3):
 
-    from scipy.ndimage import gaussian_filter
-
     var_names = ['wind_speed', 'wind_angle']
     ukesm_tail = '_1979-2014_mean_monthly.nc'
     era5_head = 'ERA5_'
     era5_tail = '_3-hourly_1979-2014_mean_monthly.nc'
     missing_val = -9999
-    sigma = 2
 
     print('Reading ERA5 masks')
     # Read ERA5 mask and trim to existing climatology file
@@ -1299,7 +1296,7 @@ def ukesm_bias_corrections_winds (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NE
     # Flip order of latitude to agree with ERA5 climatology files
     ds_mask = ds_mask.reindex(latitude=ds_mask['latitude'][::-1])
     mask_era5 = ds_mask['lsm']  # Open ocean is zero
-    coast_mask = None
+    taper = None
 
     for var in var_names:
         print('Correcting '+var)
@@ -1313,7 +1310,7 @@ def ukesm_bias_corrections_winds (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NE
         # Trim ERA5 mask if needed
         if mask_era5.sizes['latitude'] > ds_era5.sizes['latitude']:
             mask_era5 = mask_era5.isel(latitude=slice(0,ds_era5.sizes['latitude']))
-        if coast_mask is None:
+        if taper is None:
             print('Calculating distance from the coast')
             # Remove islands from ERA5 mask
             point0 = closest_point(mask_era5, land_ice_point0)
@@ -1327,19 +1324,13 @@ def ukesm_bias_corrections_winds (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NE
             
         if var == 'wind_speed':
             # Take the ratio of ERA5 to UKESM winds, and apply scale_cap if needed
-            scale = np.minimum(ds_era5[var]/ds_ukesm[var], scale_cap)
-            # Smooth one month at a time
-            scale_smoothed = np.empty(scale.shape)
-            for t in range(scale.sizes['month']):
-                scale_smoothed[t,:] = gaussian_filter(scale.isel(month=t).data, sigma)
-            scale.data = scale_smoothed
-            data_correction = scale
+            data_correction = np.minimum(ds_era5[var]/ds_ukesm_interp[var], scale_cap)
             # Taper towards 1
             taper0 = 1
             
         elif var == 'wind_angle':
             # Take difference in angles
-            rotate = ds_era5[var] - ds_ukesm[var]
+            rotate = ds_era5[var] - ds_ukesm_interp[var]
             # Take mod 2pi when necessary
             rotate = xr.where(rotate < np.pi, rotate+2*np.pi, rotate)
             rotate = xr.where(rotate > 2*np.pi, rotate-2*np.pi, rotate)
@@ -1349,6 +1340,8 @@ def ukesm_bias_corrections_winds (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NE
 
         # Now apply the tapering function
         data_correction = (data_correction - taper0)*taper + taper0
+        # Fill any missing values (stripe at top) with taper0
+        data_correction = xr.where(data_correction.isnull(), taper0, data_correction)
 
         # Flood fill ERA5 land
         data_tmp = xr.where(mask_era5==0, data_correction, missing_val).transpose('month', 'latitude', 'longitude')
