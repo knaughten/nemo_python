@@ -1625,6 +1625,56 @@ def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeserie
                 ax.legend(loc='lower center', bbox_to_anchor=(-2.75, -0.7), ncol=num_sim, fontsize=11)
     finished_plot(fig, fig_name=fig_name, dpi=300)
 
+
+# Plot bottom T and S biases (compared to Shenjie's obs) for the 4 combinations of bias corrected forcing.
+def plot_bottom_TS_bias_corr (base_dir='./', in_dirs=['EXP_cx209_bdry/', 'EXP_th_bc_cx209/', 'EXP_wd_bc_cx209/', 'EXP_cx209_bias/'], in_file='files0/bottom_TS_avg_FRISP.nc', obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_2D.nc', fig_name=None):
+
+    var_names = ['sbt', 'sbs']
+    var_names_obs = ['ct_bottom', 'sa_bottom']
+    var_titles = ['Temperature', 'Salinity']
+    vdiff = [1, 0.5]
+    subtitles = ['Uncorrected\nforcing', 'Thermo\ncorrected', 'Coastal winds\ncorrected', 'Both\ncorrected']
+    suptitle = 'Biases in bottom hydrography (vs Zhou 2025)'
+    num_var = len(var_names)
+    num_sim = len(in_dirs)
+
+    # Read precomputed model fields
+    ds_model_all = []
+    for in_dir in in_dirs:
+        ds_model = xr.open_dataset(in_dir+in_file, decode_times=time_coder)
+        ds_model = ds_model.rename({'x_grid_T_inner':'x', 'y_grid_T_inner':'y'})
+        ds_model = ds_model.assign({'ocean_mask':ds_model[var_names[0]].notnull()})
+        ds_model = ds_model.swap_dims({'x':'x_grid_T', 'y':'y_grid_T'})
+        ds_model_all.append(ds_model)
+
+    # Read observations and interpolate to model grid
+    ds_obs = xr.open_dataset(obs_file)
+    def set_var (var_name):
+        return xr.DataArray(ds_obs[var_name].data, coords=[ds_obs['latitude'].data, ds_obs['longitude'].data], dims=['lat', 'lon'])
+    [temp, salt] = [set_var(var_names_obs[v]) for v in range(2)]
+    ds_obs_rename = xr.Dataset({var_names[0]:temp, var_names[1]:salt})
+    ds_obs_interp = interp_latlon_cf(ds_obs_rename, ds_model_all[0], method='bilinear', periodic_src=True, periodic_target=True)
+
+    # Plot
+    fig = plt.figure(figsize=(10,5.5))
+    gs = plt.GridSpec(num_var,num_sim)
+    gs.update(left=0.15, right=0.9, bottom=0.03, top=0.8, wspace=0.1, hspace=0.1)
+    for v in range(num_var):
+        for n in range(num_sim):
+            data_plot = ds_model_all[n][var_names[v]] - ds_obs_interp[var_names[v]]
+            ax = plt.subplot(gs[v,n])
+            ax.axis('equal')
+            img = circumpolar_plot(data_plot, ds_model_all[0], ax=ax, masked=True, make_cbar=False, title='', vmin=-1*vdiff[v], vmax=vdiff[v], ctype='plusminus', lat_max=-63)
+            if v == 0:
+                ax.set_title(subtitles[n], y=1.02, fontsize=14)
+            if n == 0:
+                plt.text(-0.03, 0.5, var_titles[v], fontsize=15, ha='right', va='center', transform=ax.transAxes)
+            if n == num_sim-1:
+                cax = fig.add_axes([0.92, 0.47-0.4*v, 0.015, 0.3])
+                plt.colorbar(img, cax=cax, extend='both')
+    plt.suptitle(suptitle, fontsize=18)
+    finished_plot(fig, fig_name=fig_name, dpi=300)
+
                 
                     
     
