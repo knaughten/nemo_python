@@ -1575,7 +1575,7 @@ def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeserie
                         m = 1
                     obs_mean = zhou_TS[regions[r]][m]
                     obs_std = zhou_TS_std[regions[r]][m]
-                ax.axhline(obs_mean, color='blue', linestyle='dashed', linewidth=1)
+                ax.axhline(obs_mean, color='blue', linestyle='dashed', linewidth=1, label='Observations')
                 ax.axhspan(obs_mean-obs_std, obs_mean+obs_std, color='DodgerBlue', alpha=0.1)
                 ax.set_xlim([time_start, time_end])
                 if r%rows == rows-1:
@@ -1614,7 +1614,7 @@ def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeserie
                     depth_label = '(bottom)'
                     xpos = 0.05
                 elif hovmoller:
-                    depth_label = '(cast)'
+                    depth_label = '(cast; time-mean)'
                     xpos = 0.7
                 else:
                     depth_label = ''
@@ -1622,7 +1622,7 @@ def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeserie
                 plt.text(xpos, 0.95, depth_label, fontsize=8, ha='left', va='top', transform=ax.transAxes)
             if r == num_regions-1 and v == num_var-1:
                 # Legend at bottom
-                ax.legend(loc='lower center', bbox_to_anchor=(-2.75, -0.7), ncol=num_sim, fontsize=11)
+                ax.legend(loc='lower center', bbox_to_anchor=(-2.75, -0.7), ncol=num_sim+1, fontsize=11)
     finished_plot(fig, fig_name=fig_name, dpi=300)
 
 
