@@ -6,7 +6,7 @@ import cmocean
 import os
 import gsw
 import calendar
-from ..utils import select_bottom, distance_along_transect, moving_average, polar_stereo, latlon_name, xy_name, dz_name
+from ..utils import select_bottom, distance_along_transect, moving_average, polar_stereo, latlon_name, xy_name, dz_name, time_in_years
 from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli_melt, adusumilli_std, transport_obs, transport_std, region_edges, rEarth, deg2rad, zhou_TS, zhou_TS_std, rho_ice, rho_fw, sec_per_year
 from ..plots import circumpolar_plot, finished_plot, plot_ts_distribution, plot_transect
 from ..plot_utils import set_colours, latlon_axis, get_extend, round_to_decimals, default_colours
@@ -1506,7 +1506,8 @@ def plot_evaluation_seaice (config='NEMO_AIS', in_file='seaice_avg.nc', obs_file
 # in_dirs: list of directories corresopnding to the different experiments; each contains timeseries_file and hovmoller_file (which can be relative paths to account for subdirectories)
 # labels: optional list of names for labelling each simulation; if not set, will choose default from base directory of in_dirs
 # colours: optional list of colours (html colour names or rgb tubles) to plot; if not set, defaults will be chosen
-def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeseries_file='/files0/timeseries_T.nc', hovmoller_file='/files0/hovmollers.nc', obs_file_casts='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_casts.nc', fig_name=None):
+# relative_years: whether to plot the years since the beginning instead of the real years in the date objects (default False); requires the simulations to all start at the same time
+def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeseries_file='/files0/timeseries_T.nc', hovmoller_file='/files0/hovmollers.nc', obs_file_casts='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_casts.nc', fig_name=None, relative_years=False):
 
     regions = ['all', 'larsen', 'filchner_ronne', 'east_antarctica', 'amery', 'ross', 'west_antarctica', 'dotson_cosgrove']    
     var_names = ['massloss', 'shelf_bwtemp', 'shelf_bwsalt']
@@ -1534,9 +1535,21 @@ def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeserie
         ds_hov.append(xr.open_dataset(in_dir+hovmoller_file, decode_times=time_coder).mean('time_centered'))
     ds_obs = xr.open_dataset(obs_file_casts, decode_times=time_coder)
 
-    # Find time bounds
-    time_start = np.amin([ds_tmp['time_centered'][0] for ds_tmp in ds])
-    time_end = np.amax([ds_tmp['time_centered'][-1] for ds_tmp in ds])
+    if relative_years:
+        year0 = None
+        time_all = []
+        for ds_tmp in ds:
+            time, year0_tmp = time_in_years(ds_tmp, return_year0=True)
+            if year0 is not None and year0 != year0_tmp:
+                raise Exception('Simulations do not all start at the same time')
+            time_all.append(time)
+            year0 = year0_tmp
+        time_start = year0
+        time_end = np.amax([time[-1] for time in time_all])
+    else:
+        # Find time bounds
+        time_start = np.amin([ds_tmp['time_centered'][0] for ds_tmp in ds])
+        time_end = np.amax([ds_tmp['time_centered'][-1] for ds_tmp in ds])
 
     # Make plot
     fig = plt.figure(figsize=(14,7.5))
@@ -1560,10 +1573,14 @@ def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeserie
                 for n in range(num_sim):
                     # Plot 2-year running mean
                     data_smoothed = moving_average(ds[n][var], smooth)
-                    try:
-                        ax.plot(data_smoothed.time_centered, data_smoothed, color=colours[n], linewidth=1.5, label=labels[n])
-                    except(TypeError):
-                        ax.plot_date(data_smoothed.time_centered, data_smoothed, '-', color=colours[n], linewidth=1.5, label=labels[n])
+                    if relative_years:
+                        time_smoothed = time_in_years(data_smoothed)
+                        ax.plot(time_smoothed, data_smoothed, color=colours[n], linewidth=1.5, label=labels[n])
+                    else:
+                        try:
+                            ax.plot(data_smoothed.time_centered, data_smoothed, color=colours[n], linewidth=1.5, label=labels[n])
+                        except(TypeError):
+                            ax.plot_date(data_smoothed.time_centered, data_smoothed, '-', color=colours[n], linewidth=1.5, label=labels[n])
                 # Plot obs
                 if 'massloss' in var:
                     obs_mean = adusumilli_melt[regions[r]]
@@ -1594,7 +1611,7 @@ def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeserie
                 obs_max = obs_mean+obs_err
                 obs_depth = ds_obs['pressure']
                 ax.fill_betweenx(obs_depth, obs_min, obs_max, color='DodgerBlue', alpha=0.1)
-                ax.plot(obs_mean, obs_depth, color='blue', linestyle='dashed', linewidth=1)
+                ax.plot(obs_mean, obs_depth, color='blue', linestyle='dashed', linewidth=1, label='Observations')
                 ax.set_ylim([depth_masked.max(), depth_masked.min()])
                 if v == 2:
                     ax.set_yticklabels([])
@@ -1612,14 +1629,12 @@ def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeserie
                 # Label depth
                 if r == 0:
                     depth_label = '(bottom)'
-                    xpos = 0.05
                 elif hovmoller:
                     depth_label = '(cast; time-mean)'
-                    xpos = 0.7
                 else:
                     depth_label = ''
                     xpos = 0
-                plt.text(xpos, 0.95, depth_label, fontsize=8, ha='left', va='top', transform=ax.transAxes)
+                plt.text(0.05, 0.05, depth_label, fontsize=8, ha='left', va='bottom', transform=ax.transAxes)
             if r == num_regions-1 and v == num_var-1:
                 # Legend at bottom
                 ax.legend(loc='lower center', bbox_to_anchor=(-2.75, -0.7), ncol=num_sim+1, fontsize=11)

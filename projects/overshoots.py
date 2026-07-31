@@ -22,7 +22,7 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from ..timeseries import update_simulation_timeseries, update_simulation_timeseries_um, check_nans, fix_missing_months, calc_timeseries, overwrite_file
 from ..plots import timeseries_by_region, timeseries_by_expt, finished_plot, timeseries_plot, circumpolar_plot
 from ..plot_utils import truncate_colourmap, lon_label, latlon_axis, set_colours, latlon_axes
-from ..utils import moving_average, add_months, rotate_vector, polar_stereo, convert_ismr, bwsalt_abs, bwtemp_con, fix_lon_range, area_name
+from ..utils import moving_average, add_months, rotate_vector, polar_stereo, convert_ismr, bwsalt_abs, bwtemp_con, fix_lon_range, area_name, time_in_years
 from ..grid import region_mask, calc_geometry, build_ice_mask, build_shelf_mask
 from ..constants import line_colours, region_names, deg_string, gkg_string, months_per_year, rho_fw, rho_ice, sec_per_year, vaf_to_gmslr, adusumilli_melt, adusumilli_std, rignot_melt, rignot_std
 from ..file_io import read_schmidtko, read_woa, read_zhou_bottom_climatology
@@ -2359,17 +2359,6 @@ def truncate_rampdown_PI (suite):
         return date_end
     else:
         return None
-
-
-# Helper function to get time axis in years since beginning; pass DataArray with coordinate 'time_centered'
-def time_in_years (data, year0=None, return_year0=False):
-    if year0 is None:
-        year0 = data.time_centered[0].dt.year.item()
-    years = np.array([(date.dt.year.item() - year0) + (date.dt.month.item() - 1)/months_per_year + 0.5 for date in data.time_centered])
-    if return_year0:
-        return years, year0
-    else:
-        return years    
 
 
 # Timeseries of various freshwater fluxes, relative to preindustrial baseline, for one trajectory.

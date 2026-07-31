@@ -755,7 +755,18 @@ def find_isolated_ocean_features(ds, bathy_var='bathy_metry', isf_var='isf_draft
             isolated_mask[cluster_mask] = True
             
     # 4. Return as an xarray DataArray for easy mapping/subsetting (domain_cfg needs to have nav_lev removed for this to work)
-    return xr.DataArray(isolated_mask, coords=ds.coords, dims=ds.dims)    
+    return xr.DataArray(isolated_mask, coords=ds.coords, dims=ds.dims)
+
+
+# Helper function to get time axis in years since beginning; pass DataArray with coordinate 'time_centered'
+def time_in_years (data, year0=None, return_year0=False):
+    if year0 is None:
+        year0 = data.time_centered[0].dt.year.item()
+    years = np.array([(date.dt.year.item() - year0) + (date.dt.month.item() - 1)/months_per_year + 0.5 for date in data.time_centered])
+    if return_year0:
+        return years, year0
+    else:
+        return years    
 
     
 
