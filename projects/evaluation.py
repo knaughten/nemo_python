@@ -976,7 +976,8 @@ def preproc_shenjie (obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_cl
 # Precompute variables averaged over the last part of the simulation (default 20 years). Convert to TEOS-10 if it's not already.
 # config can be NEMO_AIS or UKESM1
 # option: 'bottom_TS' (bottom T and S), 'zonal_TS' (zonal mean T and S), 'seaice' (sea ice area and thickness in Feb and Sept), 'ismr' (ice shelf basal melt rate converted to m/y), 'vel' (barotropic u and v on the tracer grid)
-def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir=None, num_years=20, out_file=None):
+# Can set year_range=[start_year, end_year] showing the range of years to process, otherwise will choose the num_years last years (default last 20 years)
+def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir=None, year_range=None, num_years=20, out_file=None):
 
     if out_file is None:
         out_file = option+'_avg.nc'
@@ -1045,17 +1046,37 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
         raise Exception('No valid files found. Check if suite_id='+suite_id+' is correct.')
     # Sort chronologically
     nemo_files.sort()
-    # Select the last num_years
-    num_t = int(num_years*months_per_year/months_per_file)
-    if num_t > len(nemo_files):
-        # Not enough years
-        # Figure out the number of complete years
-        num_years = int(len(nemo_files)*months_per_file/months_per_year)
-        if num_years == 0:
-            raise Exception('Less than 1 year of simulation completed. Cannot calculate averages')
-        print('Warning: reducing num_years to '+str(num_years)+' as simulation is too short.')
+    if year_range is not None:
+        # Loop through files to find the correct range
+        start_t = None
+        end_t = None
+        for t in range(len(nemo_files)):
+            if start_t is None:
+                # Looking for the first file to process
+                if str(year_range[0]) in nemo_files[t]:
+                    start_t = t
+                    print('Starting with '+nemo_files[t])
+            else:
+                # Looking for the first file not to process
+                if str(year_range[1]+1) in nemo_files[t]:
+                    end_t = t
+                    print('Ending just before '+nemo_files[t])
+                    break
+        if start_t is None or end_t is None:
+            raise Exception('Did not find full range of files for '+str(year_range[0])+'-'+str(year_range[1]))
+        nemo_files = nemo_files[start_t:end_t]
+    else:
+        # Select the last num_years
         num_t = int(num_years*months_per_year/months_per_file)
-    nemo_files =  nemo_files[-num_t:]
+        if num_t > len(nemo_files):
+            # Not enough years
+            # Figure out the number of complete years
+            num_years = int(len(nemo_files)*months_per_file/months_per_year)
+            if num_years == 0:
+                raise Exception('Less than 1 year of simulation completed. Cannot calculate averages')
+            print('Warning: reducing num_years to '+str(num_years)+' as simulation is too short.')
+            num_t = int(num_years*months_per_year/months_per_file)
+        nemo_files =  nemo_files[-num_t:]
 
     # Now read one file at a time
     if option == 'seaice':
@@ -1541,10 +1562,10 @@ def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeserie
         for ds_tmp in ds:
             time, year0_tmp = time_in_years(ds_tmp, return_year0=True)
             if year0 is not None and year0 != year0_tmp:
-                raise Exception('Simulations do not all start at the same time')
+                raise Exception('Simulations do not all start at the same time: '+str(year0)+' vs '+str(year0_tmp))
             time_all.append(time)
             year0 = year0_tmp
-        time_start = year0
+        time_start = 0
         time_end = np.amax([time[-1] for time in time_all])
     else:
         # Find time bounds
@@ -1597,6 +1618,8 @@ def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeserie
                 ax.set_xlim([time_start, time_end])
                 if r%rows == rows-1:
                     ax.tick_params(axis='x', labelrotation=90)
+                    if y0 == 1:
+                        ax.set_xlabel('Years')
                 else:
                     ax.set_xticklabels([])
             else:
