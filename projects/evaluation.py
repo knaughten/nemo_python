@@ -1531,7 +1531,7 @@ def plot_evaluation_seaice (config='NEMO_AIS', in_file='seaice_avg.nc', obs_file
 # labels: optional list of names for labelling each simulation; if not set, will choose default from base directory of in_dirs
 # colours: optional list of colours (html colour names or rgb tubles) to plot; if not set, defaults will be chosen
 # relative_years: whether to plot the years since the beginning instead of the real years in the date objects (default False); requires the simulations to all start at the same time
-def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeseries_file='/files0/timeseries_T.nc', hovmoller_file='/files0/hovmollers.nc', obs_file_casts='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_casts.nc', fig_name=None, relative_years=False):
+def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeseries_file='/files0/timeseries_T.nc', hovmoller_file='/files0/hovmollers.nc', obs_file_casts='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_casts.nc', fig_name=None, relative_years=False, dpi=300):
 
     regions = ['all', 'larsen', 'filchner_ronne', 'east_antarctica', 'amery', 'ross', 'west_antarctica', 'dotson_cosgrove']    
     var_names = ['massloss', 'shelf_bwtemp', 'shelf_bwsalt']
@@ -1664,7 +1664,7 @@ def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeserie
             if r == num_regions-1 and v == num_var-1:
                 # Legend at bottom
                 ax.legend(loc='lower center', bbox_to_anchor=(-2.75, -0.7), ncol=num_sim+1, fontsize=11)
-    finished_plot(fig, fig_name=fig_name, dpi=300)
+    finished_plot(fig, fig_name=fig_name, dpi=dpi)
 
 
 # Plot bottom T and S biases (compared to Shenjie's obs) for the 4 combinations of bias corrected forcing.
