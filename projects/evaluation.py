@@ -980,7 +980,10 @@ def preproc_shenjie (obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_cl
 def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir=None, year_range=None, num_years=20, out_file=None):
 
     if out_file is None:
-        out_file = option+'_avg.nc'
+        if year_range is not None:
+            out_file = option+'_'+str(year_range[0])+'-'+str(year_range[1])+'_avg.nc'
+        else:
+            out_file = option+'_avg.nc'
         
     if option == 'bottom_TS':
         var_names_1 = ['tob', 'sob']
