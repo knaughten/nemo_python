@@ -1068,6 +1068,7 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
         if start_t is None or end_t is None:
             raise Exception('Did not find full range of files for '+str(year_range[0])+'-'+str(year_range[1]))
         nemo_files = nemo_files[start_t:end_t]
+        num_t = end_t - start_t
     else:
         # Select the last num_years
         num_t = int(num_years*months_per_year/months_per_file)
