@@ -10,8 +10,8 @@
 SUITE=$(basename $(pwd))
 
 # Timeseries and Hovmollers - update existing files, or calculate from scratch
-python -c "from nemo_python.projects.evaluation import *; update_timeseries_evaluation_UKESM1('"${SUITE}"', in_dir='./')"
-python -c "from nemo_python.projects.evaluation import *; update_hovmollers_evaluation_UKESM1('"${SUITE}"', in_dir='./')"
+python -c "from nemo_python.projects.evaluation import *; update_timeseries_evaluation_UKESM('"${SUITE}"', in_dir='./', version=1)"
+python -c "from nemo_python.projects.evaluation import *; update_hovmollers_evaluation_UKESM('"${SUITE}"', in_dir='./', version=1)"
 
 # Time-averaged fields - remove if they exist, then calculate from scratch
 OPTIONS=( bottom_TS zonal_TS seaice ismr vel )

@@ -654,10 +654,17 @@ def update_timeseries_evaluation_NEMO_AIS (in_dir, suite_id='AntArc', out_dir='.
         update_simulation_timeseries(suite_id, timeseries_types[gtype], timeseries_file='timeseries_'+gtype+'.nc', timeseries_dir=out_dir, config='eANT025', sim_dir=in_dir, halo=False, gtype=gtype, domain_cfg=domain_cfg)
 
 
-# As above, for UKESM1 suites
-def update_timeseries_evaluation_UKESM1 (suite_id, base_dir='./', in_dir=None, out_dir=None, transport=True):
+# As above, for UKESM suites (pass version=1 or 2)
+def update_timeseries_evaluation_UKESM (suite_id, base_dir='./', in_dir=None, out_dir=None, transport=True, version=1):
 
-    domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc'
+    if version == 1:
+        domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc'
+        halo = True
+    elif version == 2:
+        domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/UKESM2/domain_cfg_eORCA1_Storkey_spliceBedMachine3_NEMO4.2.nc'  # tbc - may have changed
+        halo = False
+    else:
+        raise Exception('Unknown UKESM version '+str(version))
     timeseries_types = timeseries_types_evaluation()
     if in_dir is None:
         in_dir = base_dir+'/'+suite_id+'/'
@@ -668,8 +675,8 @@ def update_timeseries_evaluation_UKESM1 (suite_id, base_dir='./', in_dir=None, o
     if transport:
         gtypes += ['U']
     for gtype in gtypes:
-        update_simulation_timeseries(suite_id, timeseries_types[gtype], timeseries_file='timeseries_'+gtype+'.nc', timeseries_dir=out_dir, sim_dir=in_dir, halo=True, gtype=gtype, domain_cfg=domain_cfg)   
-
+        update_simulation_timeseries(suite_id, timeseries_types[gtype], timeseries_file='timeseries_'+gtype+'.nc', timeseries_dir=out_dir, sim_dir=in_dir, halo=halo, gtype=gtype, domain_cfg=domain_cfg)
+        
 
 # Bug with Dotson-Cosgrove mask definition means we need to redo those timeseries variables only
 def redo_dotson_cosgrove_timeseries (in_dir, out_dir='./'):
@@ -695,15 +702,21 @@ def update_hovmollers_evaluation_NEMO_AIS (in_dir, suite_id='AntArc', out_dir='.
     update_simulation_timeseries(suite_id, hovmoller_types, timeseries_file='hovmollers.nc', timeseries_dir=out_dir, config='eANT025', sim_dir=in_dir, halo=False, gtype='T', hovmoller=True)
 
 
-def update_hovmollers_evaluation_UKESM1 (suite_id, base_dir='./', in_dir=None, out_dir=None):
+def update_hovmollers_evaluation_UKESM (suite_id, base_dir='./', in_dir=None, out_dir=None, version=1):
 
     hovmoller_types = ['dotson_cosgrove_shelf_'+var for var in ['temp', 'salt']]
     if in_dir is None:
         in_dir = base_dir+'/'+suite_id+'/'
     if out_dir is None:
         out_dir = in_dir
+    if version == 1:
+        halo = True
+    elif version == 2:
+        halo = False
+    else:
+        raise Exception('Unknown UKESM version '+str(version))
 
-    update_simulation_timeseries(suite_id, hovmoller_types, timeseries_file='hovmollers.nc', timeseries_dir=out_dir, sim_dir=in_dir, halo=True, gtype='T', hovmoller=True)
+    update_simulation_timeseries(suite_id, hovmoller_types, timeseries_file='hovmollers.nc', timeseries_dir=out_dir, sim_dir=in_dir, halo=halo, gtype='T', hovmoller=True)
 
 
 def plot_evaluation_timeseries_shelf (timeseries_file='timeseries_T.nc', hovmoller_file='hovmollers.nc', obs_file_casts='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_casts.nc', fig_name=None):
@@ -974,7 +987,7 @@ def preproc_shenjie (obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_cl
 
 
 # Precompute variables averaged over the last part of the simulation (default 20 years). Convert to TEOS-10 if it's not already.
-# config can be NEMO_AIS or UKESM1
+# config can be NEMO_AIS, UKESM1, UKESM2
 # option: 'bottom_TS' (bottom T and S), 'zonal_TS' (zonal mean T and S), 'seaice' (sea ice area and thickness in Feb and Sept), 'ismr' (ice shelf basal melt rate converted to m/y), 'vel' (barotropic u and v on the tracer grid)
 # Can set year_range=[start_year, end_year] showing the range of years to process, otherwise will choose the num_years last years (default last 20 years)
 def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir=None, year_range=None, num_years=20, out_file=None):
@@ -993,7 +1006,7 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
     elif option == 'seaice':
         months = [2, 9]
         time_flags = ['_min', '_max']
-        if config == 'NEMO_AIS':
+        if config in ['NEMO_AIS', 'UKESM2']:
             var_names = ['siconc', 'sivolu']
         elif config == 'UKESM1':
             raise Exception('Not coded precompute_avg for CICE variables yet')
@@ -1002,7 +1015,7 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
         factor = rho_ice/(rho_fw**2)*sec_per_year
         if config == 'NEMO_AIS':
             var_names = ['fwfisf']
-        elif config == 'UKESM1':
+        elif config in ['UKESM1', 'UKESM2']:
             var_names = ['sowflisf']
             factor *= -1
     elif option == 'vel':
@@ -1021,17 +1034,19 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
         else:
             file_tail = '_grid_T.nc'
         eos = 'teos10'
-    elif config == 'UKESM1':
+    elif config in ['UKESM1', 'UKESM2']:
         if suite_id is None:
             raise Exception('Must set suite_id')
         if in_dir is None:
             in_dir = suite_id + '/'
         file_head = 'nemo_'+suite_id+'o_1m_'
-        if option == 'ismr':
-            file_tail = 'isf-T.nc'
-        else:
-            file_tail = 'grid-T.nc'
-        eos = 'eos80'
+        file_tail = 'grid-T.nc'
+        if config == 'UKESM1':
+            if option == 'ismr':
+                file_tail = 'isf-T.nc'                
+            eos = 'eos80'
+        elif config == 'UKESM2':
+            eos = 'teos10'            
 
     # Find all the output filenames
     nemo_files = []
@@ -1130,7 +1145,7 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
                 return ds
             ds = process_vel(ds, 'U', var_names[0])
             ds = process_vel(ds, 'V', var_names[1])                
-        if config == 'UKESM1' and ds['nav_lat'].max() > 0:
+        if config in ['UKESM1', 'UKESM2'] and ds['nav_lat'].max() > 0:
             # Need to drop everything except the Southern Ocean
             ds = ds.isel(y=slice(0,114))
         if eos == 'eos80' and option in ['bottom_TS', 'zonal_TS'] and depth_3d is None:
@@ -1213,6 +1228,9 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
                 ds_accum = ds
             else:
                 ds_accum += ds
+        elif config == 'UKESM2':
+            # No more 30-day months in UKESM2
+            pass
         else:
             raise Exception('Unsure how to handle monthly files for config='+config)
         ds.close()
