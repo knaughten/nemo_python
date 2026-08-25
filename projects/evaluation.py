@@ -1350,7 +1350,7 @@ def plot_evaluation_zonal_TS (in_file='zonal_TS_avg.nc', obs_file='/gws/ssde/j25
         print('Warning: '+in_file+' does not exist. Skipping plot.')
         return
 
-    var_names = ['thetao', 'so']
+    var_names_all = [['thetao', 'so'], ['thetao_con', 'so_abs']]
     var_names_obs = ['t', 's']
     var_titles = ['Conservative temperature ('+deg_string+'C)', 'Absolute salinity']
     vmin = [-2.5, 34.3]
@@ -1367,6 +1367,9 @@ def plot_evaluation_zonal_TS (in_file='zonal_TS_avg.nc', obs_file='/gws/ssde/j25
     ds_model = ds_model.swap_dims({y_name:lat_name})
     # Remove masked latitudes at beginning and end
     ds_model = ds_model.where(ds_model[lat_name].notnull(), drop=True)
+    for var_names in var_names_all:
+        if var_names[0] in ds_model:
+            break
 
     # Read observations and make sure naming conventions follow NEMO
     ds_obs = xr.open_dataset(obs_file, decode_times=False).drop_vars({'time'}).rename({'lat':lat_name, 'depth':'deptht'})
