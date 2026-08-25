@@ -252,7 +252,7 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
             if nemo_var == 'fwfisf':
                 # Also swap sign
                 factor *= -1
-    if nemo_var == 'sowflisf' and ds_nemo[nemo_var].mean() < 0:
+    if nemo_var == 'sowflisf' and ds_nemo[nemo_var].mean()*factor < 0:
         # Ice shelf bmb sign convention changed between UKESM1 and UKESM2
         factor *= -1
         if halo:
