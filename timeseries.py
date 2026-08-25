@@ -233,7 +233,7 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         ds_nemo['thermocline_depth'] = thermocline(ds_nemo[nemo_var], **kwargs)
 
     # Some variables have 2-3 equivalent options - allow for any
-    def swap_var (var_alt):
+    def swap_var (nemo_var, var_alt):
         if nemo_var not in ds_nemo:
             if isinstance(var_alt, str):
                 var_alt = [var_alt]
@@ -248,7 +248,7 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         return nemo_var
     for var_check, var_alt in zip(['sowflisf', 'tob', 'sob', 'thetao', 'so'], ['fwfisf', ['thetaob_con', 'tbt'], ['sob_abs', 'sbt'], 'sbs', 'thetao_con', 'so_abs']):
         if nemo_var == var_check:
-            nemo_var = swap_var(var_alt)
+            nemo_var = swap_var(nemo_var, var_alt)
             if nemo_var == 'fwfisf':
                 # Also swap sign
                 factor *= -1
