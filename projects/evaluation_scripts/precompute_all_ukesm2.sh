@@ -14,7 +14,7 @@ python -c "from nemo_python.projects.evaluation import *; update_timeseries_eval
 python -c "from nemo_python.projects.evaluation import *; update_hovmollers_evaluation_UKESM('"${SUITE}"', in_dir='./', version=2)"
 
 # Time-averaged fields - remove if they exist, then calculate from scratch
-OPTIONS=( bottom_TS zonal_TS seaice ismr vel )
+OPTIONS=( bottom_TS zonal_TS )
 for OPTION in "${OPTIONS[@]}"; do
     filename = ${OPTION}_avg.nc
     if [ -f $filename ]; then

@@ -1259,8 +1259,8 @@ def plot_evaluation_bottom_TS (in_file='bottom_TS_avg.nc', obs_file='/gws/ssde/j
         print('Warning: '+in_file+' does not exist. Skipping plot.')
         return
 
-    var_names_1 = ['tob', 'sob']
-    var_names_2 = ['sbt', 'sbs']
+    # 3 choices for variable names
+    var_names_all = [['tob', 'sob'], ['sbt', 'sbs'], ['thetaob_con', 'sob_abs']]
     var_names_obs = ['ct_bottom', 'sa_bottom']
     var_titles = ['Conservative temperature ('+deg_string+'C)', 'Absolute salinity']
     vmin = [-2.5, 34.4]
@@ -1271,10 +1271,9 @@ def plot_evaluation_bottom_TS (in_file='bottom_TS_avg.nc', obs_file='/gws/ssde/j
 
     # Read precomputed model fields
     ds_model = xr.open_dataset(in_file, decode_times=time_coder)
-    if var_names_1[0] in ds_model:
-        var_names = var_names_1
-    else:
-        var_names = var_names_2
+    for var_names in var_names_all:
+        if var_names[0] in ds_model:
+            break
     if 'x_grid_T_inner' in ds_model.dims:
         ds_model = ds_model.rename({'x_grid_T_inner':'x', 'y_grid_T_inner':'y'})
     ds_model = ds_model.assign({'ocean_mask':ds_model[var_names[0]].notnull()})
