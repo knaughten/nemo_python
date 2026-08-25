@@ -411,11 +411,15 @@ def interp_latlon_cf (source, target, source_type='other', target_type='nemo', p
                 lon_name = 'nav_lon_grid_T'
                 lat_name = 'nav_lat_grid_T'
             elif 'nav_lon' in ds:
-                # model output type NEMO 3.6
-                x_name = 'x'
-                y_name = 'y'
+                # model output type NEMO 3.6 or NEMO 4.2
                 lon_name = 'nav_lon'
                 lat_name = 'nav_lat'
+                if 'x' in ds.dims:
+                    x_name = 'x'
+                    y_name = 'y'
+                elif 'x_grid_T' in ds.dims:
+                    x_name = 'x_grid_T'
+                    y_name = 'y_grid_T'                
             elif 'TLON' in ds:
                 # model output type CICE on NEMO grid
                 x_name = 'ni'
