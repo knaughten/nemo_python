@@ -661,7 +661,7 @@ def update_timeseries_evaluation_UKESM (suite_id, base_dir='./', in_dir=None, ou
         domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc'
         halo = True
     elif version == 2:
-        domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/UKESM2/domain_cfg_eORCA1_Storkey_spliceBedMachine3_NEMO4.2.nc'  # tbc - may have changed
+        domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/UKESM2/domain_cfg-bathy_meter_eORCA1_Storkey_spliceBedMachine3_nohalo_OLDLSM2-min0.nc'
         halo = False
     else:
         raise Exception('Unknown UKESM version '+str(version))
