@@ -232,23 +232,27 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
             kwargs = {}
         ds_nemo['thermocline_depth'] = thermocline(ds_nemo[nemo_var], **kwargs)
 
-    # Some variables have two equivalent options - allow for either
-    if nemo_var == 'sowflisf' and nemo_var not in ds_nemo:
-        if 'fwfisf' in ds_nemo:
-            nemo_var = 'fwfisf'
-            factor *= -1
-        else:
-            raise KeyError('Missing variable '+nemo_var+' or fwfisf')
-    if nemo_var == 'tob' and nemo_var not in ds_nemo:
-        if 'sbt' in ds_nemo:
-            nemo_var = 'sbt'
-        else:
-            raise KeyError('Missing variable '+nemo_var+' or sbt')
-    if nemo_var == 'sob' and nemo_var not in ds_nemo:
-        if 'sbs' in ds_nemo:
-            nemo_var = 'sbs'
-        else:
-            raise KeyError('Missing variable '+nemo_var+' or sbs')
+    # Some variables have 2-3 equivalent options - allow for any
+    def swap_var (var_alt):
+        if nemo_var not in ds_nemo:
+            if isinstance(var_alt, str):
+                var_alt = [var_alt]
+            found = False
+            for var in var_alt:
+                if var in ds_nemo:
+                    nemo_var = var
+                    found = True
+                    break
+            if not found:
+                raise KeyError('Missing variable '+nemo_var+' or '+var_alt)
+        return nemo_var
+    for var_check, var_alt, var_alt2 in zip(['sowflisf', 'tob', 'sob', 'thetao', 'so'], ['fwfisf', ['thetaob_con', 'tbt'], ['sob_abs', 'sbt'], 'sbs', 'thetao_con', 'so_abs']):
+        if nemo_var == var_check:
+            nemo_var = swap_var(var_alt)
+            if nemo_var == 'fwfisf':
+                # Also swap sign
+                factor *= -1
+            
     if 'x_grid_T_inner' in ds_nemo.dims:
         ds_nemo = ds_nemo.swap_dims({'x_grid_T_inner':'x_grid_T', 'y_grid_T_inner':'y_grid_T'})
 
@@ -319,9 +323,15 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         elif nemo_var == 'bwSA':
             data_xy = bwsalt_abs(ds_nemo)
         elif nemo_var == 'sst':
-            data_xy = ds_nemo['thetao'].isel(deptht=0)
+            try:
+                data_xy = ds_nemo['thetao'].isel(deptht=0)
+            except(KeyError):
+                data_xy = ds_nemo['thetao_con'].isel(deptht=0)
         elif nemo_var == 'sss':
-            data_xy = ds_nemo['so'].isel(deptht=0)
+            try:
+                data_xy = ds_nemo['so'].isel(deptht=0)
+            except(KeyError):
+                data_xy = ds_nemo['so_abs'].isel(deptht=0)
         elif var.endswith('_thermocline'):
             # need to use the actual area of grid cells where thermocline was able to be calculated, so dA_actual < dA
             data_xy = ds_nemo['thermocline_depth']
@@ -349,13 +359,16 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         # Find maximum temperature below z_shallow at the given point
         # First find the nearest grid cell to that point
         [j,i] = closest_point(ds_nemo, [lon0, lat0])
-        temp_column = ds_nemo['thetao'].isel({x_name:i, y_name:j})
+        try:
+            temp_column = ds_nemo['thetao'].isel({x_name:i, y_name:j})
+        except(KeyError):
+            temp_column = ds_nemo['thetao_con'].isel({x_name:i, y_name:j})
         # Get depth index of the maximum below z_shallow, neglecting land mask (identically zero)
         k = temp_column.where((temp_column != 0)*(ds_nemo['deptht'] > z_shallow)).argmax(dim='deptht')
         # Now extract variable at this column
         if nemo_var == 'deptht':
             data_column = ds_nemo[nemo_var]
-        elif nemo_var == 'thetao':
+        elif nemo_var in ['thetao', 'thetao_con']:
             data_column = temp_column
         else:
             data_column = ds_nemo[nemo_var].isel({x_name:i, y_name:j})
@@ -483,6 +496,9 @@ def precompute_hovmollers (ds_nemo, hovmoller_types, hovmoller_file, halo=False)
     x_name, y_name = xy_name(ds_nemo)
     if halo:
         ds_nemo = ds_nemo.isel({x_name:slice(1,-1)})
+    if 'thetao' not in ds_nemo and 'thetao_con' in ds_nemo:
+        # UKESM2 naming convention
+        nemo_vars = ['thetao_con', 'so_abs']
 
     # Decode hovmoller_types
     regions = []

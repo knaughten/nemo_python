@@ -17,7 +17,7 @@ def build_mask_3d (ds):
         ds = ds.isel(time_counter=0)
 
     mask_3d = None
-    for var in ['thetao', 'so']:
+    for var in ['thetao', 'so', 'thetao_con', 'so_abs']:
         if var in ds:
             if (ds[var]==0).any():
                 # Use zeros
@@ -31,7 +31,7 @@ def build_mask_3d (ds):
     return mask_3d
     
 
-# Helper function to calculate a bunch of grid variables (bathymetry, draft, ocean mask, ice shelf mask) from a NEMO output file, only using thkcello/e3t and the mask on a 3D data variable (current options are to look for thetao and so).
+# Helper function to calculate a bunch of grid variables (bathymetry, draft, ocean mask, ice shelf mask) from a NEMO output file, only using thkcello/e3t and the mask on a 3D data variable (current options are to look for thetao/thetao_con and so/so_abs).
 # This varies a little if the sea surface height changes, so not perfect, but it does take partial cells into account.
 # If keep_time_dim, will preserve any time dimension even if it's of size 1 (useful for timeseries)
 def calc_geometry (ds, keep_time_dim=False):
@@ -94,7 +94,7 @@ def build_ocean_mask (ds):
 # Select the continental shelf and ice shelf cavities. Pass it the path to an xarray Dataset which contains one of the following combinations:
 # 1. nav_lon, nav_lat, bathy, tmaskutil (NEMO3.6 mesh_mask)
 # 2. nav_lon, nav_lat, bathy_metry, bottom_level (NEMO4.2 domain_cfg)
-# 3. nav_lon, nav_lat, thkcello/e3t, a 3D data variable with a zero-mask applied (current options are thetao or so) (NEMO output file)
+# 3. nav_lon, nav_lat, thkcello/e3t, a 3D data variable with a zero-mask applied (current options are thetao/thetao_con or so/so_abs) (NEMO output file)
 # 4. lon, lat, bathymetry (Shenjie's climatology)
 def build_shelf_mask (ds):
 
@@ -349,7 +349,7 @@ def region_mask (region, ds, option='all', return_name=False, lon_bounds=None):
         return mask, ds
 
 
-# Make any 2D mask 3D, masking out any points which are land or ice shelf (varying with depth). Pass a dataset containing thetao or so on the same grid.
+# Make any 2D mask 3D, masking out any points which are land or ice shelf (varying with depth). Pass a dataset containing thetao/thetao_con or so/so_abs on the same grid.
 def make_mask_3d (mask, ds):
 
     land_mask_3d = build_mask_3d(ds)
