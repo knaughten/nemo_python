@@ -999,10 +999,17 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
             out_file = option+'_avg.nc'
         
     if option == 'bottom_TS':
-        var_names_1 = ['tob', 'sob']
-        var_names_2 = ['sbt', 'sbs']
+        if config == 'NEMO_AIS':
+            var_names = ['sbt', 'sbs']
+        elif config == 'UKESM1':
+            var_names = ['tob', 'sob']
+        elif config == 'UKESM2':
+            var_names = ['thetaob_con', 'sob_abs']
     elif option == 'zonal_TS':
-        var_names = ['thetao', 'so']
+        if config == 'UKESM2':
+            var_names = ['thetao_con', 'so_abs']
+        else:
+            var_names = ['thetao', 'so']
     elif option == 'seaice':
         months = [2, 9]
         time_flags = ['_min', '_max']
@@ -1017,7 +1024,8 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
             var_names = ['fwfisf']
         elif config in ['UKESM1', 'UKESM2']:
             var_names = ['sowflisf']
-            factor *= -1
+            if config == 'UKESM1':
+                factor *= -1
     elif option == 'vel':
         var_names = ['uo', 'vo']
         
@@ -1150,13 +1158,7 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
             ds = ds.isel(y=slice(0,114))
         if eos == 'eos80' and option in ['bottom_TS', 'zonal_TS'] and depth_3d is None:
             depth_3d = xr.broadcast(ds['deptht'], ds['so'])[0].where(ds['so']!=0)
-            depth_bottom =  depth_3d.max(dim='deptht')
-        if option == 'bottom_TS':
-            # Two options for variable naming
-            if var_names_1[0] in ds:
-                var_names = var_names_1
-            else:
-                var_names = var_names_2                
+            depth_bottom =  depth_3d.max(dim='deptht')               
         # Select only variables we want, and mask where identically zero
         lon_name, lat_name = latlon_name(ds)
         ds_var = ds[var_names].where(ds[var_names[0]]!=0)
@@ -1214,8 +1216,17 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
                         ds_accum = ds_tmp
                     else:
                         ds_accum += ds_tmp
-        elif config == 'UKESM1':
-            # UKESM1 has 30-day months so don't need to worry about weights
+        else:
+            if config == 'UKESM1':
+                # UKESM1 has 30-day months so don't need to worry about weights
+                pass
+            elif config == 'UKESM2':
+                # As above, but only one month per file so have to process weights carefully
+                weight = ds.time_centered.dt.days_in_month/ds.time_centered.dt.days_in_year*months_per_year
+                for var in ds:
+                    ds[var] = ds[var]*weight
+            else:
+                raise Exception('Unsure how to handle monthly files for config='+config)
             ds = ds.squeeze().drop_vars({'time_counter', 'time_centered'})
             if option == 'zonal_TS':
                 ds = ds.reset_coords()
@@ -1228,11 +1239,6 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
                 ds_accum = ds
             else:
                 ds_accum += ds
-        elif config == 'UKESM2':
-            # No more 30-day months in UKESM2
-            pass
-        else:
-            raise Exception('Unsure how to handle monthly files for config='+config)
         ds.close()
     if option == 'seaice':
         ds_accum = ds_accum[0].merge(ds_accum[1])
