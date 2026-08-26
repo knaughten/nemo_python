@@ -23,6 +23,7 @@ time_coder = xr.coders.CFDatetimeCoder(use_cftime=True)
 # <region>_pminuse: precipitation minus evaporation integrated over the given region
 # <region>_runoff: runoff integrated over the given region
 # <region>_seaice_meltfreeze: sea ice to ocean water flux (melting minus freezing) integrated over the given region
+# hice_max: thickest sea ice in domain
 # Inputs:
 # name_remapping: optional dictionary of dimensions and variable names that need to be remapped to match the code below (depends on the runset)
 # nemo_mesh: optional string of the location of a bathymetry meshmask file for calculating the region masks (otherwise calculates it from ds_nemo)
@@ -214,6 +215,11 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         title    = 'Mean thermocline depth'
         nemo_var = 'thetao'
         units    = 'm'
+    elif var == 'hice_max':
+        option = 'max'
+        nemo_var = 'sithic'
+        units = 'm'
+        title = 'Maximum sea ice thickness in domain'
 
     if var == 'drake_passage_transport' and 'e2u' not in ds_nemo:
         # Need to add e2u from domain_cfg
@@ -313,6 +319,9 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
       
         title += ' for '+region_name
 
+    if region is None:
+        mask = 1
+
     if option == 'area_int':
         # Area integral
         dA = ds_nemo[area_name(ds_nemo)]*mask
@@ -390,6 +399,8 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         if halo:
             ds_domcfg = ds_domcfg.isel({x_name:slice(1,-1)})
         data = gyre_transport(region, ds_nemo, ds_nemo, ds_domcfg, periodic=periodic, halo=halo)
+    elif option == 'max':
+        data = ds_nemo[nemo_var].max(dim=[x_name,y_name])
        
     data *= factor
     data = data.assign_attrs(long_name=title, units=units)
