@@ -1592,7 +1592,7 @@ def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeserie
         time_all = []
         for ds_tmp in ds:
             time, year0_tmp = time_in_years(ds_tmp, return_year0=True)
-            if year0 is not None and year0 != year0_tmp and not different_stsart:
+            if year0 is not None and year0 != year0_tmp and not different_start:
                 raise Exception('Simulations do not all start at the same time: '+str(year0)+' vs '+str(year0_tmp))
             time_all.append(time)
             year0 = year0_tmp
