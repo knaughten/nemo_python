@@ -1557,8 +1557,9 @@ def plot_evaluation_seaice (config='NEMO_AIS', in_file='seaice_avg.nc', obs_file
 # in_dirs: list of directories corresopnding to the different experiments; each contains timeseries_file and hovmoller_file (which can be relative paths to account for subdirectories)
 # labels: optional list of names for labelling each simulation; if not set, will choose default from base directory of in_dirs
 # colours: optional list of colours (html colour names or rgb tubles) to plot; if not set, defaults will be chosen
-# relative_years: whether to plot the years since the beginning instead of the real years in the date objects (default False); requires the simulations to all start at the same time
-def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeseries_file='/files0/timeseries_T.nc', hovmoller_file='/files0/hovmollers.nc', obs_file_casts='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_casts.nc', fig_name=None, relative_years=False, dpi=300):
+# relative_years: whether to plot the years since the beginning instead of the real years in the date objects (default False); requires the simulations to all start at the same time unless different_start=True
+# trim_shortest: whether to trim all the simulations to match the shortest one
+def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeseries_file='/files0/timeseries_T.nc', hovmoller_file='/files0/hovmollers.nc', obs_file_casts='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_casts.nc', fig_name=None, relative_years=False, different_start=False, trim_shortest=False, dpi=300):
 
     regions = ['all', 'larsen', 'filchner_ronne', 'east_antarctica', 'amery', 'ross', 'west_antarctica', 'dotson_cosgrove']    
     var_names = ['massloss', 'shelf_bwtemp', 'shelf_bwsalt']
@@ -1591,16 +1592,22 @@ def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeserie
         time_all = []
         for ds_tmp in ds:
             time, year0_tmp = time_in_years(ds_tmp, return_year0=True)
-            if year0 is not None and year0 != year0_tmp:
+            if year0 is not None and year0 != year0_tmp and not different_stsart:
                 raise Exception('Simulations do not all start at the same time: '+str(year0)+' vs '+str(year0_tmp))
             time_all.append(time)
             year0 = year0_tmp
         time_start = 0
-        time_end = np.amax([time[-1] for time in time_all])
+        if trim_shortest:
+            time_end = np.amin([time[-1] for time in time_all])
+        else:
+            time_end = np.amax([time[-1] for time in time_all])
     else:
         # Find time bounds
         time_start = np.amin([ds_tmp['time_centered'][0] for ds_tmp in ds])
-        time_end = np.amax([ds_tmp['time_centered'][-1] for ds_tmp in ds])
+        if trim_shortest:
+            time_end = np.amin([ds_tmp['time_centered'][-1] for ds_tmp in ds])
+        else:
+            time_end = np.amax([ds_tmp['time_centered'][-1] for ds_tmp in ds])
 
     # Make plot
     fig = plt.figure(figsize=(14,7.5))
