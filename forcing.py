@@ -1282,6 +1282,7 @@ def ukesm_bias_corrections_thermo (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/N
 
 # As above, but for coastal winds in polar coordinates.
 # Will correct over <taper_dist> km from the coast, scaling the speed by a factor not exceeding <scale_cap>, and rotating the angle.
+# If taper_dist is None, will correct winds everywhere.
 def ukesm_bias_corrections_winds (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ensemble_mean_climatology/', era5_dir='/gws/ssde/j25b/terrafirma/kaight/NEMO_AIS/UKESM_forcing/ERA5_hourly/climatology/', out_dir='./', era5_mask_file='/gws/ssde/j25b/anthrofail/birgal/NEMO_AIS/ERA5-forcing/climatology/land_sea_mask.nc', taper_dist=150, scale_cap=3):
 
     var_names = ['wind_speed', 'wind_angle']
@@ -1320,7 +1321,10 @@ def ukesm_bias_corrections_winds (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NE
             # Now fill land mask with zeros
             dist_to_coast = xr.where(mask_era5, 0, dist_to_coast)
             # Set up tapering function
-            taper = (dist_to_coast < taper_dist)*np.cos(np.pi/2*dist_to_coast/taper_dist)            
+            if taper_dist is None:
+                taper = 1
+            else:
+                taper = (dist_to_coast < taper_dist)*np.cos(np.pi/2*dist_to_coast/taper_dist)            
             
         if var == 'wind_speed':
             # Take the ratio of ERA5 to UKESM winds, and apply scale_cap if needed

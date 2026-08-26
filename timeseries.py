@@ -576,7 +576,7 @@ def precompute_hovmollers (ds_nemo, hovmoller_types, hovmoller_file, halo=False)
     overwrite_file(ds_new, hovmoller_file)
     
 
-# Precompute timeseries from the given simulation, either from the beginning (timeseries_file does not exist) or picking up where it left off (timeseries_file does exist). Considers all NEMO output files stamped with suite_id in the given directory sim_dir on the given grid (gtype='T', 'U', etc), and assumes the timeseries file is in that directory too (unless timeseries_dir is set).
+# Precompute timeseries from the given simulation, either from the beginning (timeseries_file does not exist) or picking up where it left off (timeseries_file does exist). Considers all NEMO output files stamped with suite_id in the given directory sim_dir on the given grid (gtype='T', 'U', 'icemod' etc), and assumes the timeseries file is in that directory too (unless timeseries_dir is set).
 # If hovmoller=True, will precompute Hovmoller variables with preserved depth dimension (see precompute_hovmollers above)
 # If convert_teos10=True, will convert from EOS-80 to TEOS-10.
 def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='timeseries.nc', timeseries_dir=None, config='', 
