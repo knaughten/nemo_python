@@ -567,11 +567,13 @@ def precompute_hovmollers (ds_nemo, hovmoller_types, hovmoller_file, halo=False)
 
 # Precompute timeseries from the given simulation, either from the beginning (timeseries_file does not exist) or picking up where it left off (timeseries_file does exist). Considers all NEMO output files stamped with suite_id in the given directory sim_dir on the given grid (gtype='T', 'U', etc), and assumes the timeseries file is in that directory too (unless timeseries_dir is set).
 # If hovmoller=True, will precompute Hovmoller variables with preserved depth dimension (see precompute_hovmollers above)
+# If convert_teos10=True, will convert from EOS-80 to TEOS-10.
 def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='timeseries.nc', timeseries_dir=None, config='', 
                                   sim_dir='./', freq='m', halo=True, periodic=True, gtype='T', name_remapping='', nemo_mesh='',
-                                  domain_cfg='/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc', compressed=False, hovmoller=False):
+                                  domain_cfg='/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc', compressed=False, hovmoller=False, convert_teos10=False):
     import re
     from datetime import datetime
+    import gsw
 
     if timeseries_dir is None:
         timeseries_dir = sim_dir
@@ -692,6 +694,17 @@ def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='t
                 ds_SBC_tmp = ds_SBC.isel(time_counter=slice(t,t+1))
                 ds_SBC_tmp.load()
                 ds_tmp = ds_tmp.merge(ds_SBC_tmp)
+            if convert_teos10:
+                # Convert from EOS-80 to TEOS-10
+                depth_3d = xr.broadcast(ds_tmp['deptht'], ds_tmp['so'])[0].where(ds_tmp['so']!=0)
+                depth_bottom = depth_3d.max(dim='deptht')
+                lon_name, lat_name = latlon_name(ds_tmp)
+                for temp_var, salt_var, depth in zip(['thetao', 'tob'], ['so', 'sob'], [depth_3d, depth_bottom]):
+                    if temp_var in ds_tmp:
+                        abs_salt = gsw.SA_from_SP(ds_tmp[salt_var], depth, ds_tmp[lon_name], ds_tmp[lat_name])
+                        con_temp = gsw.CT_from_pt(abs_salt, ds_tmp[temp_var])
+                        ds_tmp[temp_name] = con_temp
+                        ds_tmp[salt_name] = abs_salt
             if hovmoller:
                 precompute_hovmollers(ds_tmp, timeseries_types, f'{timeseries_dir}/{timeseries_file}', halo=halo)
             else:
