@@ -703,8 +703,8 @@ def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='t
                     if temp_var in ds_tmp:
                         abs_salt = gsw.SA_from_SP(ds_tmp[salt_var], depth, ds_tmp[lon_name], ds_tmp[lat_name])
                         con_temp = gsw.CT_from_pt(abs_salt, ds_tmp[temp_var])
-                        ds_tmp[temp_name] = con_temp
-                        ds_tmp[salt_name] = abs_salt
+                        ds_tmp[temp_var] = con_temp
+                        ds_tmp[salt_var] = abs_salt
             if hovmoller:
                 precompute_hovmollers(ds_tmp, timeseries_types, f'{timeseries_dir}/{timeseries_file}', halo=halo)
             else:
