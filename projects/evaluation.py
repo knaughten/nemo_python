@@ -660,9 +660,11 @@ def update_timeseries_evaluation_UKESM (suite_id, base_dir='./', in_dir=None, ou
     if version == 1:
         domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc'
         halo = True
+        convert_teos10 = True
     elif version == 2:
         domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/UKESM2/domain_cfg-bathy_meter_eORCA1_Storkey_spliceBedMachine3_nohalo_OLDLSM2-min0.nc'
         halo = False
+        convert_teos10 = False
     else:
         raise Exception('Unknown UKESM version '+str(version))
     timeseries_types = timeseries_types_evaluation()
@@ -675,7 +677,7 @@ def update_timeseries_evaluation_UKESM (suite_id, base_dir='./', in_dir=None, ou
     if transport:
         gtypes += ['U']
     for gtype in gtypes:
-        update_simulation_timeseries(suite_id, timeseries_types[gtype], timeseries_file='timeseries_'+gtype+'.nc', timeseries_dir=out_dir, sim_dir=in_dir, halo=halo, gtype=gtype, domain_cfg=domain_cfg)
+        update_simulation_timeseries(suite_id, timeseries_types[gtype], timeseries_file='timeseries_'+gtype+'.nc', timeseries_dir=out_dir, sim_dir=in_dir, halo=halo, gtype=gtype, domain_cfg=domain_cfg, convert_teos10=convert_teos10)
         
 
 # Bug with Dotson-Cosgrove mask definition means we need to redo those timeseries variables only
@@ -711,12 +713,14 @@ def update_hovmollers_evaluation_UKESM (suite_id, base_dir='./', in_dir=None, ou
         out_dir = in_dir
     if version == 1:
         halo = True
+        convert_teos10 = True
     elif version == 2:
         halo = False
+        convert_teos10 = False
     else:
         raise Exception('Unknown UKESM version '+str(version))
 
-    update_simulation_timeseries(suite_id, hovmoller_types, timeseries_file='hovmollers.nc', timeseries_dir=out_dir, sim_dir=in_dir, halo=halo, gtype='T', hovmoller=True)
+    update_simulation_timeseries(suite_id, hovmoller_types, timeseries_file='hovmollers.nc', timeseries_dir=out_dir, sim_dir=in_dir, halo=halo, gtype='T', hovmoller=True, convert_teos10=convert_teos10)
 
 
 def plot_evaluation_timeseries_shelf (timeseries_file='timeseries_T.nc', hovmoller_file='hovmollers.nc', obs_file_casts='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_casts.nc', fig_name=None):
