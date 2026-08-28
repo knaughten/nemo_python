@@ -1257,7 +1257,7 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
 
 
 # Plot bottom T and S compared to Shenjie's obs.
-def plot_evaluation_bottom_TS (in_file='bottom_TS_avg.nc', obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_2D.nc', fig_name=None):
+def plot_evaluation_bottom_TS (in_file='bottom_TS_avg.nc', obs_file='/gws/ssde/j25b/terrafirma/kaight/input_data/OI_climatology_2D.nc', fig_name=None, ukesm_cbar=False):
 
     if not os.path.isfile(in_file):
         print('Warning: '+in_file+' does not exist. Skipping plot.')
@@ -1267,9 +1267,15 @@ def plot_evaluation_bottom_TS (in_file='bottom_TS_avg.nc', obs_file='/gws/ssde/j
     var_names_all = [['tob', 'sob'], ['sbt', 'sbs'], ['thetaob_con', 'sob_abs']]
     var_names_obs = ['ct_bottom', 'sa_bottom']
     var_titles = ['Conservative temperature ('+deg_string+'C)', 'Absolute salinity']
-    vmin = [-2.5, 34.4]
-    vmax = [2, 35]
-    vdiff = [1, 0.5]
+    if ukesm_cbar:
+        # Wider colourbars for UKESM which has more biases!
+        vmin = [-2.5, 34.3]
+        vmax = [3, 34.95]
+        vdiff = [2, 0.5]
+    else:
+        vmin = [-2.5, 34.4]
+        vmax = [2, 35]
+        vdiff = [1, 0.5]
     subtitles = ['Model', 'Observations', 'Model bias']
     ctype = ['RdBu_r', 'RdBu_r', 'plusminus']
 

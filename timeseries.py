@@ -189,7 +189,7 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         option = 'area_int'
         region = var[:var.index('_pminuse')]
         region_type = 'shelf'
-        nemo_var = 'pminuse'  # Will trigger special case to do pr+prsn-evs
+        nemo_var = 'pminuse'  # Will trigger special case to do pr+prsn-evs unless soemp_oce exists
         factor = 1e-3*sec_per_year
         units = 'm^3/y'
         title = 'Precipitation minus evaporation'
@@ -250,7 +250,7 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
                     found = True
                     break
             if not found:
-                raise KeyError('Missing variable '+nemo_var+' or '+var_alt)
+                raise KeyError('Missing variable '+nemo_var+' or alternative')
         return nemo_var
     for var_check, var_alt in zip(['sowflisf', 'tob', 'sob', 'thetao', 'so'], ['fwfisf', ['thetaob_con', 'tbt'], ['sob_abs', 'sbt'], 'sbs', 'thetao_con', 'so_abs']):
         if nemo_var == var_check:
@@ -326,7 +326,10 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         # Area integral
         dA = ds_nemo[area_name(ds_nemo)]*mask
         if nemo_var == 'pminuse':
-            data_xy = ds_nemo['pr'] + ds_nemo['prsn'] - ds_nemo['evs']
+            if 'soemp_oce' in ds_nemo:
+                data_xy = -1*ds_nemo['soemp_oce']
+            else:
+                data_xy = ds_nemo['pr'] + ds_nemo['prsn'] - ds_nemo['evs']
         else:
             data_xy = ds_nemo[nemo_var]
         data = (data_xy*dA).sum(dim=[x_name, y_name])
