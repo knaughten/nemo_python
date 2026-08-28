@@ -1760,6 +1760,52 @@ def plot_bottom_TS_bias_corr (base_dir='./', in_dirs=['EXP_cx209_bdry/', 'EXP_th
     plt.suptitle(suptitle, fontsize=18)
     finished_plot(fig, fig_name=fig_name, dpi=300)
 
+
+def plot_FW_comparison (fig_name=None):
+
+    ukesm1_dir = '/gws/ssde/j25b/terrafirma/kaight/overshoots/cs495/'
+    ukesm2_dir = '/gws/ssde/j25b/terrafirma/kaight/UKESM2/ea230/'
+    var_names = ['all_massloss', 'all_seaice_meltfreeze',  'all_pminuse', 'all_iceberg_melt','all_runoff']
+    timeseries_files = ['timeseries_T.nc'] + ['timeseries_sfc.nc']*4
+    var_titles = ['Ice shelves', 'Sea ice', 'Precip - evap', 'Icebergs', 'Surface melt']
+    factors = [rho_fw/rho_ice*1e6/sec_per_year] + 4*[1e-3/sec_per_year]
+    colours = [(0.6,0.6,0.6), (0.8,0.47,0.65), (0,0.62,0.45), (0.9,0.62,0), (0,0.45,0.7)]
+    units = 'mSv'
+    smooth = 24
+    num_vars = len(var_names)
+
+    def read_data (in_dir, v):
+        ds = xr.open_dataset(in_dir+timeseries_files[v], decode_times=time_coder)
+        data = moving_average(ds[var_names[v]]*factors[v], smooth)
+        time = time_in_years(data)
+        return xr.DataArray(data.values, coords={'years':time})
+    data_ukesm1 = []
+    data_ukesm2 = []
+    for v in range(num_vars):
+        data_ukesm1.append(read_data(ukesm1_dir, v))
+        data_ukesm2.append(read_data(ukesm2_dir, v))
+
+    fig = plt.figure(figsize=(6,8))
+    axes = plt.subplots(3,1)
+    for v in range(num_vars):
+        data_plot = [data_ukesm1[v], data_ukesm2[v], data_ukesm2[v]-data_ukesm1[v].isel(years=slice(0,data_ukesm2[v].sizes['years']))]
+        for m in range(3):
+            axes[m].plot(data_plot[m].years, data_plot[m], color=colours[v], label=var_titles[v])
+            axes[m].linestyle('dotted')
+    axes[0].set_title('UKESM1.2 piControl (cs495)')
+    axes[0].set_ylabel(units)
+    axes[1].set_title('UKESM2 piControl (ea230)')
+    axes[2].set_title('UKESM2 - UKESM1.2')
+    axes[2].set_xlabel('Years')
+    axes[0].legend()
+    plt.suptitle('Freshwater sources on Antarctic continental shelf')        
+    plt.tight_layout()
+    finished_plot(fig, fig_name=fig_name)
+        
+
+    
+    
+
                 
                     
     

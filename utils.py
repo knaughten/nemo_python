@@ -762,7 +762,7 @@ def find_isolated_ocean_features(ds, bathy_var='bathy_metry', isf_var='isf_draft
 def time_in_years (data, year0=None, return_year0=False):
     if year0 is None:
         year0 = data.time_centered[0].dt.year.item()
-    years = np.array([(date.dt.year.item() - year0) + (date.dt.month.item() - 1)/months_per_year + 0.5 for date in data.time_centered])
+    years = np.array([(date.dt.year.item() - year0) + (date.dt.month.item() - 1)/months_per_year + (date.dt.day.item() - 1)/date.dt.days_in_year for date in data.time_centered])
     if return_year0:
         return years, year0
     else:
