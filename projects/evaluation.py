@@ -1591,10 +1591,16 @@ def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeserie
 
     # Open all the files into lists of xarray Datasets
     ds = []
-    ds_hov = []
+    ds_hov_full = []
     for in_dir in in_dirs:
         ds.append(xr.open_dataset(in_dir+timeseries_file, decode_times=time_coder))
-        ds_hov.append(xr.open_dataset(in_dir+hovmoller_file, decode_times=time_coder).mean('time_centered'))
+        ds_hov_full.append(xr.open_dataset(in_dir+hovmoller_file, decode_times=time_coder))
+    # Take time-mean of Hovmollers over correct period
+    if trim_shortest:
+        num_t = np.amin([ds_tmp.sizes['time_centered'] for ds_tmp in ds_hov])
+        ds_hov = [ds_tmp.isel(time_centered=slice(0,num_t)).mean(dim='time_centered') for ds_tmp in ds_hov_full]
+    else:
+        ds_hov = [ds_tmp.mean(dim='time_centered') for ds_tmp in ds_hov_full]
     ds_obs = xr.open_dataset(obs_file_casts, decode_times=time_coder)
 
     if relative_years:
@@ -1766,7 +1772,6 @@ def plot_FW_comparison (fig_name=None):
     ukesm1_dir = '/gws/ssde/j25b/terrafirma/kaight/overshoots/cs495/'
     ukesm2_dir = '/gws/ssde/j25b/terrafirma/kaight/UKESM2/ea230/'
     var_names = ['all_massloss', 'all_seaice_meltfreeze',  'all_pminuse', 'all_iceberg_melt','all_runoff']
-    timeseries_files = ['timeseries_T.nc'] + ['timeseries_sfc.nc']*4
     var_titles = ['Ice shelves', 'Sea ice', 'Precip - evap', 'Icebergs', 'Surface melt']
     factors = [rho_fw/rho_ice*1e6/sec_per_year] + 4*[1e-3/sec_per_year]
     colours = [(0.6,0.6,0.6), (0.8,0.47,0.65), (0,0.62,0.45), (0.9,0.62,0), (0,0.45,0.7)]
@@ -1775,7 +1780,14 @@ def plot_FW_comparison (fig_name=None):
     num_vars = len(var_names)
 
     def read_data (in_dir, v):
-        ds = xr.open_dataset(in_dir+timeseries_files[v], decode_times=time_coder)
+        if var_names[v] == 'all_massloss':
+            if 'cs495' in in_dir:
+                timeseries_file = 'timeseries.nc'
+            else:
+                timeseries_file = 'timeseries_T.nc'
+        else:
+            timeseries_file = 'timeseries_sfc.nc'
+        ds = xr.open_dataset(in_dir+timeseries_file, decode_times=time_coder)
         data = moving_average(ds[var_names[v]]*factors[v], smooth)
         time = time_in_years(data)
         return xr.DataArray(data.values, coords={'years':time})
@@ -1785,13 +1797,13 @@ def plot_FW_comparison (fig_name=None):
         data_ukesm1.append(read_data(ukesm1_dir, v))
         data_ukesm2.append(read_data(ukesm2_dir, v))
 
-    fig = plt.figure(figsize=(6,8))
-    axes = plt.subplots(3,1)
+    fig, axes = plt.subplots(3, 1, figsize=(6,8))
     for v in range(num_vars):
         data_plot = [data_ukesm1[v], data_ukesm2[v], data_ukesm2[v]-data_ukesm1[v].isel(years=slice(0,data_ukesm2[v].sizes['years']))]
         for m in range(3):
             axes[m].plot(data_plot[m].years, data_plot[m], color=colours[v], label=var_titles[v])
-            axes[m].linestyle('dotted')
+            axes[m].grid(linestyle='dotted')
+    axes[m].axhline(0, color='black')
     axes[0].set_title('UKESM1.2 piControl (cs495)')
     axes[0].set_ylabel(units)
     axes[1].set_title('UKESM2 piControl (ea230)')
@@ -1800,7 +1812,7 @@ def plot_FW_comparison (fig_name=None):
     axes[0].legend()
     plt.suptitle('Freshwater sources on Antarctic continental shelf')        
     plt.tight_layout()
-    finished_plot(fig, fig_name=fig_name)
+    finished_plot(fig, fig_name=fig_name, dpi=300)
         
 
     
