@@ -252,7 +252,7 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
             if not found:
                 raise KeyError('Missing variable '+nemo_var+' or alternative')
         return nemo_var
-    for var_check, var_alt in zip(['sowflisf', 'tob', 'sob', 'thetao', 'so'], ['fwfisf', ['thetaob_con', 'tbt'], ['sob_abs', 'sbt'], 'sbs', 'thetao_con', 'so_abs']):
+    for var_check, var_alt in zip(['sowflisf', 'tob', 'sob', 'thetao', 'so'], ['fwfisf', ['thetaob_con', 'sbt'], ['sob_abs', 'sbs'], 'thetao_con', 'so_abs']):
         if nemo_var == var_check:
             nemo_var = swap_var(nemo_var, var_alt)
             if nemo_var == 'fwfisf':
