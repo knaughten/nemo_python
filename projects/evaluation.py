@@ -619,7 +619,7 @@ def update_timeseries_extended_NEMO_AIS (in_dir, suite_id='AntArc', out_dir='./'
 
 
 # Set up list of timeseries for evaluation deck
-def timeseries_types_evaluation ():
+def timeseries_types_evaluation (massloss=True, gyres=True):
 
     regions = ['all', 'larsen', 'filchner_ronne', 'east_antarctica', 'amery', 'ross', 'west_antarctica', 'dotson_cosgrove']    
     var_names = ['massloss', 'shelf_bwtemp', 'shelf_bwsalt']
@@ -631,8 +631,12 @@ def timeseries_types_evaluation ():
         else:
             var_names_use = var_names
         for var in var_names_use:
+            if not massloss and var == 'massloss':
+                continue
             timeseries_types_T.append(region+'_'+var)
-    timeseries_types_U = ['drake_passage_transport', 'weddell_gyre_transport', 'ross_gyre_transport']
+    timeseries_types_U = ['drake_passage_transport']
+    if gyres:
+        timeseries_types_U += ['weddell_gyre_transport', 'ross_gyre_transport']
     timeseries_types = {'T' : timeseries_types_T,
                         'U' : timeseries_types_U}
     return timeseries_types
@@ -655,7 +659,7 @@ def update_timeseries_evaluation_NEMO_AIS (in_dir, suite_id='AntArc', out_dir='.
 
 
 # As above, for UKESM suites (pass version=1 or 2)
-def update_timeseries_evaluation_UKESM (suite_id, base_dir='./', in_dir=None, out_dir=None, transport=True, version=1):
+def update_timeseries_evaluation_UKESM (suite_id, base_dir='./', in_dir=None, out_dir=None, transport=True, gyres=True, massloss=True, version=1):
 
     if version == 1:
         domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc'
@@ -667,7 +671,7 @@ def update_timeseries_evaluation_UKESM (suite_id, base_dir='./', in_dir=None, ou
         convert_teos10 = False
     else:
         raise Exception('Unknown UKESM version '+str(version))
-    timeseries_types = timeseries_types_evaluation()
+    timeseries_types = timeseries_types_evaluation(massloss=massloss, gyres=gyres)
     if in_dir is None:
         in_dir = base_dir+'/'+suite_id+'/'
     if out_dir is None:
