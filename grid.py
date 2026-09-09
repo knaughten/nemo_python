@@ -217,9 +217,6 @@ def region_mask (region, ds, option='all', return_name=False, lon_bounds=None):
         option = 'shelf'
     elif region in region_edges:
         # Restrict to a specific region of the coast
-        # First temporarily add the land points back in
-        ocean_mask, ds = build_ocean_mask(ds)
-        mask = xr.where(~ocean_mask, True, mask)
         # Select one point each on western and eastern boundaries
         [coord_W, coord_E] = region_edges[region]
         point0_W = closest_point(ds, coord_W)
@@ -294,8 +291,6 @@ def region_mask (region, ds, option='all', return_name=False, lon_bounds=None):
                     cut_mask((j,i), flag_E)
                     mask_region = remove_disconnected(mask, point0_W)
                     mask.data = mask_region
-        # Now take the land points back out
-        mask = xr.where(~ocean_mask, False, mask)
     else:
         raise Exception('Undefined region '+region)
 
