@@ -1337,7 +1337,7 @@ def ukesm_bias_corrections_winds (ukesm_dir='/gws/ssde/j25b/terrafirma/kaight/NE
             rotate = ds_era5[var] - ds_ukesm_interp[var]
             # Take mod 2pi when necessary
             rotate = xr.where(rotate < -np.pi, rotate+2*np.pi, rotate)
-            rotate = xr.where(rotate > 2*np.pi, rotate-2*np.pi, rotate)
+            rotate = xr.where(rotate > np.pi, rotate-2*np.pi, rotate)
             data_correction = rotate
             # Taper towards 0
             taper0 = 0
