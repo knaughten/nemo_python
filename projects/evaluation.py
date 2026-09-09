@@ -1597,7 +1597,7 @@ def plot_timeseries_shelf_compare (in_dirs, labels=None, colours=None, timeserie
         ds_hov_full.append(xr.open_dataset(in_dir+hovmoller_file, decode_times=time_coder))
     # Take time-mean of Hovmollers over correct period
     if trim_shortest:
-        num_t = np.amin([ds_tmp.sizes['time_centered'] for ds_tmp in ds_hov])
+        num_t = np.amin([ds_tmp.sizes['time_centered'] for ds_tmp in ds_hov_full])
         ds_hov = [ds_tmp.isel(time_centered=slice(0,num_t)).mean(dim='time_centered') for ds_tmp in ds_hov_full]
     else:
         ds_hov = [ds_tmp.mean(dim='time_centered') for ds_tmp in ds_hov_full]
