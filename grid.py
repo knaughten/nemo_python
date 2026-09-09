@@ -218,7 +218,7 @@ def region_mask (region, ds, option='all', return_name=False, lon_bounds=None):
     elif region in region_edges:
         # Restrict to a specific region of the coast
         # First temporarily add the land points back in
-        ocean_mask = build_ocean_mask(ds)
+        ocean_mask, ds = build_ocean_mask(ds)
         mask = xr.where(~ocean_mask, True, mask)
         # Select one point each on western and eastern boundaries
         [coord_W, coord_E] = region_edges[region]
