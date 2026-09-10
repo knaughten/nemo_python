@@ -665,14 +665,16 @@ def update_timeseries_evaluation_UKESM (suite_id, base_dir='./', in_dir=None, ou
         if halo is None:
             halo = True
         convert_teos10 = True
-        domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc'
     elif version == 2:
         if halo is None:
             halo = False
-        convert_teos10 = False
-        domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/UKESM2/domain_cfg-bathy_meter_eORCA1_Storkey_spliceBedMachine3_nohalo_OLDLSM2-min0.nc'
+        convert_teos10 = False            
     else:
         raise Exception('Unknown UKESM version '+str(version))
+    if halo:
+        domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc'
+    else:
+        domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/UKESM2/domain_cfg-bathy_meter_eORCA1_Storkey_spliceBedMachine3_nohalo_OLDLSM2-min0.nc'
         
     if timeseries_types is None:
         timeseries_types = timeseries_types_evaluation()
