@@ -659,18 +659,21 @@ def update_timeseries_evaluation_NEMO_AIS (in_dir, suite_id='AntArc', out_dir='.
 
 
 # As above, for UKESM suites (pass version=1 or 2)
-def update_timeseries_evaluation_UKESM (suite_id, base_dir='./', in_dir=None, out_dir=None, timeseries_types=None, transport=True, version=1):
+def update_timeseries_evaluation_UKESM (suite_id, base_dir='./', in_dir=None, out_dir=None, timeseries_types=None, transport=True, version=1, halo=None):
 
     if version == 1:
-        domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc'
-        halo = True
+        if halo is None:
+            halo = True
         convert_teos10 = True
+        domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc'
     elif version == 2:
-        domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/UKESM2/domain_cfg-bathy_meter_eORCA1_Storkey_spliceBedMachine3_nohalo_OLDLSM2-min0.nc'
-        halo = False
+        if halo is None:
+            halo = False
         convert_teos10 = False
+        domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/UKESM2/domain_cfg-bathy_meter_eORCA1_Storkey_spliceBedMachine3_nohalo_OLDLSM2-min0.nc'
     else:
         raise Exception('Unknown UKESM version '+str(version))
+        
     if timeseries_types is None:
         timeseries_types = timeseries_types_evaluation()
     if in_dir is None:

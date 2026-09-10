@@ -2,6 +2,7 @@ import xarray as xr
 import numpy as np
 import os
 import glob
+import warnings
 from .constants import region_points, region_names, rho_fw, rho_ice, sec_per_year, deg_string, gkg_string, drake_passage_lon0, drake_passage_lat_bounds
 from .utils import add_months, closest_point, month_convert, bwsalt_abs, xy_name, area_name, dz_name, latlon_name
 from .grid import single_cavity_mask, region_mask, calc_geometry, make_mask_3d
@@ -227,8 +228,14 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         if ds_nemo.sizes[y_name] < ds_domcfg.sizes[y_name]:
             # The NEMO dataset was trimmed (eg by MOOSE for UKESM) to the southernmost latitudes. Do the same for domain_cfg.
             ds_domcfg = ds_domcfg.isel({y_name:slice(0, ds_nemo.sizes[y_name])})
-        if halo:
+        if ds_domcfg.sizes[x_name] == ds_nemo.sizes[x_name] + 2:
+            # Remove the halo
             ds_domcfg = ds_domcfg.isel({x_name:slice(1,-1)})
+            if not halo:
+                # Didn't expect to have to do this
+                warnings.warn('Warning: unexpected halo on domain_cfg '+domain_cfg)
+        elif halo:
+            warnings.warn('Warning: unexpected lack of halo on domain_cfg '+domain_cfg)                                
         ds_nemo = ds_nemo.assign({'e2u':ds_domcfg['e2u']})
 
     if var.endswith('_thermocline'):
