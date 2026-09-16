@@ -19,7 +19,7 @@ def make_prescribed_melt_mask (region, out_file, prescribed=True, domain_cfg='/g
         print(region+' prognostic melt, everywhere else prescribed')
         mask = xr.where(mask, 0, 1)
     # Plot for a sanity check
-    circumpolar_plot(mask, ds_domcfg, masked=True, contour_ice=True)
+    circumpolar_plot(mask.where(ocean_mask), ds_domcfg, masked=True, contour_ice=True, shade_land=True, title='Prescribed melt mask', lat_max=-63, ctype='plusminus')
     # Save to out_file
     ds_out = xr.Dataset({'mask':mask})
     ds_out.to_netcdf(out_file)
