@@ -121,12 +121,12 @@ def build_shelf_mask (ds):
     lon_name, lat_name = latlon_name(ds)
     mask = ocean_mask*(ds[lat_name] <= shelf_lat)*(bathy <= shelf_depth)
     # Temporarily add in the land points in case of ice shelf overhang slicing the shelf into 2-3 segments (UKESM closed cavity suites near Brunt)
-    mask = xr.where(~ocean_mask, True, mask)
+    mask = xr.where(ocean_mask==0, True, mask)
     # Remove disconnected seamounts
     point0 = closest_point(ds, shelf_point0)
     mask.data = remove_disconnected(mask, point0)
     # Now take the land points back out
-    mask = xr.where(~ocean_mask, False, mask)
+    mask = xr.where((ocean_mask==0), False, mask)
     # Save to the Dataset in case it's useful later
     ds = ds.assign({'shelf_mask':mask})
 
