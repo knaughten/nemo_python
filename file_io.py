@@ -1,6 +1,7 @@
 import netCDF4 as nc
 import numpy as np
 import xarray as xr
+import os
 
 from .constants import cesm2_ensemble_members
 from .utils import select_bottom, convert_to_teos10
@@ -316,3 +317,40 @@ def find_processed_cesm2_file(expt, var_name, ensemble_member, year, freq='daily
         return file_path[0]
     else:
         return file_path
+
+
+# Find all the output filenames matching the given pattern, restricted to the given years (inclusive).
+def find_files_in_range (in_dir, file_head, file_tail, year_range=None):
+
+    # Find all the filenames matching the pattern
+    nemo_files = []
+    for f in os.listdir(in_dir):
+        if f.startswith(file_head) and f.endswith(file_tail):
+            nemo_files.append(in_dir+'/'+f)
+    if len(nemo_files) == 0:
+        raise Exception('No valid files found for '+in_dir+'/'+file_head+'*'+file_tail)
+    # Sort chronologically
+    nemo_files.sort()
+    if year_range is not None:
+        # Loop through files to find the correct range
+        start_t = None
+        end_t = None
+        for t in range(len(nemo_files)):
+            if start_t is None:
+                # Looking for the first file to process
+                if str(year_range[0]) in nemo_files[t]:
+                    start_t = t
+                    print('Starting with '+nemo_files[t])
+            else:
+                # Looking for the first file not to process
+                if str(year_range[1]+1) in nemo_files[t]:
+                    end_t = t
+                    print('Ending just before '+nemo_files[t])
+                    break
+        if start_t is None or end_t is None:
+            raise Exception('Did not find full range of files for '+str(year_range[0])+'-'+str(year_range[1]))
+        nemo_files = nemo_files[start_t:end_t]
+
+    return nemo_files
+    
+            

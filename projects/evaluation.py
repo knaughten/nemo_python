@@ -11,7 +11,7 @@ from ..constants import deg_string, gkg_string, transect_amundsen, months_per_ye
 from ..plots import circumpolar_plot, finished_plot, plot_ts_distribution, plot_transect
 from ..plot_utils import set_colours, latlon_axis, get_extend, round_to_decimals, default_colours
 from ..interpolation import interp_latlon_cf, interp_latlon_cf_blocks, interp_grid
-from ..file_io import read_schmidtko, read_woa, read_dutrieux, read_zhou
+from ..file_io import read_schmidtko, read_woa, read_dutrieux, read_zhou, find_files_in_range
 from ..grid import extract_var_region, transect_coords_from_latlon_waypoints, region_mask, build_shelf_mask
 from ..timeseries import update_simulation_timeseries, overwrite_file
 
@@ -1071,42 +1071,16 @@ def precompute_avg (option='bottom_TS', config='NEMO_AIS', suite_id=None, in_dir
         elif config == 'UKESM2':
             eos = 'teos10'            
 
-    # Find all the output filenames
-    nemo_files = []
-    months_per_file = None
-    for f in os.listdir(in_dir):
-        if f.startswith(file_head) and f.endswith(file_tail):
-            nemo_files.append(in_dir+'/'+f)
-            if months_per_file is None:
-                ds = xr.open_dataset(in_dir+'/'+f, decode_times=time_coder)
-                months_per_file = ds.sizes['time_counter']
-                if months_per_file not in [1, months_per_year]:
-                    raise Exception('Invalid months_per_file = '+str(months_per_file))
-                ds.close()
-    if len(nemo_files) == 0:
-        raise Exception('No valid files found. Check if suite_id='+suite_id+' is correct.')
-    # Sort chronologically
-    nemo_files.sort()
+    # Find all the output filenames        
+    nemo_files = find_files_in_range(in_dir, file_head, file_tail, year_range=year_range)
+    # Find the number of months per file
+    ds = xr.open_dataset(nemo_files[0], decode_times=time_coder)
+    months_per_file = ds.sizes['time_counter']
+    if months_per_file not in [1, months_per_year]:
+        raise Exception('Invalid months_per_file = '+str(months_per_file))
+    ds.close()
     if year_range is not None:
-        # Loop through files to find the correct range
-        start_t = None
-        end_t = None
-        for t in range(len(nemo_files)):
-            if start_t is None:
-                # Looking for the first file to process
-                if str(year_range[0]) in nemo_files[t]:
-                    start_t = t
-                    print('Starting with '+nemo_files[t])
-            else:
-                # Looking for the first file not to process
-                if str(year_range[1]+1) in nemo_files[t]:
-                    end_t = t
-                    print('Ending just before '+nemo_files[t])
-                    break
-        if start_t is None or end_t is None:
-            raise Exception('Did not find full range of files for '+str(year_range[0])+'-'+str(year_range[1]))
-        nemo_files = nemo_files[start_t:end_t]
-        num_t = end_t - start_t
+        num_t = len(nemo_files)
     else:
         # Select the last num_years
         num_t = int(num_years*months_per_year/months_per_file)
