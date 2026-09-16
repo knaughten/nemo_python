@@ -1,6 +1,6 @@
 import xarray as xr
 
-from ..grid import build_ice_mask, region_mask
+from ..grid import build_ice_mask, region_mask, build_ocean_mask
 from ..plots import circumpolar_plot
 
 # Create a mask file (cn_isfcav_spe_mask in namelist) which is 1 in the cells which should have prescribed melting, and 0 in the cells which should have prognostic melting.
