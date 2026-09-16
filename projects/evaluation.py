@@ -634,12 +634,12 @@ def timeseries_types_evaluation (massloss=True, gyres=True):
             if not massloss and var == 'massloss':
                 continue
             timeseries_types_T.append(region+'_'+var)
-    timeseries_types_T.append('hice_max')
     timeseries_types_U = ['drake_passage_transport']
     if gyres:
         timeseries_types_U += ['weddell_gyre_transport', 'ross_gyre_transport']
     timeseries_types = {'T' : timeseries_types_T,
-                        'U' : timeseries_types_U}
+                        'U' : timeseries_types_U,
+                        'icemod' : ['hice_max']}
     return timeseries_types
 
 
