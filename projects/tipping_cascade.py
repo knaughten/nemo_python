@@ -18,6 +18,8 @@ def make_prescribed_melt_mask (region, out_file, prescribed=True, domain_cfg='/g
     else:
         print(region+' prognostic melt, everywhere else prescribed')
         mask = xr.where(mask, 0, 1)
+    # Fill land mask with prescribed as this might save a bit of time in the loop at runtime
+    mask = xr.where(ocean_mask==0, 1, mask)
     # Plot for a sanity check
     circumpolar_plot(mask.where(ocean_mask), ds_domcfg, masked=True, contour_ice=True, shade_land=True, title='Prescribed melt mask', lat_max=-63, ctype='plusminus')
     # Save to out_file
