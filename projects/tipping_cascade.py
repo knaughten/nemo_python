@@ -11,15 +11,13 @@ def make_prescribed_melt_mask (region, out_file, prescribed=True, domain_cfg='/g
     # Build the region mask from domain_cfg
     ds_domcfg = xr.open_dataset(domain_cfg).squeeze()
     mask, ds_domcfg = region_mask(region, ds_domcfg, option='cavity')
-    ocean_mask = build_ocean_mask(ds_domcfg)
+    ocean_mask, ds_domcfg = build_ocean_mask(ds_domcfg)
     if prescribed:
         print(region+' prescribed melt, everywhere else prognostic')
         mask = xr.where(mask, 1, 0)
     else:
         print(region+' prognostic melt, everywhere else prescribed')
         mask = xr.where(mask, 0, 1)
-    # Fill the land mask with 1s (prescribed to 0) as this might be slightly faster to run
-    mask = xr.where(ocean_mask, mask, 1)
     # Plot for a sanity check
     circumpolar_plot(mask, ds_domcfg, masked=True, contour_ice=True)
     # Save to out_file
