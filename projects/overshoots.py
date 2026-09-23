@@ -1,5 +1,5 @@
 
-# Analysing TerraFIRMA overshoot simulations with UKESM1.1-ice (NEMO 3.6)
+# Analysing TerraFIRMA overshoot simulations with UKESM1.2 (NEMO 3.6)
 
 import xarray as xr
 import netCDF4 as nc
@@ -5460,7 +5460,7 @@ def precompute_cdw_core_timeseries (suite, base_dir='./'):
 
     # Lon-lat formatting strings for each point to calculate
     point_strings = ['160W_75S', '30W_73S']
-    var_names = ['temp', 'salt', 'depth']
+    var_names = ['temp', 'salt'] #, 'depth']
     timeseries_types = []
     for var in var_names:
         for point in point_strings:
