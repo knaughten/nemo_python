@@ -1229,9 +1229,12 @@ def tipping_stats (base_dir='./'):
     gs = plt.GridSpec(2,1)
     gs.update(left=0.25, right=0.95, bottom=0.1, top=0.92, hspace=0.4)
     for r in range(len(regions)):
+        print(regions[r])
         ax = plt.subplot(gs[r,0])
         # Violin plots: warming level at time of tipping (red), recovery (blue)
         violin_data = [np.array(all_temp_tip[r])+temp_correction, np.array(all_temp_recover[r])+temp_correction]
+        print('Tipping points: n='+str(len(all_temp_tip[r])))
+        print('Recovery points: n='+str(len(all_temp_recover[r])))
         y_pos = [3, 2]
         colours = ['Crimson', 'DodgerBlue']
         violins = ax.violinplot(violin_data, y_pos, vert=False, showextrema=False, showmeans=True)
@@ -1252,7 +1255,9 @@ def tipping_stats (base_dir='./'):
         # Bottom row: peak warming in each trajectory, plotted in red (tips) or grey (doesn't tip)
         # Start with the grey, to make sure the red is visible where they overlap
         ax.plot(max_warming[~all_tips[r]]+temp_correction, np.ones(np.count_nonzero(~all_tips[r])), 'o', markersize=4, color='DarkGrey')
+        print('Non-tipped trajectories: n='+str(len(max_warming[~all_tips[r]])))
         ax.plot(max_warming[all_tips[r]]+temp_correction, np.ones(np.count_nonzero(all_tips[r])), 'o', markersize=4, color='Crimson')
+        print('Tipped trajectories: n='+str(len(max_warming[all_tips[r]])))
         # Plot bounds on threshold: vertical dashed lines with labels
         ax.plot(threshold_bounds[r][0]*np.ones(2), [0, 0.9], color='black', linestyle='dashed', linewidth=1)
         plt.text(threshold_bounds[r][0]-0.05, 0.5, 'never tips', ha='right', va='center', fontsize=9)
