@@ -3045,9 +3045,9 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
         for m in range(num_snapshots):
             ax = plt.subplot(gs[n,m])
             # Plot the data
-            img = ax.pcolormesh(x_edges, y_edges, data_plot[n][m], cmap=cmap, vmin=vmin, vmax=vmax)
+            img = ax.pcolormesh(x_edges, y_edges, data_plot[n][m], cmap=cmap, vmin=vmin, vmax=vmax, rasterized=True)
             # Plot the ice speed in white to black
-            img_ice = ax.pcolormesh(x_ice, y_ice, ice_speed_plot[n][m].squeeze(), cmap='Greys', norm=cl.PowerNorm(0.5, vmax=vmax_speed))
+            img_ice = ax.pcolormesh(x_ice, y_ice, ice_speed_plot[n][m].squeeze(), cmap='Greys', norm=cl.PowerNorm(0.5, vmax=vmax_speed), rasterized=True)
             # Contour initial GL
             ax.contour(x, y, omask_GL[n], levels=[0.5], colors=(colour_GL), linewidths=0.5)
             # Contour ice front
@@ -3082,7 +3082,7 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
     # First shade catchments
     for mask, colour in zip(catchment_masks, catchment_colours):
         cmap = set_colours(mask, ctype=colour)[0]
-        ax2.pcolormesh(ds_cat['x'], ds_cat['y'], mask.where(mask==1), cmap=cmap)
+        ax2.pcolormesh(ds_cat['x'], ds_cat['y'], mask.where(mask==1), cmap=cmap, rasterized=True)
     # Overlay with open ocean in light blue, cavities in grey
     circumpolar_plot(ocean_mask0.where(ocean_mask0), ds_grid, ax=ax2, make_cbar=False, ctype='LightSkyBlue', lat_max=-66, shade_land=False)
     circumpolar_plot(ice_mask0.where(ice_mask0), ds_grid, ax=ax2, make_cbar=False, ctype='DarkGrey', lat_max=-66, shade_land=False)
@@ -3107,7 +3107,7 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
     # Manual legend on bottom right
     handles = []
     for colour, label in zip([colour_GL, colour_icefront, colour_slope], ['Initial grounding\nline', 'Ice front', str(depth0)+'m isobath']):
-        handles.append(Line2D([0], [0], color=colour, label=label, linestyle='-', linewidth=0.5))
+        handles.append(Line2D([0], [0], color=colour, label=label, linestyle='-', linewidth=1))
     leg = ax.legend(handles=handles, loc='lower center', bbox_to_anchor=(0.5, -0.7), fontsize=10)
     leg.get_frame().set_facecolor((0.8, 0.8, 0.8))
     finished_plot(fig, fig_name='figures/map_snapshots_'+var_name+'.png', dpi=300)
@@ -5127,8 +5127,10 @@ def ismr_timeseries_regions (base_dir='./'):
         data = moving_average(ds[regions[n]+'_'+var], smooth)
         years = time_in_years(data, year0=year0)
         ax.plot(years, data, color=colour, linewidth=1.5)
-        ax.axvline(ross_tip, color='DarkGreen', linestyle='dashed', linewidth=1)
-        ax.axvline(fris_tip, color='Purple', linestyle='dashed', linewidth=1)
+        for year, label in zip([ross_tip, fris_tip], ['Ross tips', 'FRIS tips']):
+            ax.axvline(year, color='black', linestyle='dashed', linewidth=1)
+            if n == 0:
+                plt.text(year+3, 125, label, ha='left', va='top', rotation=-90, fontsize=8)
         if n == num_regions-1:
             title = 'Total'
             fontweight = 'bold'
