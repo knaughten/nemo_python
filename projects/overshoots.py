@@ -1281,7 +1281,7 @@ def tipping_stats (base_dir='./'):
     '''if any([x is not None for x in all_recovery_floor]):
         handles.append(Line2D([0], [0], marker='o', markersize=4, color='white', markeredgecolor='DodgerBlue', label='not yet recovered', linestyle=''))'''
     plt.legend(handles=handles, loc='center left', bbox_to_anchor=(-0.35, 1.2), fontsize=9)
-    finished_plot(fig, fig_name='figures/tipping_stats.png', dpi=300)
+    finished_plot(fig, fig_name='figures/tipping_stats.pdf', dpi=300)
     
 
 # Plot: (1) bottom temperature on continental shelf and in cavities, and (2) ice shelf basal mass loss as a function of global warming level, for 2 different regions, showing ramp-up, stabilise, and ramp-down in different colours
@@ -1346,7 +1346,7 @@ def plot_bwtemp_massloss_by_gw_panels (base_dir='./', static_ice=False):
     fig_name = 'figures/temp_massloss_by_gw_panels'
     if static_ice:
         fig_name += '_static_ice'
-    fig_name += '.png'
+    fig_name += '.pdf'
     finished_plot(fig, fig_name=fig_name, dpi=300)
 
 
@@ -1521,7 +1521,7 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
                     cax = fig.add_axes([0.02+0.45*n, 0.56-0.5*v, 0.02, 0.3])
                     plt.colorbar(img, cax=cax, extend='both')
             plt.text(0.5, 0.99-0.495*v, var_titles[v], fontsize=16, ha='center', va='top', transform=fig.transFigure)
-        finished_plot(fig, fig_name='figures/bottom_TS_bias.png', dpi=300)
+        finished_plot(fig, fig_name='figures/bottom_TS_bias.pdf', dpi=300)
 
     # Save bias to NetCDF file
     data_diff = (ramp_up_bwsalt - obs_bwsalt).squeeze()
@@ -1642,7 +1642,7 @@ def warming_implied_by_salinity_bias (salt_bias=None, base_dir='./'):
     ax.set_xlabel('Simulated global warming ('+deg_string+'C)')
     ax.set_ylabel('Bottom salinity on Ross and Filchner-Ronne shelves (psu)')
     ax.set_title('Calculation of temperature adjustment', fontsize=14)
-    finished_plot(fig, fig_name='figures/bwsalt_warming_regression.png', dpi=300)
+    finished_plot(fig, fig_name='figures/bwsalt_warming_regression.pdf', dpi=300)
 
 
 # Helper function to check for normal distribution (null hypothesis is normal)
@@ -1820,7 +1820,7 @@ def plot_ross_fris_by_bwsalt (base_dir='./', compare_jacobs=False):
     for m in range(len(colours)):
         handles.append(Line2D([0], [0], marker='o', markersize=5, markerfacecolor=colours[m], markeredgecolor='black', label=labels[m], linestyle=''))
     plt.legend(handles=handles, loc='lower right', bbox_to_anchor=(0.95, -0.27))
-    finished_plot(fig, fig_name='figures/ross_fris_by_bwsalt.png', dpi=300)
+    finished_plot(fig, fig_name='figures/ross_fris_by_bwsalt.pdf', dpi=300)
 
 
 # Plot Amundsen Sea 500m temperature, barotropic velocity, and zero contour of barotropic streamfunction, averaged over 3 scenarios: (1) piControl, (2) 1.5K stabilisation, (3) 6K stabilisation.
@@ -2485,7 +2485,7 @@ def plot_FW_timeseries (base_dir='./'):
     ax2.set_ylabel('%')
     ax1.set_title('Antarctic freshwater fluxes (anomalies from preindustrial)', fontsize=14)
     plt.text(0.5, 0.01, trajectory_title(suite_string), ha='center', va='bottom', transform=fig.transFigure, fontsize=12)
-    finished_plot(fig, fig_name='figures/FW_timeseries.png', dpi=300)
+    finished_plot(fig, fig_name='figures/FW_timeseries.pdf', dpi=300)
 
 
 # Plot shelf bwsalt and its time-derivative for the Ross and FRIS regions in untipped trajectories, with the given level of smoothing (in years).
@@ -3110,7 +3110,7 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
         handles.append(Line2D([0], [0], color=colour, label=label, linestyle='-', linewidth=1))
     leg = ax.legend(handles=handles, loc='lower center', bbox_to_anchor=(0.5, -0.7), fontsize=10)
     leg.get_frame().set_facecolor((0.8, 0.8, 0.8))
-    finished_plot(fig, fig_name='figures/map_snapshots_'+var_name+'.png', dpi=300)
+    finished_plot(fig, fig_name='figures/map_snapshots_'+var_name+'.pdf', dpi=300)
 
 
 def plot_SLR_timeseries (base_dir='./', draft=False):
@@ -3256,7 +3256,7 @@ def plot_SLR_timeseries (base_dir='./', draft=False):
             ax.set_title(prefixes[n]+region_names[regions[n]]+' catchment', fontsize=12)
             plt.suptitle('Sea level contribution', fontsize=14)
             ax.set_ylabel('cm')
-            fig_name = 'figures/SLR_timeseries.png'
+            fig_name = 'figures/SLR_timeseries.pdf'
     # Manual legend
     handles = []
     for m in range(len(colours)):
@@ -4074,7 +4074,7 @@ def temp_correction_uncertainty (base_dir='./', bias_file='bwsalt_bias.nc', slop
     ax.set_title('c) Distribution of temperature adjustment values', fontsize=14)
     ax.set_xlabel(deg_string+'C', fontsize=12)
     ax.set_ylabel('# grid cells', fontsize=12)
-    finished_plot(fig, fig_name='figures/temp_correction_uncertainty.png', dpi=300)
+    finished_plot(fig, fig_name='figures/temp_correction_uncertainty.pdf', dpi=300)
 
     # Print central value of top 10 bins sorted by frequency; from this can determine two peaks of distribution
     print('Top 10 bins:')
@@ -4235,7 +4235,7 @@ def case_study_timeseries (base_dir='./'):
         ax.set_title(var_titles[v], fontsize=13)
         plt.text(0.94, -0.15, 'years', fontsize=10, transform=ax.transAxes)
     ax.legend(loc='lower center', bbox_to_anchor=(0.5,-1))
-    finished_plot(fig, fig_name='figures/case_study_timeseries.png', dpi=300)
+    finished_plot(fig, fig_name='figures/case_study_timeseries.pdf', dpi=300)
 
 
 def plot_ross_special_cases (base_dir='./'):
@@ -4498,7 +4498,7 @@ def plot_fw_by_longitude (base_dir='./'):
         if t==0:
             plt.text(fix_lon_range(68, max_lon=break_lon), -0.38, 'coastal current', ha='center', va='bottom')
     plt.suptitle('Freshwater fluxes during ramp-up (anomalies from preindustrial)', fontsize=16)
-    finished_plot(fig, fig_name='figures/fw_by_longitude.png', dpi=300)
+    finished_plot(fig, fig_name='figures/fw_by_longitude.pdf', dpi=300)
 
 
 # Calculate more timeseries for salinity (surface, bottom, and depth-mean) for 15-degree longitude regions along the EAIS continental shelf, as well as the FRIS continental shelf.
@@ -4895,7 +4895,7 @@ def plot_timeseries_fixed_cases (base_dir='./'):
             ax.set_xlim([-25, end_year])
             ax.set_ylim(var_bounds[v])
     ax.legend(loc='lower center', bbox_to_anchor=(-0.13, -0.73), fontsize=12)
-    finished_plot(fig, fig_name='figures/timeseries_fixed_cases.png', dpi=300)
+    finished_plot(fig, fig_name='figures/timeseries_fixed_cases.pdf', dpi=300)
 
 
 # Maps of bottom temperature or salinity in and around each cavity for the three simulations above, for the given years relative to the tipping time.
@@ -4990,7 +4990,7 @@ def map_snapshots_fixed_cases (base_dir='./', ross_years=40, fris_years=20, fig_
     cbar = plt.colorbar(img, cax=cax, orientation='horizontal', extend='both')
     plt.text(0.5, 0.01, var_title, fontsize=13, ha='center', va='bottom', transform=fig.transFigure)
     if fig_name is None:
-        fig_name = 'figures/map_snapshots_fixed_cases_'+var+'.png'
+        fig_name = 'figures/map_snapshots_fixed_cases_'+var+'.pdf'
     finished_plot(fig, fig_name=fig_name, dpi=300)
 
 
@@ -5147,7 +5147,7 @@ def ismr_timeseries_regions (base_dir='./'):
             ax.set_xlabel('Years', fontsize=12)
         ax.set_xlim([years[0], years[-1]])
         plt.suptitle('Ice shelf basal mass loss during ramp-up', fontsize=16)
-    finished_plot(fig, fig_name='figures/ismr_timeseries_regions.png', dpi=300)
+    finished_plot(fig, fig_name='figures/ismr_timeseries_regions.pdf', dpi=300)
 
 
 def plot_aice_vs_obs (base_dir='./'):
