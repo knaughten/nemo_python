@@ -2865,6 +2865,8 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
         colour_GL = 'blue'
     else:
         raise Exception('Invalid variable '+var_name)
+    colour_icefront = 'white'
+    colour_slope = 'DarkMagenta'
 
     # Construct suite titles describing each trajectory
     suite_titles = [trajectory_title(suites) for suites in suite_strings]
@@ -3049,9 +3051,9 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
             # Contour initial GL
             ax.contour(x, y, omask_GL[n], levels=[0.5], colors=(colour_GL), linewidths=0.5)
             # Contour ice front
-            ax.contour(x, y, imask_front[n], levels=[0.5], colors=('white'), linewidths=0.5)
+            ax.contour(x, y, imask_front[n], levels=[0.5], colors=(colour_icefront), linewidths=0.5)
             # Contour shelf break
-            ax.contour(x, y, bathy0, levels=[depth0], colors=('DarkMagenta'), linewidths=0.5)
+            ax.contour(x, y, bathy0, levels=[depth0], colors=(colour_slope), linewidths=0.5)
             ax.set_xlim(x_bounds[n])
             ax.set_ylim(y_bounds[n])
             ax.set_xticks([])
@@ -3066,16 +3068,16 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
                 plt.text(xt, yt, labels[n], ha='center', va='center', fontsize=9)                    
         plt.text(0.5, 0.99-0.395*n, subfig[n]+region_names[regions[n]]+' Ice Shelf', ha='center', va='top', fontsize=14, transform=fig.transFigure)
         plt.text(0.5, 0.96-0.395*n, suite_titles[n], ha='center', va='top', fontsize=10, transform=fig.transFigure)
-    cax1 = fig.add_axes([0.41, 0.17, 0.45, 0.02])
+    cax1 = fig.add_axes([0.275, 0.17, 0.45, 0.02])
     cbar1 = plt.colorbar(img, cax=cax1, orientation='horizontal', extend='both')
     cbar1.ax.tick_params(labelsize=8)
-    plt.text(0.635, 0.12, var_title+' ('+units+')', ha='center', va='center', fontsize=10, transform=fig.transFigure)
-    cax2 = fig.add_axes([0.41, 0.07, 0.45, 0.02])
+    plt.text(0.5, 0.12, var_title+' ('+units+')', ha='center', va='center', fontsize=10, transform=fig.transFigure)
+    cax2 = fig.add_axes([0.275, 0.07, 0.45, 0.02])
     cbar2 = plt.colorbar(img_ice, cax=cax2, orientation='horizontal', extend='max')
     cbar2.ax.tick_params(labelsize=8)
-    plt.text(0.635, 0.02, 'Ice sheet speed (m/y)', ha='center', va='center', fontsize=10, transform=fig.transFigure)
+    plt.text(0.5, 0.02, 'Ice sheet speed (m/y)', ha='center', va='center', fontsize=10, transform=fig.transFigure)
     # Inset map showing regions
-    ax2 = fig.add_axes([0.16, 0.01, 0.2, 0.2])
+    ax2 = fig.add_axes([0.04, 0.01, 0.2, 0.2])
     ax2.axis('equal')
     # First shade catchments
     for mask, colour in zip(catchment_masks, catchment_colours):
@@ -3102,6 +3104,12 @@ def map_snapshots (var_name='bwtemp', base_dir='./'):
             ypos = (ymin+3*ymax)/4
             label = 'b'
         plt.text(xpos, ypos, label, ha='center', va='center', fontsize=10)
+    # Manual legend on bottom right
+    handles = []
+    for colour, label in zip([colour_GL, colour_icefront, colour_slope], ['Initial grounding\nline', 'Ice front', str(depth0)+'m isobath']):
+        handles.append(Line2D([0], [0], color=colour, label=label, linestyle='-', linewidth=0.5))
+    leg = ax.legend(handles=handles, loc='lower center', bbox_to_anchor=(0.5, -0.7), fontsize=10)
+    leg.get_frame().set_facecolor((0.8, 0.8, 0.8))
     finished_plot(fig, fig_name='figures/map_snapshots_'+var_name+'.png', dpi=300)
 
 
