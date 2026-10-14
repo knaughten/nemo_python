@@ -1560,6 +1560,7 @@ def warming_implied_by_salinity_bias (salt_bias=None, base_dir='./'):
     p0 = 0.05
     regions = ['ross', 'filchner_ronne']
     sample_file = base_dir+'/time_averaged/piControl_grid-T.nc'
+    colours = ['blue', 'green', 'purple', 'pink']
 
     if salt_bias is None:
         salt_bias = calc_salinity_bias(base_dir=base_dir)
@@ -1629,7 +1630,7 @@ def warming_implied_by_salinity_bias (salt_bias=None, base_dir='./'):
     fig, ax = plt.subplots()
     for n in range(num_ens):
         warming = all_warming[n]
-        ax.plot(warming, all_bwsalt[n], '-', linewidth=1.5)
+        ax.plot(warming, all_bwsalt[n], '-', linewidth=1.5, color=colours[n])
         # Add regression line
         x_vals = np.array([warming.min(), warming.max()])
         y_vals = slopes[n]*x_vals + intercepts[n]
@@ -4852,7 +4853,7 @@ def plot_timeseries_fixed_cases (base_dir='./'):
     var_names = ['bwtemp', 'massloss']
     regions = ['ross', 'filchner_ronne']
     var_titles = ['Bottom temperature,\nshelf and cavity ('+deg_string+'C)', 'Basal melting (Gt/y)']
-    colours = ['Crimson', 'DarkMagenta', 'DarkCyan']
+    colours = ['Crimson', 'DarkMagenta', 'DarkTurquoise']
     panel_labels = ['a)', 'b)', 'c)', 'd)']
     num_regions = len(regions)
     num_vars = len(var_names)
@@ -5046,7 +5047,7 @@ def ismr_obs_bar_chart (base_dir='./'):
     bar_width = 0.25
     capsize = 2
     err_colour = (0.2, 0.2, 0.2)
-    colours = ['IndianRed', 'CornflowerBlue', 'DarkSeaGreen']
+    colours = ['IndianRed', 'CornflowerBlue', 'Plum']
     labels = ['UKESM', 'Adusumilli', 'Rignot']
     fig = plt.figure(figsize=(7,6))
     gs = plt.GridSpec(1,1)
