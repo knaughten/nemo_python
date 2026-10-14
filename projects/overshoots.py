@@ -1560,7 +1560,7 @@ def warming_implied_by_salinity_bias (salt_bias=None, base_dir='./'):
     p0 = 0.05
     regions = ['ross', 'filchner_ronne']
     sample_file = base_dir+'/time_averaged/piControl_grid-T.nc'
-    colours = ['blue', 'green', 'purple', 'pink']
+    colours = ['DodgerBlue', 'MediumSeaGreen', 'MediumOrchid', 'LightSalmon']
 
     if salt_bias is None:
         salt_bias = calc_salinity_bias(base_dir=base_dir)
