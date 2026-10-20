@@ -33,6 +33,7 @@ omegaEarth = 7.2921e-5 #rad/s
 vaf_to_gmslr = -0.918e-12/361.8
 # Degrees formatted nicely in a string
 deg_string = r'$^{\circ}$'
+delta_string = r'$\Delta$'
 # 10^-3 formatted nicely in a string (for absolute salinity)
 gkg_string = r'10$^{-3}$'
 

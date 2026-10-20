@@ -24,7 +24,7 @@ from ..plots import timeseries_by_region, timeseries_by_expt, finished_plot, tim
 from ..plot_utils import truncate_colourmap, lon_label, latlon_axis, set_colours, latlon_axes
 from ..utils import moving_average, add_months, rotate_vector, polar_stereo, convert_ismr, bwsalt_abs, bwtemp_con, fix_lon_range, area_name, time_in_years
 from ..grid import region_mask, calc_geometry, build_ice_mask, build_shelf_mask
-from ..constants import line_colours, region_names, deg_string, gkg_string, months_per_year, rho_fw, rho_ice, sec_per_year, vaf_to_gmslr, adusumilli_melt, adusumilli_std, rignot_melt, rignot_std
+from ..constants import line_colours, region_names, deg_string, gkg_string, months_per_year, rho_fw, rho_ice, sec_per_year, vaf_to_gmslr, adusumilli_melt, adusumilli_std, rignot_melt, rignot_std, delta_string
 from ..file_io import read_schmidtko, read_woa, read_zhou_bottom_climatology
 from ..interpolation import interp_latlon_cf, interp_grid
 from ..diagnostics import barotropic_streamfunction
@@ -1489,7 +1489,8 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
         ice_mask = build_ice_mask(ds)[0]
         ukesm_data = [ramp_up_bwtemp, ramp_up_bwsalt]
         obs_data = [obs_bwtemp, obs_bwsalt]
-        var_titles = ['Bottom temperature ('+deg_string+'C)', 'Bottom salinity (psu)']
+        var_titles = ['Bottom temperature', 'Bottom salinity']
+        var_units = [deg_string+'C', 'psu']
         prefixes = ['a) ', 'b) ', 'c) ', 'd) ', 'e) ', 'f) ']
         vmin = [-2.5, 34.1]
         vmax = [3, 34.85]
@@ -1504,7 +1505,7 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
             titles = ['UKESM', 'Observations', 'Model bias']
             vmin_plot = [vmin[v], vmin[v], -1*vdiff[v]]
             vmax_plot = [vmax[v], vmax[v], vdiff[v]]
-            ctype = ['RdBu_r', 'RdBu_r', 'plusminus']
+            ctype = ['viridis', 'viridis', 'plusminus']
             for n in range(3):
                 ax = plt.subplot(gs[v,n])
                 ax.axis('equal')
@@ -1520,6 +1521,14 @@ def calc_salinity_bias (base_dir='./', eos='eos80', plot=False, out_file='bwsalt
                 if n != 1:
                     cax = fig.add_axes([0.02+0.45*n, 0.56-0.5*v, 0.02, 0.3])
                     plt.colorbar(img, cax=cax, extend='both')
+                    if n == 0:
+                        units = var_units[v]
+                    else:
+                        if v == 0:
+                            units = delta_string + var_units[v]
+                        else:
+                            units = delta_string + ' ' + var_units[v]
+                    plt.text(0.03+0.45*n, 0.87-0.5*v, units, fontsize=10, ha='center', va='bottom', transform=fig.transFigure)
             plt.text(0.5, 0.99-0.495*v, var_titles[v], fontsize=16, ha='center', va='top', transform=fig.transFigure)
         finished_plot(fig, fig_name='figures/bottom_TS_bias.pdf', dpi=300)
 
@@ -5193,17 +5202,18 @@ def plot_aice_vs_obs (base_dir='./'):
     print('Interpolating to model grid')
     ds_obs_interp = interp_latlon_cf(ds_obs_minmax, ds, periodic_src=True, method='bilinear').where(ds['tmask'])
 
-    fig = plt.figure(figsize=(7,4.5))
+    fig = plt.figure(figsize=(7,4.7))
     gs = plt.GridSpec(1,2)
-    gs.update(left=0.05, right=0.95, bottom=0.15, top=0.85, wspace=0.05)
+    gs.update(left=0.05, right=0.95, bottom=0.18, top=0.85, wspace=0.05)
     for n, model, obs, title in zip(range(2), [ramp_up_aice_min, ramp_up_aice_max], [ds_obs_interp['aice_min'], ds_obs_interp['aice_max']], ['February', 'September']):
         ax = plt.subplot(gs[0,n])
         ax.axis('equal')
         # Plot modelled aice
         img = circumpolar_plot(model, ds, ax=ax, cice=True, masked=True, shade_land=False, make_cbar=False, title=title, titlesize=14, vmin=0, vmax=1)
         if n == 1:
-            cax = fig.add_axes([0.3, 0.06, 0.4, 0.03])
+            cax = fig.add_axes([0.3, 0.1, 0.4, 0.03])
             plt.colorbar(img, cax=cax, orientation='horizontal')
+            plt.text(0.5, 0.01, 'ice area fraction', fontsize=10, ha='center', va='bottom', transform=fig.transFigure)
         # Contour observed ice edge in white
         x, y = polar_stereo(ds['TLON'], ds['TLAT'])
         ax.contour(x, y, obs, levels=[aice0], colors=('white'), linewidths=1, linestyles='solid')
@@ -5241,7 +5251,8 @@ def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
     mw_salt = 34.5
     obs_start = 2000
     var_names = ['depth_tmax', 'tmax', 'salt_tmax']
-    var_titles = ['a) Depth of subsurface temperature maximum (m)', 'b) Temperature at that depth ('+deg_string+'C)', 'c) Salinity at that depth (psu)']
+    var_titles = ['a) Depth of subsurface temperature maximum', 'b) Temperature at that depth', 'c) Salinity at that depth']
+    var_units = ['m', deg_string+'C', 'psu']
     vmin = [z0, 0.25, mw_salt]
     vmax = [1000, mw_temp, 34.73]
     vdiff = [500, 1.5, 0.1]
@@ -5356,6 +5367,14 @@ def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
             if m != 1:
                 cax = fig.add_axes([0.01+0.31*m, 0.7-0.313*v, 0.015, 0.16])
                 plt.colorbar(img, cax=cax, extend='both')
+                if m == 0:
+                    units = var_units[v]
+                elif m == 2:
+                    if v == 1:
+                        units = delta_string + var_units[v]
+                    else:
+                        units = delta_string + ' ' + var_units[v]
+                plt.text(0.0175+0.31*m, 0.865-0.313*v, units, fontsize=10, ha='center', va='bottom', transform=fig.transFigure)
             if v == 0 and m == 2:
                 # Add star markers at each point shown in timeseries
                 for n in range(len(regions)):
@@ -5376,6 +5395,7 @@ def plot_cdw_core_vs_obs (base_dir='./', TS_file='ramp_up_TS_obs_period.nc'):
                 ax.set_xlabel('Years')
             else:
                 ax.set_xticklabels([])
+            plt.text(0.98, (0.98 if v==2 else 0.02), var_units[v], fontsize=10, ha='right', va=('top' if v==2 else 'bottom'), transform=ax.transAxes)
             ax.axvline(tip_years[n], color=colours[n], linestyle='dashed', linewidth=1)            
             ax.set_title('Ramp-up', fontsize=12.5)
             # Shrink the plot a bit to match the maps
