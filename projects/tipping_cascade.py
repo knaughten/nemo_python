@@ -37,7 +37,7 @@ def make_prescribed_melt_file (sim_dir, mask_file, out_file, year_range=None):
     var_name = 'fwfisf'
 
     nemo_files = find_files_in_range(sim_dir, file_head, file_tail, year_range=year_range)
-    print('Reading files from '+nemo_files[0]+' to '+nemo_files[1]+' inclusive')
+    print('Reading files from '+nemo_files[0]+' to '+nemo_files[-1]+' inclusive')
     # Open all the files at once
     ds = xr.open_mfdataset(nemo_files)
     # Select only the variable we want plus time index
