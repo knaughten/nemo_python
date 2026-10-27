@@ -41,18 +41,18 @@ def make_prescribed_melt_file (sim_dir, mask_file, out_file, year_range=None):
     # Open all the files at once
     ds = xr.open_mfdataset(nemo_files)
     # Select only the variable we want plus time index
-    ds = ds[var_name, 'time_centered']
+    ds = ds[[var_name, 'time_centered']]
     # Now should be reasonable to load the whole thing into memory
     ds.load()
     # Calculate monthly climatology
-    ds_clim = ds.groupby('time_centered.month')
+    ds_clim = ds.groupby('time_centered.month').mean(dim='time_counter')
 
     if ds_clim[var_name].mean() < 0:
         warnings.warn(var_name+' is net negative. Check the sign convention is what you expect; multiplying by -1.')
         ds_clim[var_name] = -1*ds_clim[var_name]
 
     # Now apply the prescribed mask
-    ds_mask = xr.open_dataset(mask_file)
+    ds_mask = xr.open_dataset(mask_file).rename({'x':'x_grid_T', 'y':'y_grid_T'})
     ds_clim[var_name] = xr.where(ds_mask['mask']==1, ds_clim[var_name], 0)
 
     print('Writing '+out_file)
