@@ -203,7 +203,14 @@ def region_mask (region, ds, option='all', return_name=False, lon_bounds=None):
         lon_name, lat_name = latlon_name(ds)
         lon = ds[lon_name]
         lat = ds[lat_name]
-        mask = xr.where((lon >= xmin)*(lon <= xmax)*(lat >= ymin)*(lat <= ymax), mask, 0)
+        if xmin is not None:
+            mask = xr.where(lon >= xmin, mask, 0)
+        if xmax is not None:
+            mask = xr.where(lon <= xmax, mask, 0)
+        if ymin is not None:
+            mask = xr.where(lat >= ymin, mask, 0)
+        if ymax is not None:
+            mask = xr.where(lat <= ymax, mask, 0)
         if region in region_bathy_bounds:
             # Also restrict based on isobaths
             bathy = calc_geometry(ds)[0]
