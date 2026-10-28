@@ -689,6 +689,15 @@ def update_timeseries_evaluation_UKESM (suite_id, base_dir='./', in_dir=None, ou
         gtypes += ['U']
     for gtype in gtypes:
         update_simulation_timeseries(suite_id, timeseries_types[gtype], timeseries_file='timeseries_'+gtype+'.nc', timeseries_dir=out_dir, sim_dir=in_dir, halo=halo, gtype=gtype, domain_cfg=domain_cfg, convert_teos10=convert_teos10)
+
+
+# Different set of timeseries for Southern Ocean tuning project (Orca Team)
+def update_timeseries_orca (suite_id, base_dir='./', in_dir=None, out_dir=None, version=2):
+
+    timeseries_types = {'T': ['SO_temp', 'all_shelf_bwtemp', 'all_shelf_bwsalt'],
+                        'U': ['drake_passage_transport']}
+
+    update_timeseries_evaluation_UKESM(suite_id, base_dir=base_dir, in_dir=in_dir, out_dir=out_dir, timeseries_types=timeseries_types, version=version)
         
 
 # Bug with Dotson-Cosgrove mask definition means we need to redo those timeseries variables only
