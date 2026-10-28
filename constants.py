@@ -51,7 +51,7 @@ region_bounds = {
     'ronne_depression': [-70, -55, -76, -73],
     'LAB_trough': [-166, -157, -80, -75],
     'drygalski_trough': [163, 168.5, -80, -71],
-    'SO', [None, None, None, -50],
+    'SO': [None, None, None, -50],
 }
 # Isobaths restricting some regions: shallow bound, then deep bound
 region_bathy_bounds = {
