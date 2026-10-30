@@ -13,7 +13,7 @@ from ..plot_utils import set_colours, latlon_axis, get_extend, round_to_decimals
 from ..interpolation import interp_latlon_cf, interp_latlon_cf_blocks, interp_grid
 from ..file_io import read_schmidtko, read_woa, read_dutrieux, read_zhou, find_files_in_range
 from ..grid import extract_var_region, transect_coords_from_latlon_waypoints, region_mask, build_shelf_mask
-from ..timeseries import update_simulation_timeseries, overwrite_file
+from ..timeseries import update_simulation_timeseries, overwrite_file, timeseries_by_expt
 
 time_coder = xr.coders.CFDatetimeCoder(use_cftime=True)
 
@@ -1807,6 +1807,16 @@ def plot_FW_comparison (fig_name=None):
     plt.suptitle('Freshwater sources on Antarctic continental shelf')        
     plt.tight_layout()
     finished_plot(fig, fig_name=fig_name, dpi=300)
+
+
+def plot_orca_timeseries (suite_ids, fig_dir='./'):
+
+    timeseries_types = {'T': ['SO_temp', 'all_shelf_bwtemp', 'all_shelf_bwsalt'],
+                        'U': ['drake_passage_transport']}
+
+    for gtype in timeseries_types:
+        for var_name in timeseries_types[gtype]:
+            timeseries_by_expt(var_name, suite_ids, timeseries_file='timeseries_'+gtype+'.nc', fig_name=fig_dir+'/'+var_name+'.png')
         
 
     
