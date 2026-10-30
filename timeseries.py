@@ -307,6 +307,8 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
             elif region.endswith('shelf'):
                 region = region[:region.index('_shelf')]
                 region_type = 'shelf'
+            elif region == 'SO':
+                region_type = 'full'
             else:
                 region_type = 'all'
         if region in region_points and region_type == 'cavity':
@@ -367,7 +369,7 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
     elif option == 'volume_avg':
         # Volume average
         # First need a 3D mask
-        mask_3d = xr.where(ds_nemo[nemo_var]==0, 0, mask)
+        mask_3d = make_mask_3d(mask, ds_nemo)
         dV = ds_nemo[area_name(ds_nemo)]*ds_nemo[dz_name(ds_nemo)]*mask_3d
         data = (ds_nemo[nemo_var]*dV).sum(dim=[x_name, y_name,'deptht'])/dV.sum(dim=[x_name, y_name, 'deptht'])
     elif option == 'avg_btw_depths':
@@ -377,10 +379,11 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         depth_above = depth_below.shift(deptht=1, fill_value=0)
         depth_centres = 0.5*(depth_above + depth_below)
         mask_depth = xr.where((depth_centres >= z_shallow)*(depth_centres <= z_deep), 1, 0)
-        mask_3d = xr.where(ds_nemo[nemo_var]==0, 0, mask)
+        mask_3d = make_mask_3d(mask, ds_nemo)
         dV = ds_nemo[area_name(ds_nemo)]*ds_nemo[dz_name(ds_nemo)]*mask_3d*mask_depth
         data = (ds_nemo[nemo_var]*dV).sum(dim=[x_name, y_name,'deptht'])/dV.sum(dim=[x_name, y_name,'deptht'])
     elif option == 'at_tmax':
+        mask_3d = make_mask_3d(mask, ds_nemo)
         # Find maximum temperature below z_shallow at the given point
         # First find the nearest grid cell to that point
         [j,i] = closest_point(ds_nemo, [lon0, lat0])
@@ -389,7 +392,7 @@ def calc_timeseries (var, ds_nemo, name_remapping='', nemo_mesh='',
         except(KeyError):
             temp_column = ds_nemo['thetao_con'].isel({x_name:i, y_name:j})
         # Get depth index of the maximum below z_shallow, neglecting land mask (identically zero)
-        k = temp_column.where((temp_column != 0)*(ds_nemo['deptht'] > z_shallow)).argmax(dim='deptht')
+        k = temp_column.where((mask_3d != 0)*(ds_nemo['deptht'] > z_shallow)).argmax(dim='deptht')
         # Now extract variable at this column
         if nemo_var == 'deptht':
             data_column = ds_nemo[nemo_var]

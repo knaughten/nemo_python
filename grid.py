@@ -166,7 +166,7 @@ def single_cavity_mask (cavity, ds, return_name=False):
     else:
         return ice_mask, ds
 
-# Select a mask for the given region, either continental shelf only ('shelf'), cavities only ('cavity'), or continental shelf with cavities ('all'). Pass it an xarray Dataset as for build_shelf_mask. Can optionally pass lon_bounds=[lon_w, lon_e] to further restrict to a segment of the given region.
+# Select a mask for the given region, either continental shelf only ('shelf'), cavities only ('cavity'), continental shelf with cavities ('all'), or no restrictions ('full'). Pass it an xarray Dataset as for build_shelf_mask. Can optionally pass lon_bounds=[lon_w, lon_e] to further restrict to a segment of the given region.
 def region_mask (region, ds, option='all', return_name=False, lon_bounds=None):
 
     x_name, y_name = xy_name(ds)
@@ -191,8 +191,12 @@ def region_mask (region, ds, option='all', return_name=False, lon_bounds=None):
         else:
             return ds[region+'_'+option+'_mask'], ds
 
-    # Get mask for entire continental shelf and cavities
-    mask, ds = build_shelf_mask(ds)
+    if region == 'full':
+        # Don't want the continental shelf restriction, just want land mask
+        mask = build_ocean_mask(ds)
+    else:
+        # Get mask for entire continental shelf and cavities
+        mask, ds = build_shelf_mask(ds)
     mask = mask.copy()
     if region == 'all':
         # No further restrictions needed

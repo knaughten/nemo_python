@@ -1816,7 +1816,7 @@ def plot_orca_timeseries (suite_ids, fig_dir='./'):
 
     for gtype in timeseries_types:
         for var_name in timeseries_types[gtype]:
-           timeseries_by_expt(var_name, suite_ids, timeseries_file='timeseries_'+gtype+'.nc', fig_name=fig_dir+'/'+var_name+'.png')
+           timeseries_by_expt(var_name, suite_ids, timeseries_file='timeseries_'+gtype+'.nc', smooth=12, fig_name=fig_dir+'/'+var_name+'.png')
         
 
     
