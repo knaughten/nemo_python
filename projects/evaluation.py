@@ -8,12 +8,12 @@ import gsw
 import calendar
 from ..utils import select_bottom, distance_along_transect, moving_average, polar_stereo, latlon_name, xy_name, dz_name, time_in_years
 from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli_melt, adusumilli_std, transport_obs, transport_std, region_edges, rEarth, deg2rad, zhou_TS, zhou_TS_std, rho_ice, rho_fw, sec_per_year
-from ..plots import circumpolar_plot, finished_plot, plot_ts_distribution, plot_transect
+from ..plots import circumpolar_plot, finished_plot, plot_ts_distribution, plot_transect, timeseries_by_expt
 from ..plot_utils import set_colours, latlon_axis, get_extend, round_to_decimals, default_colours
 from ..interpolation import interp_latlon_cf, interp_latlon_cf_blocks, interp_grid
 from ..file_io import read_schmidtko, read_woa, read_dutrieux, read_zhou, find_files_in_range
 from ..grid import extract_var_region, transect_coords_from_latlon_waypoints, region_mask, build_shelf_mask
-from ..timeseries import update_simulation_timeseries, overwrite_file, timeseries_by_expt
+from ..timeseries import update_simulation_timeseries, overwrite_file
 
 time_coder = xr.coders.CFDatetimeCoder(use_cftime=True)
 
@@ -1816,7 +1816,7 @@ def plot_orca_timeseries (suite_ids, fig_dir='./'):
 
     for gtype in timeseries_types:
         for var_name in timeseries_types[gtype]:
-            timeseries_by_expt(var_name, suite_ids, timeseries_file='timeseries_'+gtype+'.nc', fig_name=fig_dir+'/'+var_name+'.png')
+           timeseries_by_expt(var_name, suite_ids, timeseries_file='timeseries_'+gtype+'.nc', fig_name=fig_dir+'/'+var_name+'.png')
         
 
     
