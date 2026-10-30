@@ -3,6 +3,10 @@
 
 import xarray as xr
 import netCDF4 as nc
+import matplotlib as mpl
+import matplotlib as mpl
+mpl.rcParams['pdf.fonttype'] = 42
+mpl.rcParams['ps.fonttype'] = 42
 import matplotlib.pyplot as plt
 import matplotlib.colors as cl
 import matplotlib.animation as animation
