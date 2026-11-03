@@ -8,6 +8,7 @@ from .utils import polar_stereo, extend_grid_edges, moving_average
 from .grid import build_ocean_mask, build_ice_mask
 from .plot_utils import set_colours
 from .constants import line_colours, region_names, land_colour, iceshelf_colour
+time_coder = xr.coders.CFDatetimeCoder(use_cftime=True)
 
 # If a figure name is defined, save the figure to that file. Otherwise, display the figure on screen.
 def finished_plot (fig, fig_name=None, dpi=None, print_out=True):
@@ -334,7 +335,7 @@ def timeseries_by_expt (var_name, sim_dirs, sim_names=None, colours=None, timese
         num_ens = len(sim_dir)
         colours_plot += [colour]*num_ens
         for d, n in zip(sim_dir, sim_name):
-            ds = xr.open_dataset(d+'/'+timeseries_file)
+            ds = xr.open_dataset(d+'/'+timeseries_file, decode_times=time_coder)
             datas.append(moving_average(ds[var_name],smooth))
             labels.append(n)
             if title is None:

@@ -7,7 +7,7 @@ import os
 import gsw
 import calendar
 from ..utils import select_bottom, distance_along_transect, moving_average, polar_stereo, latlon_name, xy_name, dz_name, time_in_years
-from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli_melt, adusumilli_std, transport_obs, transport_std, region_edges, rEarth, deg2rad, zhou_TS, zhou_TS_std, rho_ice, rho_fw, sec_per_year
+from ..constants import deg_string, gkg_string, transect_amundsen, months_per_year, region_names, adusumilli_melt, adusumilli_std, transport_obs, transport_std, region_edges, rEarth, deg2rad, zhou_TS, zhou_TS_std, rho_ice, rho_fw, sec_per_year, line_colours
 from ..plots import circumpolar_plot, finished_plot, plot_ts_distribution, plot_transect, timeseries_by_expt
 from ..plot_utils import set_colours, latlon_axis, get_extend, round_to_decimals, default_colours
 from ..interpolation import interp_latlon_cf, interp_latlon_cf_blocks, interp_grid
@@ -1821,8 +1821,11 @@ def plot_orca_timeseries (suite_ids, fig_dir='./', gtypes=None, colours=None):
 
     timeseries_types = {'T': ['SO_temp', 'all_shelf_bwtemp', 'all_shelf_bwsalt'],
                         'U': ['drake_passage_transport']}
+    if colours is None and len(suite_ids) > len(line_colours):
+        colours = plt.colormaps['hsv'](np.linspace(0, 0.9, len(suite_ids)))
     if gtypes is None:
         gtypes = timeseries_types
+        
     for gtype in gtypes:
         for var_name in timeseries_types[gtype]:
             if fig_dir is None:
