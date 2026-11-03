@@ -718,7 +718,7 @@ def update_simulation_timeseries (suite_id, timeseries_types, timeseries_file='t
                 ds_SBC_tmp = ds_SBC.isel(time_counter=slice(t,t+1))
                 ds_SBC_tmp.load()
                 ds_tmp = ds_tmp.merge(ds_SBC_tmp)
-            if convert_teos10 and any(var in ds for var in ['thetao', 'tob', 'so', 'sob']):
+            if convert_teos10 and any(var in ds_tmp for var in ['thetao', 'tob', 'so', 'sob']):
                 # Convert from EOS-80 to TEOS-10
                 depth_3d = xr.broadcast(ds_tmp['deptht'], ds_tmp['so'])[0].where(ds_tmp['so']!=0)
                 depth_bottom = depth_3d.max(dim='deptht')
