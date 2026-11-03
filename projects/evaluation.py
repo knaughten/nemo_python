@@ -686,6 +686,8 @@ def update_timeseries_evaluation_UKESM (suite_id, base_dir='./', in_dir=None, ou
     if transport:
         gtypes += ['U']
     for gtype in gtypes:
+        if gtype not in timeseries_types:
+            continue
         if gtype == 'U':
             halo_tmp = halo_u
         else:
