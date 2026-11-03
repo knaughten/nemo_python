@@ -1817,14 +1817,19 @@ def plot_FW_comparison (fig_name=None):
     finished_plot(fig, fig_name=fig_name, dpi=300)
 
 
-def plot_orca_timeseries (suite_ids, fig_dir='./'):
+def plot_orca_timeseries (suite_ids, fig_dir='./', gtypes=None, colours=None):
 
     timeseries_types = {'T': ['SO_temp', 'all_shelf_bwtemp', 'all_shelf_bwsalt'],
                         'U': ['drake_passage_transport']}
-
-    for gtype in timeseries_types:
+    if gtypes is None:
+        gtypes = timeseries_types
+    for gtype in gtypes:
         for var_name in timeseries_types[gtype]:
-           timeseries_by_expt(var_name, suite_ids, timeseries_file='timeseries_'+gtype+'.nc', smooth=12, fig_name=fig_dir+'/'+var_name+'.png')
+            if fig_dir is None:
+                fig_name = None
+            else:
+                fig_name = fig_dir+'/'+var_name+'.png'
+            timeseries_by_expt(var_name, suite_ids, timeseries_file='timeseries_'+gtype+'.nc', smooth=12, fig_name=fig_name, colours=colours)
         
 
     
