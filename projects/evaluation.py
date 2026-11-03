@@ -692,7 +692,7 @@ def update_timeseries_evaluation_UKESM (suite_id, base_dir='./', in_dir=None, ou
             halo_tmp = halo
         if halo_tmp:
             domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc'
-        else_tmp:
+        else:
             domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/UKESM2/domain_cfg-bathy_meter_eORCA1_Storkey_spliceBedMachine3_nohalo_OLDLSM2-min0.nc'
         update_simulation_timeseries(suite_id, timeseries_types[gtype], timeseries_file='timeseries_'+gtype+'.nc', timeseries_dir=out_dir, sim_dir=in_dir, halo=halo_tmp, gtype=gtype, domain_cfg=domain_cfg, convert_teos10=convert_teos10)
 
