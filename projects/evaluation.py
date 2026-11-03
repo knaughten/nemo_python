@@ -660,7 +660,7 @@ def update_timeseries_evaluation_NEMO_AIS (in_dir, suite_id='AntArc', out_dir='.
 
 
 # As above, for UKESM suites (pass version=1 or 2)
-def update_timeseries_evaluation_UKESM (suite_id, base_dir='./', in_dir=None, out_dir=None, timeseries_types=None, transport=True, version=1, halo=None):
+def update_timeseries_evaluation_UKESM (suite_id, base_dir='./', in_dir=None, out_dir=None, timeseries_types=None, transport=True, version=1, halo=None, halo_u=None):
 
     if version == 1:
         if halo is None:
@@ -672,10 +672,8 @@ def update_timeseries_evaluation_UKESM (suite_id, base_dir='./', in_dir=None, ou
         convert_teos10 = False            
     else:
         raise Exception('Unknown UKESM version '+str(version))
-    if halo:
-        domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc'
-    else:
-        domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/UKESM2/domain_cfg-bathy_meter_eORCA1_Storkey_spliceBedMachine3_nohalo_OLDLSM2-min0.nc'
+    if halo_u is None:
+        halo_u = halo
         
     if timeseries_types is None:
         timeseries_types = timeseries_types_evaluation()
@@ -688,16 +686,24 @@ def update_timeseries_evaluation_UKESM (suite_id, base_dir='./', in_dir=None, ou
     if transport:
         gtypes += ['U']
     for gtype in gtypes:
-        update_simulation_timeseries(suite_id, timeseries_types[gtype], timeseries_file='timeseries_'+gtype+'.nc', timeseries_dir=out_dir, sim_dir=in_dir, halo=halo, gtype=gtype, domain_cfg=domain_cfg, convert_teos10=convert_teos10)
+        if gtype == 'U':
+            halo_tmp = halo_u
+        else:
+            halo_tmp = halo
+        if halo_tmp:
+            domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/input_data/grids/domcfg_eORCA1v2.2x.nc'
+        else_tmp:
+            domain_cfg = '/gws/ssde/j25b/terrafirma/kaight/UKESM2/domain_cfg-bathy_meter_eORCA1_Storkey_spliceBedMachine3_nohalo_OLDLSM2-min0.nc'
+        update_simulation_timeseries(suite_id, timeseries_types[gtype], timeseries_file='timeseries_'+gtype+'.nc', timeseries_dir=out_dir, sim_dir=in_dir, halo=halo_tmp, gtype=gtype, domain_cfg=domain_cfg, convert_teos10=convert_teos10)
 
 
 # Different set of timeseries for Southern Ocean tuning project (Orca Team)
-def update_timeseries_orca (suite_id, base_dir='./', in_dir=None, out_dir=None, version=2):
+def update_timeseries_orca (suite_id, base_dir='./', in_dir=None, out_dir=None, version=2, halo_u=False):
 
     timeseries_types = {'T': ['SO_temp', 'all_shelf_bwtemp', 'all_shelf_bwsalt'],
                         'U': ['drake_passage_transport']}
 
-    update_timeseries_evaluation_UKESM(suite_id, base_dir=base_dir, in_dir=in_dir, out_dir=out_dir, timeseries_types=timeseries_types, version=version)
+    update_timeseries_evaluation_UKESM(suite_id, base_dir=base_dir, in_dir=in_dir, out_dir=out_dir, timeseries_types=timeseries_types, version=version, halo_u=halo_u)
         
 
 # Bug with Dotson-Cosgrove mask definition means we need to redo those timeseries variables only
