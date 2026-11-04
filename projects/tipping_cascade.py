@@ -25,7 +25,7 @@ def make_prescribed_melt_mask (region, out_file, prescribed=True, domain_cfg='/g
     # Plot for a sanity check
     circumpolar_plot(mask.where(ocean_mask), ds_domcfg, masked=True, contour_ice=True, shade_land=True, title='Prescribed melt mask', lat_max=-63, ctype='plusminus')
     # Save to out_file
-    ds_out = xr.Dataset({'mask':mask})
+    ds_out = xr.Dataset({'mask':mask}).drop_vars('time_counter')
     ds_out.to_netcdf(out_file)
 
 
@@ -53,10 +53,10 @@ def make_prescribed_melt_file (sim_dir, mask_file, out_file, year_range=None):
 
     # Now apply the prescribed mask
     ds_mask = xr.open_dataset(mask_file).rename({'x':'x_grid_T', 'y':'y_grid_T'})
-    ds_clim[var_name] = xr.where(ds_mask['mask']==1, ds_clim[var_name], 0)
+    ds_clim[var_name] = xr.where(ds_mask['mask']==1, ds_clim[var_name], 0).drop_vars('time_counter')
 
     print('Writing '+out_file)
-    ds_clim.to_netcdf(out_file)
+    ds_clim.to_netcdf(out_file, unlimited_dims='month')
 
             
                     

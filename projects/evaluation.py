@@ -1832,7 +1832,7 @@ def plot_orca_timeseries (suite_ids, fig_dir='./', gtypes=None, colours=None):
                 fig_name = None
             else:
                 fig_name = fig_dir+'/'+var_name+'.png'
-            timeseries_by_expt(var_name, suite_ids, timeseries_file='timeseries_'+gtype+'.nc', smooth=12, fig_name=fig_name, colours=colours)
+            timeseries_by_expt(var_name, suite_ids, timeseries_file='timeseries_'+gtype+'.nc', smooth=60, fig_name=fig_name, colours=colours)
         
 
     
