@@ -46,8 +46,6 @@ def make_prescribed_melt_file (sim_dir, mask_file, out_file, year_range=None):
     ds.load()
     # Calculate monthly climatology
     ds_clim = ds.groupby('time_centered.month').mean(dim='time_counter')
-    # Make sure month is the first dimension
-    ds_clim[var_name] = ds_clim[var_name].transpose('month',...)
     
     if ds_clim[var_name].mean() < 0:
         warnings.warn(var_name+' is net negative. Check the sign convention is what you expect; multiplying by -1.')
@@ -55,7 +53,7 @@ def make_prescribed_melt_file (sim_dir, mask_file, out_file, year_range=None):
 
     # Now apply the prescribed mask
     ds_mask = xr.open_dataset(mask_file).rename({'x':'x_grid_T', 'y':'y_grid_T'})
-    ds_clim[var_name] = xr.where(ds_mask['mask']==1, ds_clim[var_name], 0)
+    ds_clim[var_name] = xr.where(ds_mask['mask']==1, ds_clim[var_name], 0).transpose('month',...)
 
     print('Writing '+out_file)
     ds_clim.to_netcdf(out_file, unlimited_dims='month')
