@@ -4,6 +4,8 @@ import warnings
 from ..grid import build_ice_mask, region_mask, build_ocean_mask
 from ..plots import circumpolar_plot
 from ..file_io import find_files_in_range
+from ..constants import months_per_year
+from ..timeseries import precompute_timeseries
 
 # Create a mask file (cn_isfcav_spe_mask in namelist) which is 1 in the cells which should have prescribed melting, and 0 in the cells which should have prognostic melting.
 # Pass the name of a region (as in region_mask in grid.py), and whether this region should be the only one prescribed (prescribed=True) or the only one prognostic (prescribed=False).
@@ -57,6 +59,24 @@ def make_prescribed_melt_file (sim_dir, mask_file, out_file, year_range=None):
 
     print('Writing '+out_file)
     ds_clim.to_netcdf(out_file, unlimited_dims='month')
+
+
+# Calculate timeseries of prescribed melting for verification
+def prescribed_melt_timeseries (in_file='all_prescribed_melt.nc', out_file='timeseries_prescribed_melt.nc'):
+
+    import cftime
+
+    regions = ['all', 'larsen', 'filchner_ronne', 'east_antarctica', 'amery', 'ross', 'west_antarctica', 'dotson_cosgrove', 'amundsen_sea','bellingshausen_sea', 'getz']
+    timeseries_types = [region+'_massloss' for region in regions]
+    year0 = 1851
+
+    ds = xr.open_dataset(in_file).rename({'month':'time_centered'})
+    ds['time_centered'] = [cftime.Datetime360Day(year0, month+1, 16) for month in range(months_per_year)]
+
+    precompute_timeseries(ds, timeseries_types, out_file, halo=False)
+    
+    
+    
 
             
                     
