@@ -73,12 +73,13 @@ def prescribed_melt_timeseries (in_file='all_prescribed_melt.nc', out_file='time
     ds = xr.open_dataset(in_file).rename({'month':'time_counter'})
     # Set up to work with timeseries code
     ds['time_counter'] = [cftime.Datetime360Day(year0, month+1, 16) for month in range(months_per_year)]
-    ds = ds.assign({'time_centered':ds['time_counter'].data})
+    ds = ds.assign({'time_centered':ds['time_counter']})
     # Build masks from domain_cfg
-    ds_domcfg = xr.open_dataset(domain_cfg)
+    ds_domcfg = xr.open_dataset(domain_cfg).squeeze().rename({'x':'x_grid_T', 'y':'y_grid_T'})
     shelf_mask = build_shelf_mask(ds_domcfg)[0]
     ice_mask = build_ice_mask(ds_domcfg)[0]
-    ds = ds.assign({'shelf_mask':shelf_mask, 'ice_mask':ice_mask})
+    area = ds_domcfg['e1t']*ds_domcfg['e2t']
+    ds = ds.assign({'shelf_mask':shelf_mask, 'ice_mask':ice_mask, 'area':area})
 
     precompute_timeseries(ds, timeseries_types, out_file, halo=False)
     

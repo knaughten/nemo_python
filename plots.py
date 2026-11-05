@@ -342,7 +342,7 @@ def timeseries_by_expt (var_name, sim_dirs, sim_names=None, colours=None, timese
                 title = ds[var_name].long_name
                 units = ds[var_name].units
 
-    timeseries_plot(datas, labels=labels, colours=colours_plot, title=title, units=units, fig_name=fig_name, linewidth=linewidth)
+    timeseries_plot(datas, labels=labels, colours=colours_plot, title=title, units=units, fig_name=fig_name, linewidth=linewidth, dpi=300)
 
 
 # Function to create mp4 animation from image files (jpg or png)
