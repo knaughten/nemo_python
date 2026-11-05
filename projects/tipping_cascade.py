@@ -1,7 +1,7 @@
 import xarray as xr
 import warnings
 
-from ..grid import build_ice_mask, region_mask, build_ocean_mask
+from ..grid import build_ice_mask, region_mask, build_ocean_mask, build_shelf_mask
 from ..plots import circumpolar_plot
 from ..file_io import find_files_in_range
 from ..constants import months_per_year
@@ -62,7 +62,7 @@ def make_prescribed_melt_file (sim_dir, mask_file, out_file, year_range=None):
 
 
 # Calculate timeseries of prescribed melting for verification
-def prescribed_melt_timeseries (in_file='all_prescribed_melt.nc', out_file='timeseries_prescribed_melt.nc'):
+def prescribed_melt_timeseries (in_file='all_prescribed_melt.nc', out_file='timeseries_prescribed_melt.nc', domain_cfg='/gws/ssde/j25b/anthrofail/birgal/NEMO_AIS/bathymetry/domain_cfg-20260108.nc'):
 
     import cftime
 
@@ -70,8 +70,15 @@ def prescribed_melt_timeseries (in_file='all_prescribed_melt.nc', out_file='time
     timeseries_types = [region+'_massloss' for region in regions]
     year0 = 1851
 
-    ds = xr.open_dataset(in_file).rename({'month':'time_centered'})
-    ds['time_centered'] = [cftime.Datetime360Day(year0, month+1, 16) for month in range(months_per_year)]
+    ds = xr.open_dataset(in_file).rename({'month':'time_counter'})
+    # Set up to work with timeseries code
+    ds['time_counter'] = [cftime.Datetime360Day(year0, month+1, 16) for month in range(months_per_year)]
+    ds = ds.assign({'time_centered':ds['time_counter'].data})
+    # Build masks from domain_cfg
+    ds_domcfg = xr.open_dataset(domain_cfg)
+    shelf_mask = build_shelf_mask(ds_domcfg)[0]
+    ice_mask = build_ice_mask(ds_domcfg)[0]
+    ds = ds.assign({'shelf_mask':shelf_mask, 'ice_mask':ice_mask})
 
     precompute_timeseries(ds, timeseries_types, out_file, halo=False)
     
