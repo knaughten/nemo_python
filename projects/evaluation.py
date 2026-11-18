@@ -16,6 +16,7 @@ from ..grid import extract_var_region, transect_coords_from_latlon_waypoints, re
 from ..timeseries import update_simulation_timeseries, overwrite_file
 
 time_coder = xr.coders.CFDatetimeCoder(use_cftime=True)
+xr.set_options(use_new_combine_kwarg_defaults=True)
 
 # Compare the bottom temperature and salinity in NEMO (time-averaged over the given xarray Dataset) to observations: Schmidtko on the continental shelf, World Ocean Atlas 2018 in the deep ocean.
 def bottom_TS_vs_obs (nemo, time_ave=True,
