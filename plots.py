@@ -210,7 +210,7 @@ def circumpolar_plot (data, grid, pole='S', cice=False, ax=None, make_cbar=True,
 
 
 # Plot one or more timeseries on the same axis, with different colours and a legend if needed.
-def timeseries_plot (datas, labels=None, colours=None, title='', units='', ax=None, fig_name=None, linewidth=None):
+def timeseries_plot (datas, labels=None, colours=None, title='', units='', ax=None, fig_name=None, linewidth=None, dpi=300):
 
     new_ax = ax is None
     
@@ -243,7 +243,7 @@ def timeseries_plot (datas, labels=None, colours=None, title='', units='', ax=No
         ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
         ax.legend(loc='center left', bbox_to_anchor=(1,0.5))
     if new_ax:
-        finished_plot(fig, fig_name=fig_name)
+        finished_plot(fig, fig_name=fig_name, dpi=dpi)
 
 
 # Plot timeseries of the same variable in different regions. Can either do for a single simulation (sim_dir is a string) or an initial conditions ensemble (sim_dir is a list of strings). 
