@@ -210,7 +210,7 @@ def circumpolar_plot (data, grid, pole='S', cice=False, ax=None, make_cbar=True,
 
 
 # Plot one or more timeseries on the same axis, with different colours and a legend if needed.
-def timeseries_plot (datas, labels=None, colours=None, title='', units='', ax=None, fig_name=None, linewidth=None, dpi=300):
+def timeseries_plot (datas, labels=None, colours=None, title='', units='', ax=None, fig_name=None, linewidth=None, dpi=None):
 
     new_ax = ax is None
     
