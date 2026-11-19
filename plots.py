@@ -284,7 +284,7 @@ def timeseries_by_region (var_name, sim_dir, regions=['all', 'amundsen_sea', 'be
 # Plot timeseries of the same variable in different experiments. Each experiment can be a single simulation (sim_dirs=list of strings) or an ensemble (sim_dirs=list of lists of strings).
 # For ensembles, if sim_names is set, it can be the name of every member (list of lists of strings) or one name for every ensemble (list of strings).
 # If sim_names is not set, lines will be labelled with the suite IDs (extracted from sim_dirs)
-def timeseries_by_expt (var_name, sim_dirs, sim_names=None, colours=None, timeseries_file='timeseries.nc', smooth=0, fig_name=None, linewidth=None):
+def timeseries_by_expt (var_name, sim_dirs, sim_names=None, colours=None, timeseries_file='timeseries.nc', smooth=0, fig_name=None, linewidth=None, dpi=None):
 
     num_expt = len(sim_dirs)
     if colours is None:
@@ -342,7 +342,7 @@ def timeseries_by_expt (var_name, sim_dirs, sim_names=None, colours=None, timese
                 title = ds[var_name].long_name
                 units = ds[var_name].units
 
-    timeseries_plot(datas, labels=labels, colours=colours_plot, title=title, units=units, fig_name=fig_name, linewidth=linewidth, dpi=300)
+    timeseries_plot(datas, labels=labels, colours=colours_plot, title=title, units=units, fig_name=fig_name, linewidth=linewidth, dpi=dpi)
 
 
 # Function to create mp4 animation from image files (jpg or png)
