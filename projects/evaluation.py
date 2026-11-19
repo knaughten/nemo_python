@@ -867,7 +867,7 @@ def plot_evaluation_timeseries_shelf (timeseries_file='timeseries_T.nc', hovmoll
                     depth_label = ''
                     xpos = 0
                 plt.text(xpos, 0.95, depth_label, fontsize=8, ha='left', va='top', transform=ax.transAxes)
-    finished_plot(fig, fig_name=fig_name, dpi=300)
+    finished_plot(fig, fig_name=fig_name)
 
 
 def plot_evaluation_timeseries_transport (timeseries_file='timeseries_U.nc', fig_name=None):
